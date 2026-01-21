@@ -1,0 +1,217 @@
+/* user_register/index.wxss */
+page {
+  background: linear-gradient(135deg, #FFE5F0 0%, #FFF8DC 100%);
+  min-height: 100vh;
+}
+
+.container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60rpx 40rpx;
+}
+
+.content {
+  width: 100%;
+  max-width: 600rpx;
+}
+
+/* 头部区域 */
+.header {
+  text-align: center;
+  margin-bottom: 60rpx;
+}
+
+.title {
+  display: block;
+  font-size: 56rpx;
+  font-weight: 600;
+  color: #333333;
+  margin-bottom: 20rpx;
+}
+
+.subtitle {
+  display: block;
+  font-size: 28rpx;
+  color: #666666;
+}
+
+/* 表单区域 */
+.form {
+  background-color: #FFFFFF;
+  border-radius: 30rpx;
+  padding: 50rpx 40rpx;
+  box-shadow: 0 8rpx 40rpx rgba(255, 182, 193, 0.2);
+}
+
+/* 标签页 */
+.tabs {
+  display: flex;
+  margin-bottom: 40rpx;
+  border-bottom: 2rpx solid #F5F5F5;
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 20rpx 0;
+  font-size: 28rpx;
+  color: #999999;
+  position: relative;
+}
+
+.tab.active {
+  color: #FFB6C1;
+  font-weight: 600;
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60rpx;
+  height: 4rpx;
+  background-color: #FFB6C1;
+  border-radius: 2rpx;
+}
+
+/* 表单项 */
+.form-item {
+  margin-bottom: 30rpx;
+}
+
+.input-wrapper {
+  background-color: #F5F5F5;
+  border-radius: 20rpx;
+  padding: 0 30rpx;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+}
+
+.input {
+  flex: 1;
+  font-size: 28rpx;
+  color: #333333;
+}
+
+/* 验证码区域 */
+.code-wrapper {
+  display: flex;
+  gap: 20rpx;
+}
+
+.code-input {
+  flex: 1;
+}
+
+.code-btn {
+  width: 200rpx;
+  height: 88rpx;
+  background-color: #FFB6C1;
+  color: #FFFFFF;
+  border-radius: 20rpx;
+  font-size: 26rpx;
+  border: none;
+  padding: 0;
+  line-height: 88rpx;
+}
+
+.code-btn.disabled {
+  background-color: #FFCCD5;
+}
+
+.code-btn::after {
+  border: none;
+}
+
+.hint-text {
+  display: block;
+  font-size: 22rpx;
+  color: #FF9800;
+  margin-top: 10rpx;
+  margin-left: 30rpx;
+}
+
+/* 密码区域 */
+.password-wrapper {
+  position: relative;
+}
+
+.eye-icon {
+  width: 40rpx;
+  height: 40rpx;
+  margin-left: 20rpx;
+}
+
+/* 密码强度指示器 */
+.password-strength {
+  margin-top: 15rpx;
+  padding: 0 30rpx;
+}
+
+.strength-bar {
+  height: 6rpx;
+  background-color: #F5F5F5;
+  border-radius: 3rpx;
+  overflow: hidden;
+  margin-bottom: 8rpx;
+}
+
+.strength-fill {
+  height: 100%;
+  transition: width 0.3s, background-color 0.3s;
+  border-radius: 3rpx;
+}
+
+.strength-fill.strength-1 {
+  background-color: #FF6B6B;
+}
+
+.strength-fill.strength-2 {
+  background-color: #FFA500;
+}
+
+.strength-fill.strength-3 {
+  background-color: #51CF66;
+}
+
+.strength-text {
+  font-size: 22rpx;
+  color: #999999;
+}
+
+/* 注册按钮 */
+.register-btn {
+  width: 100%;
+  height: 88rpx;
+  background-color: #FFB6C1;
+  color: #FFFFFF;
+  border-radius: 50rpx;
+  font-size: 32rpx;
+  font-weight: 600;
+  border: none;
+  margin-top: 20rpx;
+}
+
+.register-btn[disabled] {
+  background-color: #FFCCD5;
+}
+
+.register-btn::after {
+  border: none;
+}
+
+/* 底部链接 */
+.footer-links {
+  text-align: center;
+  margin-top: 30rpx;
+}
+
+.link {
+  font-size: 26rpx;
+  color: #FFB6C1;
+}

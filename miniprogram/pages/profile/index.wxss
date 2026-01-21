@@ -1,0 +1,142 @@
+/* profile/index.wxss */
+page {
+  background-color: #FAFAFA;
+}
+
+.container {
+  min-height: 100vh;
+  min-width: 50vw;
+  background-color: #FAFAFA;
+  padding-bottom: 120rpx;
+}
+
+/* 用户信息头部 */
+.user-header {
+  background: linear-gradient(135deg, #FFE5F0 0%, #FFF8DC 100%);
+  padding: 60rpx 30rpx 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.avatar {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 60rpx;
+  border: 4rpx solid #FFFFFF;
+  margin-right: 30rpx;
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.username {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #333333;
+  margin-bottom: 10rpx;
+}
+
+.user-desc {
+  font-size: 24rpx;
+  color: #666666;
+}
+
+.login-btn {
+  background-color: #FFB6C1;
+  color: #FFFFFF;
+  padding: 16rpx 32rpx;
+  border-radius: 50rpx;
+  font-size: 26rpx;
+}
+
+/* 统计信息区域 */
+.stats-section {
+  min-width: 80vw;
+  background-color: #FFFFFF;
+  margin: 30rpx 20rpx 20rpx;
+  padding: 40rpx 20rpx;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.05);
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.stat-number {
+  font-size: 40rpx;
+  font-weight: 600;
+  color: #FFB6C1;
+  margin-bottom: 10rpx;
+}
+
+.stat-label {
+  font-size: 24rpx;
+  color: #999999;
+}
+
+.stat-divider {
+  width: 2rpx;
+  height: 60rpx;
+  background-color: #EEEEEE;
+}
+
+/* 菜单列表 */
+.menu-section {
+  min-width: 80vw;
+  background-color: #FFFFFF;
+  margin: 0 20rpx 20rpx;
+  border-radius: 20rpx;
+  overflow: hidden;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.05);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 30rpx;
+  border-bottom: 1rpx solid #F5F5F5;
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-left {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.menu-icon {
+  width: 44rpx;
+  height: 44rpx;
+  margin-right: 20rpx;
+}
+
+.menu-title {
+  font-size: 28rpx;
+  color: #333333;
+}
+
+.menu-arrow {
+  width: 24rpx;
+  height: 24rpx;
+  transform: rotate(180deg);
+}

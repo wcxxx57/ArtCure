@@ -1,0 +1,55 @@
+<!--user_login/index.wxml-->
+<view class="container">
+  <view class="content">
+    <!-- Logo/标题区域 -->
+    <view class="header">
+      <text class="title">欢迎回来</text>
+      <text class="subtitle">登录开启疗愈之旅</text>
+    </view>
+
+    <!-- 登录表单 -->
+    <view class="form">
+      <!-- 账号输入 -->
+      <view class="form-item">
+        <view class="input-wrapper">
+          <input 
+            class="input" 
+            type="text" 
+            placeholder="请输入邮箱或手机号" 
+            value="{{account}}"
+            bindinput="onAccountInput"
+          />
+        </view>
+        <text class="hint" wx:if="{{accountType}}">{{accountTypeText}}</text>
+      </view>
+
+      <!-- 密码输入 -->
+      <view class="form-item">
+        <view class="input-wrapper password-wrapper">
+          <input 
+            class="input" 
+            password="{{!showPassword}}"
+            placeholder="请输入密码" 
+            value="{{password}}"
+            bindinput="onPasswordInput"
+          />
+          <image 
+            class="eye-icon" 
+            src="/miniprogram/images/icons/{{showPassword ? 'close' : 'question'}}.png"
+            bindtap="togglePasswordVisibility"
+          ></image>
+        </view>
+      </view>
+
+      <!-- 登录按钮 -->
+      <button class="login-btn" bindtap="handleLogin" disabled="{{isLoading}}">
+        {{isLoading ? '登录中...' : '登录'}}
+      </button>
+
+      <!-- 底部链接 -->
+      <view class="footer-links">
+        <text class="link" bindtap="navigateToRegister">还没有账号？立即注册</text>
+      </view>
+    </view>
+  </view>
+</view>

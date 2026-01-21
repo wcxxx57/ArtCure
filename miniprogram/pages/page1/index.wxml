@@ -1,0 +1,40 @@
+<!--index.wxml-->
+<view class="page-container">
+  <!-- 顶部搜索栏 -->
+  <view class="search-bar">
+    <view class="search-input" bindtap="onSearchTap">
+      <image class="search-icon" src="/miniprogram/images/icons/question.svg"></image>
+      <text class="search-placeholder">搜索心理疗愈内容、冥想、冥想</text>
+    </view>
+    <image class="user-avatar-btn" src="/miniprogram/images/avatar.png" bindtap="onUserAvatarTap"></image>
+  </view>
+
+  <!-- Hero Banner 渐变区域 -->
+  <view class="hero-banner">
+    <view class="hero-gradient">
+      <text class="hero-text">疗愈</text>
+    </view>
+  </view>
+
+  <!-- 功能图标网格 -->
+  <view class="feature-grid">
+    <view class="feature-item" wx:for="{{featureList}}" wx:key="id" bindtap="onFeatureTap" data-page="{{item.page}}">
+      <view class="feature-icon-wrapper" style="background-color: {{item.bgColor}}">
+        <image class="feature-icon" src="{{item.icon}}"></image>
+      </view>
+      <text class="feature-name">{{item.name}}</text>
+    </view>
+  </view>
+
+  <!-- AI咨询识别区域 -->
+  <view class="ai-section">
+    <view class="ai-title">AI咨询识别</view>
+    <view class="ai-card" bindtap="onAITap">
+      <view class="ai-content">
+        <text class="ai-question">想了解自己的心理健康状况吗？</text>
+        <text class="ai-subtitle">AI智能评估帮你了解自己</text>
+      </view>
+      <view class="ai-button">立即体验</view>
+    </view>
+  </view>
+</view>

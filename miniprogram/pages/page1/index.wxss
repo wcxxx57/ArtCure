@@ -1,0 +1,158 @@
+/* index.wxss */
+page {
+  background-color: #FAFAFA;
+}
+
+.page-container {
+  min-height: 100vh;
+  background-color: #FAFAFA;
+  padding-bottom: 120rpx;
+}
+
+/* 搜索栏样式 */
+.search-bar {
+  padding: 30rpx 30rpx 20rpx;
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.search-input {
+  display: flex;
+  align-items: center;
+  background-color: #F5F5F5;
+  border-radius: 50rpx;
+  padding: 20rpx 30rpx;
+  height: 70rpx;
+  flex: 1;
+}
+
+.search-icon {
+  width: 36rpx;
+  height: 36rpx;
+  margin-right: 16rpx;
+}
+
+.search-placeholder {
+  font-size: 28rpx;
+  color: #999999;
+  flex: 1;
+}
+
+.user-avatar-btn {
+  width: 70rpx;
+  height: 70rpx;
+  border-radius: 35rpx;
+  border: 2rpx solid #FFB6C1;
+}
+
+/* Hero Banner 样式 */
+.hero-banner {
+  margin: 0 30rpx 30rpx;
+}
+
+.hero-gradient {
+  background: linear-gradient(135deg, #FFE5F0 0%, #FFF8DC 50%, #E8F8F5 100%);
+  border-radius: 30rpx;
+  height: 400rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-text {
+  font-size: 120rpx;
+  font-weight: 600;
+  color: rgba(150, 150, 150, 0.3);
+  letter-spacing: 20rpx;
+  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+/* 功能图标网格样式 */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 30rpx;
+  padding: 0 30rpx 30rpx;
+}
+
+.feature-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.feature-icon-wrapper {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16rpx;
+}
+
+.feature-icon {
+  width: 50rpx;
+  height: 50rpx;
+}
+
+.feature-name {
+  font-size: 24rpx;
+  color: #333333;
+  text-align: center;
+  line-height: 1.4;
+  max-width: 120rpx;
+}
+
+/* AI咨询识别区域样式 */
+.ai-section {
+  padding: 0 30rpx 30rpx;
+}
+
+.ai-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333333;
+  margin-bottom: 20rpx;
+}
+
+.ai-card {
+  background: linear-gradient(135deg, #FFF5F7 0%, #FFF8F0 100%);
+  border-radius: 20rpx;
+  padding: 30rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 4rpx 20rpx rgba(255, 182, 193, 0.15);
+}
+
+.ai-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-question {
+  font-size: 28rpx;
+  color: #333333;
+  font-weight: 500;
+  margin-bottom: 10rpx;
+}
+
+.ai-subtitle {
+  font-size: 24rpx;
+  color: #666666;
+}
+
+.ai-button {
+  background-color: #FFB6C1;
+  color: #FFFFFF;
+  padding: 16rpx 32rpx;
+  border-radius: 50rpx;
+  font-size: 26rpx;
+  white-space: nowrap;
+}

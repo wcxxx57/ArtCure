@@ -1,0 +1,26 @@
+/* healing-plan/index.wxss */
+.container {
+  min-height: 100vh;
+  background-color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholder-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.placeholder-title {
+  font-size: 48rpx;
+  font-weight: 600;
+  color: #333333;
+  margin-bottom: 20rpx;
+}
+
+.placeholder-text {
+  font-size: 28rpx;
+  color: #999999;
+}

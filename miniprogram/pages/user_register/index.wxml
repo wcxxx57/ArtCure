@@ -1,0 +1,119 @@
+<!--user_register/index.wxml-->
+<view class="container">
+  <view class="content">
+    <!-- Logo/标题区域 -->
+    <view class="header">
+      <text class="title">欢迎注册</text>
+      <text class="subtitle">开启你的疗愈之旅</text>
+    </view>
+
+    <!-- 注册表单 -->
+    <view class="form">
+      <!-- 注册方式选择 -->
+      <view class="tabs">
+        <view 
+          class="tab {{registrationType === 'email' ? 'active' : ''}}" 
+          bindtap="switchRegistrationType" 
+          data-type="email"
+        >
+          <text>邮箱注册</text>
+        </view>
+        <view 
+          class="tab {{registrationType === 'phone' ? 'active' : ''}}" 
+          bindtap="switchRegistrationType" 
+          data-type="phone"
+        >
+          <text>手机号注册</text>
+        </view>
+      </view>
+
+      <!-- 账号输入 -->
+      <view class="form-item">
+        <view class="input-wrapper">
+          <input 
+            class="input" 
+            type="{{registrationType === 'email' ? 'text' : 'number'}}"
+            placeholder="{{registrationType === 'email' ? '请输入邮箱' : '请输入手机号'}}" 
+            value="{{account}}"
+            bindinput="onAccountInput"
+          />
+        </view>
+      </view>
+
+      <!-- 验证码输入 -->
+      <view class="form-item">
+        <view class="code-wrapper">
+          <view class="input-wrapper code-input">
+            <input 
+              class="input" 
+              type="number"
+              maxlength="6"
+              placeholder="请输入验证码" 
+              value="{{verificationCode}}"
+              bindinput="onCodeInput"
+            />
+          </view>
+          <button 
+            class="code-btn {{countdown > 0 ? 'disabled' : ''}}" 
+            bindtap="sendVerificationCode"
+            disabled="{{countdown > 0}}"
+          >
+            {{countdown > 0 ? countdown + 's' : '获取验证码'}}
+          </button>
+        </view>
+        <text class="hint-text">开发阶段请使用验证码: 123456</text>
+      </view>
+
+      <!-- 密码输入 -->
+      <view class="form-item">
+        <view class="input-wrapper password-wrapper">
+          <input 
+            class="input" 
+            password="{{!showPassword}}"
+            placeholder="请输入密码(6-20位)" 
+            value="{{password}}"
+            bindinput="onPasswordInput"
+          />
+          <image 
+            class="eye-icon" 
+            src="/miniprogram/images/icons/{{showPassword ? 'close' : 'question'}}.png"
+            bindtap="togglePasswordVisibility"
+          ></image>
+        </view>
+        <!-- 密码强度指示器 -->
+        <view class="password-strength" wx:if="{{password}}">
+          <view class="strength-bar">
+            <view 
+              class="strength-fill strength-{{passwordStrength}}" 
+              style="width: {{passwordStrength * 33.33}}%"
+            ></view>
+          </view>
+          <text class="strength-text">密码强度: {{passwordStrengthText}}</text>
+        </view>
+      </view>
+
+      <!-- 确认密码输入 -->
+      <view class="form-item">
+        <view class="input-wrapper">
+          <input 
+            class="input" 
+            password="{{!showPassword}}"
+            placeholder="请再次输入密码" 
+            value="{{confirmPassword}}"
+            bindinput="onConfirmPasswordInput"
+          />
+        </view>
+      </view>
+
+      <!-- 注册按钮 -->
+      <button class="register-btn" bindtap="handleRegister" disabled="{{isLoading}}">
+        {{isLoading ? '注册中...' : '注册'}}
+      </button>
+
+      <!-- 底部链接 -->
+      <view class="footer-links">
+        <text class="link" bindtap="navigateToLogin">已有账号？立即登录</text>
+      </view>
+    </view>
+  </view>
+</view>

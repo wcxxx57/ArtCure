@@ -1,0 +1,7 @@
+<!--healing-plan/index.wxml-->
+<view class="container">
+  <view class="placeholder-content">
+    <text class="placeholder-title">疗愈计划</text>
+    <text class="placeholder-text">功能开发中...</text>
+  </view>
+</view>
