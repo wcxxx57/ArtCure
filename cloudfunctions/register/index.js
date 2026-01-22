@@ -17,20 +17,33 @@ exports.main = async (event, context) => {
   const wxContext = cloud.getWXContext()
   
   try {
-    // 1. 验证验证码
+    // 1. 验证验证码 - 先查询记录（不包含过期条件）
     const codeRes = await db.collection('verification_codes')
       .where({
         account: account,
         code: verificationCode,
-        used: false,
-        expiresAt: _.gt(new Date())
+        used: false
       })
+      .orderBy('createdAt', 'desc')
+      .limit(1)
       .get()
     
     if (codeRes.data.length === 0) {
       return {
         code: 4003,
-        message: '验证码错误或已过期'
+        message: '验证码错误'
+      }
+    }
+    
+    // 手动检查验证码是否过期
+    const codeRecord = codeRes.data[0]
+    const now = new Date()
+    const expiresAt = new Date(codeRecord.expiresAt)
+    
+    if (now > expiresAt) {
+      return {
+        code: 4003,
+        message: '验证码已过期，请重新获取'
       }
     }
     
@@ -73,10 +86,11 @@ exports.main = async (event, context) => {
     
     // 5. 标记验证码为已使用
     await db.collection('verification_codes')
-      .doc(codeRes.data[0]._id)
+      .doc(codeRecord._id)
       .update({
         data: {
-          used: true
+          used: true,
+          usedAt: new Date()
         }
       })
     

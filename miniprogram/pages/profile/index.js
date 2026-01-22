@@ -42,6 +42,9 @@ Page({
     if (isLogin) {
       // 如果已登录，加载用户数据
       this.loadUserData()
+    } else {
+      // 未登录时重置数据
+      this.resetUserData()
     }
   },
 
@@ -65,11 +68,36 @@ Page({
     }
   },
 
+  // 重置用户数据
+  resetUserData() {
+    this.setData({
+      userInfo: {
+        avatar: '',
+        nickname: '',
+        desc: ''
+      },
+      stats: {
+        days: 0,
+        sessions: 0,
+        points: 0
+      }
+    })
+  },
+
   // 登录按钮点击
   onLoginTap() {
     wx.navigateTo({
       url: '/pages/user_login/index'
     })
+  },
+
+  // 用户头像区域点击（登录后）
+  onUserHeaderTap() {
+    if (this.data.isLogin) {
+      wx.navigateTo({
+        url: '/pages/user-info/index'
+      })
+    }
   },
 
   // 退出登录
@@ -80,7 +108,8 @@ Page({
       success: (res) => {
         if (res.confirm) {
           AuthService.clearLoginState()
-          this.checkLoginStatus()
+          this.resetUserData()
+          this.setData({ isLogin: false })
           wx.showToast({
             title: '已退出登录',
             icon: 'success'

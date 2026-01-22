@@ -1,0 +1,10 @@
+{
+  "name": "sendVerificationCode",
+  "version": "1.0.0",
+  "description": "发送验证码云函数",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest",
+    "nodemailer": "^6.9.7"
+  }
+}

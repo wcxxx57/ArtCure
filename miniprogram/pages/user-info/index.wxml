@@ -1,0 +1,174 @@
+<!--user-info/index.wxml-->
+<view class="container">
+  <!-- 头像区域 -->
+  <view class="avatar-section">
+    <view class="avatar-container">
+      <!-- 左侧头像 -->
+      <view class="avatar-wrapper" bindtap="onChooseAvatar">
+        <image class="avatar" src="{{userInfo.avatar || '/miniprogram/images/avatar.png'}}" mode="aspectFill"></image>
+        <view class="avatar-mask">
+          <image class="camera-icon" src="/miniprogram/images/icons/question.svg"></image>
+        </view>
+      </view>
+
+      <!-- 右侧昵称和修改按钮 -->
+      <view class="nickname-wrapper">
+        <text class="nickname-label">昵称</text>
+        <text class="nickname-text">{{userInfo.nickname || '疗愈用户'}}</text>
+        <button class="edit-nickname-btn" bindtap="onEditNickname">
+          <image class="edit-icon" src="/miniprogram/images/icons/question.svg"></image>
+          <text>修改昵称</text>
+        </button>
+      </view>
+    </view>
+
+    <!-- 上传进度 -->
+    <view class="upload-progress" wx:if="{{uploading}}">
+      <view class="progress-bar">
+        <view class="progress-fill" style="width: {{uploadProgress + '%'}}"></view>
+      </view>
+      <text class="progress-text">上传中 {{uploadProgress}}%</text>
+    </view>
+  </view>
+
+  <!-- 信息列表 -->
+  <view class="info-section">
+    <!-- 账号信息 -->
+    <view class="info-item">
+      <view class="item-label">
+        <image class="item-icon" src="/miniprogram/images/icons/{{accountType === 'email' ? 'examples' : 'goods'}}.png"></image>
+        <text>{{accountType === 'email' ? '邮箱' : '手机号'}}</text>
+      </view>
+      <view class="item-value">
+        <text class="account-text">{{userInfo.account}}</text>
+      </view>
+    </view>
+
+    <!-- 密码管理 -->
+    <view class="info-item clickable" bindtap="onChangePassword">
+      <view class="item-label">
+        <image class="item-icon" src="/miniprogram/images/icons/close.png"></image>
+        <text>密码</text>
+      </view>
+      <view class="item-value">
+        <text class="password-text">••••••••</text>
+        <image class="arrow-icon" src="/miniprogram/images/arrow.svg"></image>
+      </view>
+    </view>
+  </view>
+
+  <!-- 修改昵称弹窗 -->
+  <view class="modal-mask" wx:if="{{showNicknameModal}}" bindtap="onCloseNicknameModal">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">修改昵称</text>
+        <image class="modal-close" src="/miniprogram/images/icons/close.png" bindtap="onCloseNicknameModal"></image>
+      </view>
+
+      <view class="modal-body">
+        <view class="form-item">
+          <text class="form-label">新昵称</text>
+          <view class="input-wrapper">
+            <input 
+              class="input" 
+              placeholder="请输入新昵称(2-10个字符)" 
+              value="{{newNickname}}"
+              maxlength="10"
+              bindinput="onNicknameInput"
+            />
+          </view>
+        </view>
+      </view>
+
+      <view class="modal-footer">
+        <button class="modal-btn cancel-btn" bindtap="onCloseNicknameModal">取消</button>
+        <button class="modal-btn confirm-btn" bindtap="onConfirmNickname" disabled="{{isUpdatingNickname}}">
+          {{isUpdatingNickname ? '修改中...' : '确认修改'}}
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 修改密码弹窗 -->
+  <view class="modal-mask" wx:if="{{showPasswordModal}}" bindtap="onClosePasswordModal">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">修改密码</text>
+        <image class="modal-close" src="/miniprogram/images/icons/close.png" bindtap="onClosePasswordModal"></image>
+      </view>
+
+      <view class="modal-body">
+        <!-- 旧密码 -->
+        <view class="form-item">
+          <text class="form-label">旧密码</text>
+          <view class="input-wrapper">
+            <input 
+              class="input" 
+              password="{{!showOldPassword}}"
+              placeholder="请输入旧密码" 
+              value="{{oldPassword}}"
+              bindinput="onOldPasswordInput"
+            />
+            <image 
+              class="eye-icon" 
+              src="/miniprogram/images/icons/{{showOldPassword ? 'close.png' : 'question.svg'}}"
+              bindtap="toggleOldPassword"
+            ></image>
+          </view>
+        </view>
+
+        <!-- 新密码 -->
+        <view class="form-item">
+          <text class="form-label">新密码</text>
+          <view class="input-wrapper">
+            <input 
+              class="input" 
+              password="{{!showNewPassword}}"
+              placeholder="请输入新密码(6-20位)" 
+              value="{{newPassword}}"
+              bindinput="onNewPasswordInput"
+            />
+            <image 
+              class="eye-icon" 
+              src="/miniprogram/images/icons/{{showNewPassword ? 'close.png' : 'question.svg'}}"
+              bindtap="toggleNewPassword"
+            ></image>
+          </view>
+          <!-- 密码强度 -->
+          <view class="password-strength" wx:if="{{newPassword}}">
+            <view class="strength-bar">
+              <view class="strength-fill strength-{{passwordStrength}}" style="width: {{passwordStrength * 33.33 + '%'}}"></view>
+            </view>
+            <text class="strength-text">密码强度: {{passwordStrengthText}}</text>
+          </view>
+        </view>
+
+        <!-- 确认新密码 -->
+        <view class="form-item">
+          <text class="form-label">确认新密码</text>
+          <view class="input-wrapper">
+            <input 
+              class="input" 
+              password="{{!showConfirmPassword}}"
+              placeholder="请再次输入新密码" 
+              value="{{confirmPassword}}"
+              bindinput="onConfirmPasswordInput"
+            />
+            <image 
+              class="eye-icon" 
+              src="/miniprogram/images/icons/{{showConfirmPassword ? 'close.png' : 'question.svg'}}"
+              bindtap="toggleConfirmPassword"
+            ></image>
+          </view>
+        </view>
+      </view>
+
+      <view class="modal-footer">
+        <button class="modal-btn cancel-btn" bindtap="onClosePasswordModal">取消</button>
+        <button class="modal-btn confirm-btn" bindtap="onConfirmChangePassword" disabled="{{isChangingPassword}}">
+          {{isChangingPassword ? '修改中...' : '确认修改'}}
+        </button>
+      </view>
+    </view>
+  </view>
+</view>

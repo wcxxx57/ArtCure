@@ -1,0 +1,350 @@
+/* user-info/index.wxss */
+page {
+  background-color: #FAFAFA;
+}
+
+.container {
+  min-height: 100vh;
+  padding-bottom: 40rpx;
+}
+
+/* 头像区域 */
+.avatar-section {
+  min-width: 75%;
+  margin-top: 5%;
+  background: linear-gradient(135deg, #FFE5F0 0%, #FFF8DC 100%);
+  padding: 50rpx 30rpx 40rpx;
+}
+
+.avatar-container {
+  display: flex;
+  align-items: center;
+  gap: 30rpx;
+}
+
+/* 左侧头像 */
+.avatar-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.avatar {
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 70rpx;
+  border: 4rpx solid #FFFFFF;
+  box-shadow: 0 8rpx 24rpx rgba(255, 182, 193, 0.3);
+  display: block;
+}
+
+.avatar-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 70rpx;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.avatar-wrapper:active .avatar-mask {
+  opacity: 1;
+}
+
+.camera-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+/* 右侧昵称区域 */
+.nickname-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.nickname-label {
+  font-size: 24rpx;
+  color: #666666;
+}
+
+.nickname-text {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333333;
+  margin-bottom: 10rpx;
+}
+
+.edit-nickname-btn {
+  width: 200rpx;
+  height: 60rpx;
+  background-color: #FFFFFF;
+  border: 2rpx solid #FFB6C1;
+  border-radius: 30rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 0;
+  line-height: 60rpx;
+}
+
+.edit-nickname-btn::after {
+  border: none;
+}
+
+.edit-icon {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+.edit-nickname-btn text {
+  font-size: 24rpx;
+  color: #FFB6C1;
+}
+
+/* 上传进度 */
+.upload-progress {
+  margin-top: 30rpx;
+}
+
+.progress-bar {
+  height: 8rpx;
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 4rpx;
+  overflow: hidden;
+  margin-bottom: 10rpx;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: #FFB6C1;
+  transition: width 0.3s;
+}
+
+.progress-text {
+  display: block;
+  text-align: center;
+  font-size: 24rpx;
+  color: #666666;
+}
+
+/* 信息列表 */
+.info-section {
+  min-width: 80%;
+  margin: 30rpx 30rpx 0;
+  background-color: #FFFFFF;
+  border-radius: 20rpx;
+  overflow: hidden;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.05);
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 30rpx;
+  border-bottom: 1rpx solid #F5F5F5;
+}
+
+.info-item:last-child {
+  border-bottom: none;
+}
+
+.info-item.clickable:active {
+  background-color: #F9F9F9;
+}
+
+.item-label {
+  display: flex;
+  align-items: center;
+  font-size: 28rpx;
+  color: #333333;
+}
+
+.item-icon {
+  width: 40rpx;
+  height: 40rpx;
+  margin-right: 15rpx;
+}
+
+.item-value {
+  display: flex;
+  align-items: center;
+}
+
+.account-text {
+  font-size: 26rpx;
+  color: #666666;
+}
+
+.password-text {
+  font-size: 26rpx;
+  color: #999999;
+  margin-right: 10rpx;
+}
+
+.arrow-icon {
+  width: 20rpx;
+  height: 20rpx;
+  transform: rotate(180deg);
+}
+
+/* 弹窗样式 */
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  width: 600rpx;
+  background-color: #FFFFFF;
+  border-radius: 20rpx;
+  overflow: hidden;
+}
+
+.modal-header {
+  padding: 30rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1rpx solid #F5F5F5;
+}
+
+.modal-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333333;
+}
+
+.modal-close {
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.modal-body {
+  padding: 30rpx;
+  max-height: 800rpx;
+  overflow-y: auto;
+}
+
+.form-item {
+  margin-bottom: 30rpx;
+}
+
+.form-item:last-child {
+  margin-bottom: 0;
+}
+
+.form-label {
+  display: block;
+  font-size: 26rpx;
+  color: #666666;
+  margin-bottom: 15rpx;
+}
+
+.input-wrapper {
+  background-color: #F5F5F5;
+  border-radius: 15rpx;
+  padding: 0 25rpx;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+}
+
+.input {
+  flex: 1;
+  font-size: 28rpx;
+  color: #333333;
+}
+
+.eye-icon {
+  width: 36rpx;
+  height: 36rpx;
+  margin-left: 15rpx;
+}
+
+/* 密码强度 */
+.password-strength {
+  margin-top: 15rpx;
+}
+
+.strength-bar {
+  height: 6rpx;
+  background-color: #F5F5F5;
+  border-radius: 3rpx;
+  overflow: hidden;
+  margin-bottom: 8rpx;
+}
+
+.strength-fill {
+  height: 100%;
+  transition: width 0.3s, background-color 0.3s;
+  border-radius: 3rpx;
+}
+
+.strength-fill.strength-1 {
+  background-color: #FF6B6B;
+}
+
+.strength-fill.strength-2 {
+  background-color: #FFA500;
+}
+
+.strength-fill.strength-3 {
+  background-color: #51CF66;
+}
+
+.strength-text {
+  font-size: 22rpx;
+  color: #999999;
+}
+
+.modal-footer {
+  padding: 20rpx 30rpx 30rpx;
+  display: flex;
+  gap: 20rpx;
+}
+
+.modal-btn {
+  flex: 1;
+  height: 80rpx;
+  border-radius: 50rpx;
+  font-size: 28rpx;
+  border: none;
+  line-height: 80rpx;
+  padding: 0;
+}
+
+.modal-btn::after {
+  border: none;
+}
+
+.cancel-btn {
+  background-color: #F5F5F5;
+  color: #666666;
+}
+
+.confirm-btn {
+  background-color: #FFB6C1;
+  color: #FFFFFF;
+}
+
+.confirm-btn[disabled] {
+  background-color: #FFCCD5;
+}

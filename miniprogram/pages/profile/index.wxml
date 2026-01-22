@@ -1,7 +1,7 @@
 <!--profile/index.wxml-->
 <view class="container">
   <!-- 顶部用户信息区域 -->
-  <view class="user-header">
+  <view class="user-header" bindtap="{{isLogin ? 'onUserHeaderTap' : ''}}">
     <view class="user-info">
       <image class="avatar" src="{{userInfo.avatar || '/miniprogram/images/avatar.png'}}"></image>
       <view class="user-details">
@@ -9,7 +9,7 @@
         <text class="user-desc">{{userInfo.desc || '点击登录，开启疗愈之旅'}}</text>
       </view>
     </view>
-    <view class="login-btn" wx:if="{{!isLogin}}" bindtap="onLoginTap">
+    <view class="login-btn" wx:if="{{!isLogin}}" bindtap="onLoginTap" catchtap="onLoginTap">
       <text>登录/注册</text>
     </view>
   </view>

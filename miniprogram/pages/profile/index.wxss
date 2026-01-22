@@ -14,15 +14,20 @@ page {
 .user-header {
   background: linear-gradient(135deg, #FFE5F0 0%, #FFF8DC 100%);
   padding: 60rpx 30rpx 40rpx;
+  margin-top: 5%;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-height: 200rpx;
+  width: 88%;
+  box-sizing: border-box;
 }
 
 .user-info {
   display: flex;
   align-items: center;
   flex: 1;
+  min-width: 0;
 }
 
 .avatar {
@@ -31,11 +36,14 @@ page {
   border-radius: 60rpx;
   border: 4rpx solid #FFFFFF;
   margin-right: 30rpx;
+  flex-shrink: 0;
 }
 
 .user-details {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-width: 0;
 }
 
 .username {
@@ -56,6 +64,9 @@ page {
   padding: 16rpx 32rpx;
   border-radius: 50rpx;
   font-size: 26rpx;
+  flex-shrink: 0;
+  width: 130rpx;
+  text-align: center;
 }
 
 /* 统计信息区域 */

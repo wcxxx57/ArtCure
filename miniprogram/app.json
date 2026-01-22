@@ -3,6 +3,7 @@
     "pages/page1/index",
     "pages/user_login/index",
     "pages/user_register/index",
+    "pages/user-info/index",
     "pages/healing-hall/index",
     "pages/healing-plan/index",
     "pages/profile/index",

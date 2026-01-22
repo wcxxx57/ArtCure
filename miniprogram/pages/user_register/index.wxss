@@ -106,10 +106,12 @@ page {
 
 .code-input {
   flex: 1;
+  width: 50%;
 }
 
 .code-btn {
-  width: 200rpx;
+  flex: 1;
+  width: 50%;
   height: 88rpx;
   background-color: #FFB6C1;
   color: #FFFFFF;
