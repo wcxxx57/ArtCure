@@ -23,7 +23,7 @@
     <view class="avatar-blob blob-2"></view>
     <view class="virtual-avatar" bindtap="onAvatarTap">
       <view class="avatar-character">
-        <text class="avatar-emoji">☁️</text>
+        <image class="back-logo" src="/images/virtual_image/virtual_image.png" mode="aspectFit"></image>
       </view>
       <view class="chat-hint">
         <text>点我聊天 ✨</text>

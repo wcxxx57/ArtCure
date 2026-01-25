@@ -46,6 +46,12 @@ page {
   justify-content: center;
   box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
   transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.back-logo {
+  width: 60rpx;
+  height: 60rpx;
 }
 
 .back-emoji {
@@ -158,6 +164,12 @@ page {
   justify-content: center;
   flex-shrink: 0;
   box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.avatar-logo {
+  width: 62rpx;
+  height: 62rpx;
 }
 
 .avatar-emoji {

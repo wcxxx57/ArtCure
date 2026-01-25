@@ -7,7 +7,7 @@
       <!-- 左侧：返回按钮（logo） -->
       <view class="header-back" bindtap="onClose">
         <view class="back-avatar">
-          <text class="back-emoji">☁️</text>
+          <image class="back-logo" src="/images/virtual_image/chat.png" mode="aspectFit"></image>
         </view>
       </view>
       
@@ -62,7 +62,7 @@
         <!-- 机器人消息 -->
         <view wx:if="{{item.type === 'bot'}}" class="message-item bot-message" id="msg-{{item.id}}">
           <view class="message-avatar">
-            <text class="avatar-emoji">☁️</text>
+            <image class="avatar-logo" src="/images/virtual_image/chat.png" mode="aspectFit"></image>
           </view>
           <view class="message-bubble bot-bubble">
             <text class="message-text">{{item.text}}</text>
@@ -80,7 +80,7 @@
       <!-- 正在输入提示 -->
       <view wx:if="{{isTyping}}" class="message-item bot-message">
         <view class="message-avatar">
-          <text class="avatar-emoji">☁️</text>
+          <image class="avatar-logo" src="/images/virtual_image/chat.png" mode="aspectFit"></image>
         </view>
         <view class="message-bubble bot-bubble typing-bubble">
           <view class="typing-indicator">
