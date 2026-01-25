@@ -1,6 +1,7 @@
 {
   "pages": [
     "pages/page1/index",
+    "pages/ai-chat/index",
     "pages/user_login/index",
     "pages/user_register/index",
     "pages/user-info/index",
@@ -11,21 +12,22 @@
     "pages/example/index"
   ],
   "window": {
-    "backgroundColor": "#F6F6F6",
+    "backgroundColor": "#FFFBF0",
     "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#F6F6F6",
-    "navigationBarTitleText": "云开发 QuickStart",
-    "navigationBarTextStyle": "black"
+    "navigationBarBackgroundColor": "#FFFBF0",
+    "navigationBarTitleText": "",
+    "navigationBarTextStyle": "black",
+    "navigationStyle": "custom"
   },
   "tabBar": {
-    "color": "#999999",
-    "selectedColor": "#FFB6C1",
+    "color": "#AAAAAA",
+    "selectedColor": "#FF8A80",
     "backgroundColor": "#FFFFFF",
     "borderStyle": "white",
     "list": [
       {
         "pagePath": "pages/page1/index",
-        "text": "首页",
+        "text": "小屋",
         "iconPath": "images/icons/home.png",
         "selectedIconPath": "images/icons/home-active.png"
       },
@@ -37,7 +39,7 @@
       },
       {
         "pagePath": "pages/healing-plan/index",
-        "text": "疗愈计划",
+        "text": "计划",
         "iconPath": "images/icons/goods.png",
         "selectedIconPath": "images/icons/goods-active.png"
       },

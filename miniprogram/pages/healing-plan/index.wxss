@@ -1,26 +1,300 @@
-/* healing-plan/index.wxss */
-.container {
+/* healing-plan/index.wxss - 疗愈计划 */
+page {
+  background-color: #FFFFFF;
+}
+
+.page-container {
   min-height: 100vh;
   background-color: #FFFFFF;
+  padding-bottom: 180rpx;
+}
+
+/* ==================== 页面头部 ==================== */
+.page-header {
+  padding: 40rpx 40rpx 24rpx;
+  padding-top: calc(140rpx + env(safe-area-inset-top));
+}
+
+.page-title {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: #333333;
+  display: block;
+}
+
+.page-subtitle {
+  font-size: 26rpx;
+  color: #999999;
+  margin-top: 8rpx;
+  display: block;
+}
+
+/* ==================== AI 推荐卡片 ==================== */
+.ai-recommend-section {
+  padding: 0 32rpx 32rpx;
+}
+
+.ai-recommend-card {
+  background: linear-gradient(135deg, #FFF0F5 0%, #F3E5F5 100%);
+  border-radius: 32rpx;
+  padding: 40rpx;
+  position: relative;
+  overflow: hidden;
+  border: 2rpx solid rgba(255, 255, 255, 0.5);
+}
+
+.ai-sparkle {
+  position: absolute;
+  top: 24rpx;
+  right: 24rpx;
+  font-size: 48rpx;
+}
+
+.ai-recommend-badge {
+  display: inline-block;
+  background-color: rgba(255, 255, 255, 0.6);
+  padding: 8rpx 20rpx;
+  border-radius: 20rpx;
+  font-size: 20rpx;
+  font-weight: 700;
+  color: #9C27B0;
+  margin-bottom: 16rpx;
+}
+
+.ai-recommend-title {
+  display: block;
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #333333;
+  margin-bottom: 12rpx;
+}
+
+.ai-recommend-desc {
+  display: block;
+  font-size: 26rpx;
+  color: #666666;
+  line-height: 1.6;
+  margin-bottom: 24rpx;
+  max-width: 80%;
+}
+
+.ai-recommend-btn {
+  display: inline-block;
+  background-color: #333333;
+  color: #FFFFFF;
+  padding: 20rpx 48rpx;
+  border-radius: 50rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.15);
+}
+
+/* ==================== 我的计划 ==================== */
+.my-plans-section {
+  padding: 0 32rpx 32rpx;
+}
+
+.section-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #333333;
+  margin-bottom: 24rpx;
+  display: block;
+}
+
+.my-plans-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.my-plan-card {
+  display: flex;
+  align-items: center;
+  background-color: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 24rpx;
+  box-shadow: 0 2rpx 16rpx rgba(0, 0, 0, 0.04);
+  border: 2rpx solid #F5F5F5;
+}
+
+.plan-icon {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 24rpx;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
-.placeholder-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.placeholder-title {
+.plan-emoji {
   font-size: 48rpx;
+}
+
+.plan-info {
+  flex: 1;
+  margin-left: 20rpx;
+}
+
+.plan-title {
+  font-size: 30rpx;
   font-weight: 600;
   color: #333333;
-  margin-bottom: 20rpx;
+  display: block;
+  margin-bottom: 12rpx;
 }
 
-.placeholder-text {
-  font-size: 28rpx;
+.plan-progress-bar {
+  height: 8rpx;
+  background-color: #F0F0F0;
+  border-radius: 4rpx;
+  overflow: hidden;
+  margin-bottom: 8rpx;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4A90E2 0%, #63B3ED 100%);
+  border-radius: 4rpx;
+  transition: width 0.3s ease;
+}
+
+.plan-progress-text {
+  font-size: 22rpx;
   color: #999999;
+}
+
+.plan-action {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 12rpx 24rpx;
+  background-color: #E3F2FD;
+  border-radius: 20rpx;
+}
+
+.action-text {
+  font-size: 24rpx;
+  color: #4A90E2;
+  font-weight: 500;
+}
+
+.action-arrow {
+  font-size: 24rpx;
+  color: #4A90E2;
+}
+
+/* ==================== 经典方案 ==================== */
+.classic-section {
+  padding: 0 32rpx 32rpx;
+}
+
+.classic-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.classic-card {
+  display: flex;
+  align-items: center;
+  background-color: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  border: 2rpx solid #F5F5F5;
+}
+
+.classic-icon {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.classic-emoji {
+  font-size: 40rpx;
+}
+
+.classic-info {
+  flex: 1;
+  margin-left: 20rpx;
+}
+
+.classic-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333333;
+  display: block;
+  margin-bottom: 10rpx;
+}
+
+.classic-tags {
+  display: flex;
+  gap: 12rpx;
+  flex-wrap: wrap;
+}
+
+.classic-tag {
+  font-size: 22rpx;
+  color: #999999;
+  background-color: #F8F8F8;
+  padding: 6rpx 14rpx;
+  border-radius: 10rpx;
+}
+
+.classic-arrow {
+  font-size: 36rpx;
+  color: #CCCCCC;
+}
+
+/* ==================== 定制计划入口 ==================== */
+.custom-section {
+  padding: 0 32rpx 32rpx;
+}
+
+.custom-card {
+  display: flex;
+  align-items: center;
+  background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+  border-radius: 24rpx;
+  padding: 32rpx;
+  border: 2rpx solid rgba(255, 255, 255, 0.5);
+}
+
+.custom-icon {
+  font-size: 48rpx;
+  margin-right: 20rpx;
+}
+
+.custom-content {
+  flex: 1;
+}
+
+.custom-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333333;
+  display: block;
+  margin-bottom: 6rpx;
+}
+
+.custom-desc {
+  font-size: 24rpx;
+  color: #666666;
+}
+
+.custom-arrow {
+  font-size: 32rpx;
+  color: #4A90E2;
+  font-weight: 600;
+}
+
+/* ==================== 底部占位 ==================== */
+.bottom-space {
+  height: 40rpx;
 }

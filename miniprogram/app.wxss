@@ -1,27 +1,183 @@
 /**app.wxss**/
+
+/* ==================== 全局设计变量 ==================== */
+/* 基于 UI 参考的莫兰迪+糖果色系 */
+
+page {
+  /* 暖奶油白背景 */
+  --bg-primary: #FFFBF0;
+  --bg-secondary: #F8F9FA;
+  --bg-white: #FFFFFF;
+  
+  /* 主色调 - 粉色系 */
+  --color-primary: #FFB7B2;
+  --color-primary-light: #FEE5E6;
+  --color-primary-dark: #FF8A80;
+  
+  /* 辅助色 - 蓝色系 */
+  --color-secondary: #4A90E2;
+  --color-secondary-light: #E3F2FD;
+  
+  /* 功能色 */
+  --color-success: #8FA98B;
+  --color-warning: #FFD93D;
+  --color-purple: #F3E5F5;
+  --color-purple-text: #9C27B0;
+  
+  /* 文字颜色 */
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-hint: #999999;
+  --text-light: #AAAAAA;
+  
+  /* 边框 */
+  --border-color: #F0F0F0;
+  
+  /* 阴影 */
+  --shadow-sm: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8rpx 24rpx rgba(0, 0, 0, 0.08);
+  
+  /* 圆角 */
+  --radius-sm: 16rpx;
+  --radius-md: 24rpx;
+  --radius-lg: 32rpx;
+  --radius-xl: 40rpx;
+  --radius-full: 100rpx;
+  
+  background-color: var(--bg-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+}
+
 .container {
   display: flex;
   flex-direction: column;
   align-items: center;
   box-sizing: border-box;
-} 
+  min-height: 100vh;
+  background-color: var(--bg-primary);
+}
 
 button {
   background: initial;
 }
 
-button:focus{
+button:focus {
   outline: 0;
 }
 
-button::after{
+button::after {
   border: none;
 }
 
+/* ==================== 通用工具类 ==================== */
 
-page {
-  background: #f6f6f6;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
+/* 卡片样式 */
+.card {
+  background-color: var(--bg-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 32rpx;
+}
+
+.card-elevated {
+  box-shadow: var(--shadow-md);
+}
+
+/* 渐变背景 */
+.gradient-pink {
+  background: linear-gradient(135deg, #FFF0F5 0%, #FEE5E6 100%);
+}
+
+.gradient-blue {
+  background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+}
+
+.gradient-warm {
+  background: linear-gradient(135deg, #FFF5F7 0%, #FFF8DC 50%, #E8F8F5 100%);
+}
+
+.gradient-purple {
+  background: linear-gradient(135deg, #FFF0F5 0%, #F3E5F5 100%);
+}
+
+/* 胶囊按钮 */
+.btn-capsule {
+  padding: 20rpx 40rpx;
+  border-radius: var(--radius-full);
+  font-size: 28rpx;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+}
+
+.btn-secondary {
+  background-color: var(--color-secondary);
+  color: #FFFFFF;
+}
+
+.btn-outline {
+  background-color: transparent;
+  border: 2rpx solid var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* 标签样式 */
+.tag {
+  display: inline-flex;
+  padding: 8rpx 16rpx;
+  border-radius: var(--radius-sm);
+  font-size: 22rpx;
+  font-weight: 500;
+}
+
+.tag-pink {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+
+.tag-blue {
+  background-color: var(--color-secondary-light);
+  color: var(--color-secondary);
+}
+
+/* 文字样式 */
+.text-primary {
+  color: var(--text-primary);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-hint {
+  color: var(--text-hint);
+}
+
+/* 标题样式 */
+.section-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 24rpx;
+}
+
+.section-subtitle {
+  font-size: 26rpx;
+  color: var(--text-hint);
+  margin-top: 8rpx;
+}
+
+/* 隐藏滚动条 */
+::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+  color: transparent;
 }

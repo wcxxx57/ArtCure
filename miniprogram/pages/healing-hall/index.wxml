@@ -1,7 +1,107 @@
 <!--healing-hall/index.wxml-->
-<view class="container">
-  <view class="placeholder-content">
-    <text class="placeholder-title">疗愈馆</text>
-    <text class="placeholder-text">功能开发中...</text>
+<view class="page-container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <text class="page-title">疗愈馆</text>
   </view>
+
+  <!-- 搜索栏 -->
+  <view class="search-section">
+    <view class="search-bar">
+      <text class="search-icon">🔍</text>
+      <input 
+        class="search-input" 
+        placeholder="搜索疗愈资源..." 
+        placeholder-class="search-placeholder"
+        bindinput="onSearchInput"
+        value="{{searchKeyword}}"
+      />
+    </view>
+  </view>
+
+  <!-- 分类标签 -->
+  <scroll-view class="category-scroll" scroll-x enable-flex>
+    <view 
+      class="category-item {{activeCategory === item.id ? 'category-active' : ''}}"
+      wx:for="{{categories}}"
+      wx:key="id"
+      bindtap="onCategoryTap"
+      data-category="{{item}}"
+    >
+      <text>{{item.name}}</text>
+    </view>
+  </scroll-view>
+
+  <!-- 精选视频banner -->
+  <view class="featured-section">
+    <view class="featured-card" bindtap="onFeaturedTap">
+      <view class="featured-overlay"></view>
+      <view class="featured-play">
+        <text class="play-icon">▶</text>
+      </view>
+      <view class="featured-info">
+        <text class="featured-title">寻找内心的宁静：艺术疗愈纪录片</text>
+        <text class="featured-meta">独家放映 · 15分钟</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 精选推荐 -->
+  <view class="resources-section">
+    <text class="section-title">精选推荐</text>
+    <view class="resources-grid">
+      <view 
+        class="resource-card"
+        wx:for="{{resources}}"
+        wx:key="id"
+        bindtap="onResourceTap"
+        data-resource="{{item}}"
+      >
+        <view class="resource-cover" style="background-color: {{item.bgColor}}">
+          <text class="resource-emoji">{{item.emoji}}</text>
+          <view class="resource-badge">
+            <text>{{item.category}}</text>
+          </view>
+        </view>
+        <view class="resource-info">
+          <text class="resource-title">{{item.title}}</text>
+          <view class="resource-footer">
+            <text class="resource-views">{{item.views}} 体验</text>
+            <view class="resource-like">
+              <text class="like-icon">♡</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 线下沙龙 -->
+  <view class="salon-section">
+    <text class="section-title">线下沙龙</text>
+    <view class="salon-list">
+      <view 
+        class="salon-card"
+        wx:for="{{salons}}"
+        wx:key="id"
+        bindtap="onSalonTap"
+        data-salon="{{item}}"
+      >
+        <view class="salon-info">
+          <view class="salon-location">
+            <text class="location-icon">📍</text>
+            <text>{{item.city}}</text>
+          </view>
+          <text class="salon-title">{{item.title}}</text>
+          <text class="salon-time">{{item.date}} {{item.time}}</text>
+        </view>
+        <view class="salon-seats">
+          <text class="seats-text">剩余{{item.seats}}席</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部占位 -->
+  <view class="bottom-space"></view>
 </view>

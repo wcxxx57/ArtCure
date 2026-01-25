@@ -1,7 +1,90 @@
 <!--healing-plan/index.wxml-->
-<view class="container">
-  <view class="placeholder-content">
-    <text class="placeholder-title">疗愈计划</text>
-    <text class="placeholder-text">功能开发中...</text>
+<view class="page-container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <text class="page-title">疗愈计划</text>
+    <text class="page-subtitle">坚持练习，看见改变的发生</text>
   </view>
+
+  <!-- AI 推荐卡片 -->
+  <view class="ai-recommend-section">
+    <view class="ai-recommend-card" bindtap="onAIRecommendTap">
+      <view class="ai-sparkle">✨</view>
+      <view class="ai-recommend-badge">AI 专属推荐</view>
+      <text class="ai-recommend-title">适合你的：21天情绪书写</text>
+      <text class="ai-recommend-desc">根据你最近的压力指数，我们为你定制了一套结合书写与轻音乐的舒缓方案。</text>
+      <view class="ai-recommend-btn">开启计划</view>
+    </view>
+  </view>
+
+  <!-- 我的计划 -->
+  <view class="my-plans-section" wx:if="{{myPlans.length > 0}}">
+    <text class="section-title">我的计划</text>
+    <view class="my-plans-list">
+      <view 
+        class="my-plan-card"
+        wx:for="{{myPlans}}"
+        wx:key="id"
+        bindtap="onMyPlanTap"
+        data-plan="{{item}}"
+      >
+        <view class="plan-icon" style="background-color: {{item.bgColor}}">
+          <text class="plan-emoji">{{item.emoji}}</text>
+        </view>
+        <view class="plan-info">
+          <text class="plan-title">{{item.title}}</text>
+          <view class="plan-progress-bar">
+            <view class="progress-fill" style="width: {{item.progress}}%"></view>
+          </view>
+          <text class="plan-progress-text">第{{item.currentDay}}天/{{item.totalDays}}天</text>
+        </view>
+        <view class="plan-action">
+          <text class="action-text">继续</text>
+          <text class="action-arrow">→</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 经典方案 -->
+  <view class="classic-section">
+    <text class="section-title">经典方案</text>
+    <view class="classic-list">
+      <view 
+        class="classic-card"
+        wx:for="{{classicPlans}}"
+        wx:key="id"
+        bindtap="onClassicPlanTap"
+        data-plan="{{item}}"
+      >
+        <view class="classic-icon" style="background-color: {{item.bgColor}}">
+          <text class="classic-emoji">{{item.emoji}}</text>
+        </view>
+        <view class="classic-info">
+          <text class="classic-title">{{item.title}}</text>
+          <view class="classic-tags">
+            <text class="classic-tag" wx:for="{{item.tags}}" wx:key="*this" wx:for-item="tag">#{{tag}}</text>
+          </view>
+        </view>
+        <view class="classic-arrow">
+          <text>›</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 定制计划入口 -->
+  <view class="custom-section">
+    <view class="custom-card" bindtap="onCustomPlanTap">
+      <view class="custom-icon">🪄</view>
+      <view class="custom-content">
+        <text class="custom-title">定制专属计划</text>
+        <text class="custom-desc">告诉AI你的需求，生成个性化疗愈计划</text>
+      </view>
+      <view class="custom-arrow">→</view>
+    </view>
+  </view>
+
+  <!-- 底部占位 -->
+  <view class="bottom-space"></view>
 </view>

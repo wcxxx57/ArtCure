@@ -1,6 +1,6 @@
 /* user-info/index.wxss */
 page {
-  background-color: #FAFAFA;
+  background-color: #F8F9FA;
 }
 
 .container {
@@ -12,8 +12,9 @@ page {
 .avatar-section {
   min-width: 75%;
   margin-top: 5%;
-  background: linear-gradient(135deg, #FFE5F0 0%, #FFF8DC 100%);
-  padding: 50rpx 30rpx 40rpx;
+  background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+  padding: 60rpx 30rpx 50rpx;
+  border-radius: 0 0 48rpx 48rpx;
 }
 
 .avatar-container {
@@ -32,8 +33,8 @@ page {
   width: 140rpx;
   height: 140rpx;
   border-radius: 70rpx;
-  border: 4rpx solid #FFFFFF;
-  box-shadow: 0 8rpx 24rpx rgba(255, 182, 193, 0.3);
+  border: 6rpx solid #FFFFFF;
+  box-shadow: 0 8rpx 24rpx rgba(74, 144, 226, 0.25);
   display: block;
 }
 
@@ -76,24 +77,25 @@ page {
 }
 
 .nickname-text {
-  font-size: 32rpx;
-  font-weight: 600;
+  font-size: 36rpx;
+  font-weight: 700;
   color: #333333;
   margin-bottom: 10rpx;
 }
 
 .edit-nickname-btn {
   width: 200rpx;
-  height: 60rpx;
+  height: 64rpx;
   background-color: #FFFFFF;
-  border: 2rpx solid #FFB6C1;
-  border-radius: 30rpx;
+  border: none;
+  border-radius: 32rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8rpx;
   padding: 0;
-  line-height: 60rpx;
+  line-height: 64rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
 }
 
 .edit-nickname-btn::after {
@@ -107,7 +109,8 @@ page {
 
 .edit-nickname-btn text {
   font-size: 24rpx;
-  color: #FFB6C1;
+  color: #4A90E2;
+  font-weight: 500;
 }
 
 /* 上传进度 */
@@ -125,7 +128,7 @@ page {
 
 .progress-fill {
   height: 100%;
-  background-color: #FFB6C1;
+  background: linear-gradient(90deg, #4A90E2 0%, #63B3ED 100%);
   transition: width 0.3s;
 }
 
@@ -141,17 +144,17 @@ page {
   min-width: 80%;
   margin: 30rpx 30rpx 0;
   background-color: #FFFFFF;
-  border-radius: 20rpx;
+  border-radius: 24rpx;
   overflow: hidden;
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.04);
 }
 
 .info-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 30rpx;
-  border-bottom: 1rpx solid #F5F5F5;
+  padding: 32rpx;
+  border-bottom: 2rpx solid #F8F8F8;
 }
 
 .info-item:last-child {
@@ -159,20 +162,21 @@ page {
 }
 
 .info-item.clickable:active {
-  background-color: #F9F9F9;
+  background-color: #FAFAFA;
 }
 
 .item-label {
   display: flex;
   align-items: center;
-  font-size: 28rpx;
+  font-size: 30rpx;
   color: #333333;
+  font-weight: 500;
 }
 
 .item-icon {
-  width: 40rpx;
-  height: 40rpx;
-  margin-right: 15rpx;
+  width: 44rpx;
+  height: 44rpx;
+  margin-right: 16rpx;
 }
 
 .item-value {
@@ -181,20 +185,21 @@ page {
 }
 
 .account-text {
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: #666666;
 }
 
 .password-text {
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: #999999;
-  margin-right: 10rpx;
+  margin-right: 12rpx;
 }
 
 .arrow-icon {
-  width: 20rpx;
-  height: 20rpx;
+  width: 24rpx;
+  height: 24rpx;
   transform: rotate(180deg);
+  opacity: 0.4;
 }
 
 /* 弹窗样式 */
@@ -204,7 +209,7 @@ page {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.6);
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -212,39 +217,40 @@ page {
 }
 
 .modal-content {
-  width: 600rpx;
+  width: 620rpx;
   background-color: #FFFFFF;
-  border-radius: 20rpx;
+  border-radius: 32rpx;
   overflow: hidden;
 }
 
 .modal-header {
-  padding: 30rpx;
+  padding: 32rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1rpx solid #F5F5F5;
+  border-bottom: 2rpx solid #F5F5F5;
 }
 
 .modal-title {
-  font-size: 32rpx;
-  font-weight: 600;
+  font-size: 34rpx;
+  font-weight: 700;
   color: #333333;
 }
 
 .modal-close {
-  width: 32rpx;
-  height: 32rpx;
+  width: 36rpx;
+  height: 36rpx;
+  opacity: 0.5;
 }
 
 .modal-body {
-  padding: 30rpx;
+  padding: 32rpx;
   max-height: 800rpx;
   overflow-y: auto;
 }
 
 .form-item {
-  margin-bottom: 30rpx;
+  margin-bottom: 28rpx;
 }
 
 .form-item:last-child {
@@ -255,39 +261,47 @@ page {
   display: block;
   font-size: 26rpx;
   color: #666666;
-  margin-bottom: 15rpx;
+  margin-bottom: 12rpx;
 }
 
 .input-wrapper {
-  background-color: #F5F5F5;
-  border-radius: 15rpx;
+  background-color: #F8F8F8;
+  border-radius: 20rpx;
   padding: 0 25rpx;
-  height: 80rpx;
+  height: 88rpx;
   display: flex;
   align-items: center;
+  border: 2rpx solid transparent;
+  transition: all 0.3s ease;
+}
+
+.input-wrapper:focus-within {
+  border-color: #4A90E2;
+  background-color: #FFFFFF;
 }
 
 .input {
   flex: 1;
-  font-size: 28rpx;
+  font-size: 30rpx;
   color: #333333;
 }
 
 .eye-icon {
-  width: 36rpx;
-  height: 36rpx;
+  width: 40rpx;
+  height: 40rpx;
   margin-left: 15rpx;
+  opacity: 0.5;
 }
 
 /* 密码强度 */
 .password-strength {
-  margin-top: 15rpx;
+  margin-top: 16rpx;
 }
 
 .strength-bar {
-  height: 6rpx;
+  height: 8rpx;
   background-color: #F5F5F5;
-  border-radius: 3rpx;
+  border-radius: 4rpx;
   overflow: hidden;
   margin-bottom: 8rpx;
 }
@@ -295,7 +309,7 @@ page {
 .strength-fill {
   height: 100%;
   transition: width 0.3s, background-color 0.3s;
-  border-radius: 3rpx;
+  border-radius: 4rpx;
 }
 
 .strength-fill.strength-1 {
@@ -307,7 +321,7 @@ page {
 }
 
 .strength-fill.strength-3 {
-  background-color: #51CF66;
+  background-color: #4CAF50;
 }
 
 .strength-text {
@@ -316,19 +330,20 @@ page {
 }
 
 .modal-footer {
-  padding: 20rpx 30rpx 30rpx;
+  padding: 20rpx 32rpx 32rpx;
   display: flex;
   gap: 20rpx;
 }
 
 .modal-btn {
   flex: 1;
-  height: 80rpx;
-  border-radius: 50rpx;
-  font-size: 28rpx;
+  height: 88rpx;
+  border-radius: 44rpx;
+  font-size: 30rpx;
   border: none;
-  line-height: 80rpx;
+  line-height: 88rpx;
   padding: 0;
+  font-weight: 500;
 }
 
 .modal-btn::after {
@@ -341,10 +356,12 @@ page {
 }
 
 .confirm-btn {
-  background-color: #FFB6C1;
+  background: linear-gradient(135deg, #4A90E2 0%, #63B3ED 100%);
   color: #FFFFFF;
+  box-shadow: 0 4rpx 16rpx rgba(74, 144, 226, 0.3);
 }
 
 .confirm-btn[disabled] {
-  background-color: #FFCCD5;
+  background: linear-gradient(135deg, #E0E0E0 0%, #BDBDBD 100%);
+  box-shadow: none;
 }

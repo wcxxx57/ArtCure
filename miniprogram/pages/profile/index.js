@@ -9,16 +9,19 @@ Page({
     // 用户信息
     userInfo: {
       avatar: '',
-      nickname: '',
-      desc: ''
+      nickname: ''
     },
     
     // 统计数据
     stats: {
       days: 0,
       sessions: 0,
-      points: 0
-    }
+      points: 0,
+      totalHours: 0
+    },
+    
+    // 当前选择的时间周期
+    currentPeriod: '本周'
   },
 
   onLoad(options) {
@@ -56,13 +59,13 @@ Page({
       this.setData({
         userInfo: {
           avatar: userInfo.avatar || '/miniprogram/images/avatar.png',
-          nickname: userInfo.nickname || '疗愈用户',
-          desc: '坚持疗愈，遇见更好的自己'
+          nickname: userInfo.nickname || '疗愈用户'
         },
         stats: {
           days: userInfo.days || 0,
           sessions: userInfo.sessions || 0,
-          points: userInfo.coins || 0
+          points: userInfo.coins || 0,
+          totalHours: userInfo.totalHours || 12
         }
       })
     }
@@ -73,13 +76,13 @@ Page({
     this.setData({
       userInfo: {
         avatar: '',
-        nickname: '',
-        desc: ''
+        nickname: ''
       },
       stats: {
         days: 0,
         sessions: 0,
-        points: 0
+        points: 0,
+        totalHours: 0
       }
     })
   },
@@ -98,6 +101,28 @@ Page({
         url: '/pages/user-info/index'
       })
     }
+  },
+  
+  // 设置按钮点击
+  onSettingsTap() {
+    wx.navigateTo({
+      url: '/pages/settings/index',
+      fail: () => {
+        wx.showToast({
+          title: '设置页面开发中',
+          icon: 'none'
+        })
+      }
+    })
+  },
+  
+  // 时间周期切换
+  onPeriodChange(e) {
+    const periods = ['本周', '本月']
+    this.setData({
+      currentPeriod: periods[e.detail.value]
+    })
+    // TODO: 加载对应周期的心情数据
   },
 
   // 退出登录
@@ -125,10 +150,17 @@ Page({
     
     // 如果未登录，某些功能需要先登录
     if (!this.data.isLogin && this.needLogin(page)) {
-      wx.showToast({
-        title: '请先登录',
-        icon: 'none',
-        duration: 2000
+      wx.showModal({
+        title: '提示',
+        content: '请先登录后查看',
+        confirmText: '去登录',
+        success: (res) => {
+          if (res.confirm) {
+            wx.navigateTo({
+              url: '/pages/user_login/index'
+            })
+          }
+        }
       })
       return
     }
@@ -137,7 +169,7 @@ Page({
       url: page,
       fail: (err) => {
         wx.showToast({
-          title: '页面暂未开放',
+          title: '页面开发中',
           icon: 'none',
           duration: 2000
         })
@@ -148,9 +180,10 @@ Page({
   // 判断是否需要登录
   needLogin(page) {
     const loginRequiredPages = [
-      '/pages/my-plan/index',
-      '/pages/my-records/index',
-      '/pages/my-favorites/index'
+      '/pages/my-orders/index',
+      '/pages/my-appointments/index',
+      '/pages/coin-detail/index',
+      '/pages/settings/index'
     ]
     return loginRequiredPages.includes(page)
   }

@@ -1,0 +1,135 @@
+<!--AI 对话页面 index.wxml-->
+<view class="chat-container">
+  <!-- 顶部导航区域（包含模式选择） -->
+  <view class="chat-header">
+    <!-- 顶部栏 -->
+    <view class="header-top">
+      <!-- 左侧：返回按钮（logo） -->
+      <view class="header-back" bindtap="onClose">
+        <view class="back-avatar">
+          <text class="back-emoji">☁️</text>
+        </view>
+      </view>
+      
+      <!-- 中间：标题和状态 -->
+      <view class="header-center">
+        <text class="bot-name">小云</text>
+        <text class="bot-status">{{currentModeName}}</text>
+      </view>
+      
+      <!-- 右侧：占位 -->
+      <view class="header-right"></view>
+    </view>
+
+    <!-- 模式选择栏 -->
+    <view class="mode-selector">
+      <view 
+        class="mode-item {{currentMode === 'comfort' ? 'mode-active' : ''}}"
+        bindtap="onModeChange"
+        data-mode="comfort"
+      >
+        <text class="mode-icon">🌙</text>
+        <text class="mode-name">树洞</text>
+      </view>
+      <view 
+        class="mode-item {{currentMode === 'therapist' ? 'mode-active' : ''}}"
+        bindtap="onModeChange"
+        data-mode="therapist"
+      >
+        <text class="mode-icon">🩺</text>
+        <text class="mode-name">疗愈师</text>
+      </view>
+      <view 
+        class="mode-item {{currentMode === 'companion' ? 'mode-active' : ''}}"
+        bindtap="onModeChange"
+        data-mode="companion"
+      >
+        <text class="mode-icon">☕</text>
+        <text class="mode-name">日常陪伴</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 消息列表区域 -->
+  <scroll-view 
+    class="message-area" 
+    scroll-y="true" 
+    scroll-into-view="{{scrollToMessage}}"
+    scroll-with-animation="true"
+  >
+    <view class="message-list">
+      <block wx:for="{{messages}}" wx:key="id">
+        <!-- 机器人消息 -->
+        <view wx:if="{{item.type === 'bot'}}" class="message-item bot-message" id="msg-{{item.id}}">
+          <view class="message-avatar">
+            <text class="avatar-emoji">☁️</text>
+          </view>
+          <view class="message-bubble bot-bubble">
+            <text class="message-text">{{item.text}}</text>
+          </view>
+        </view>
+        
+        <!-- 用户消息 -->
+        <view wx:else class="message-item user-message" id="msg-{{item.id}}">
+          <view class="message-bubble user-bubble">
+            <text class="message-text">{{item.text}}</text>
+          </view>
+        </view>
+      </block>
+      
+      <!-- 正在输入提示 -->
+      <view wx:if="{{isTyping}}" class="message-item bot-message">
+        <view class="message-avatar">
+          <text class="avatar-emoji">☁️</text>
+        </view>
+        <view class="message-bubble bot-bubble typing-bubble">
+          <view class="typing-indicator">
+            <view class="typing-dot"></view>
+            <view class="typing-dot"></view>
+            <view class="typing-dot"></view>
+          </view>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 底部占位 -->
+    <view class="scroll-bottom" id="scroll-bottom"></view>
+  </scroll-view>
+
+  <!-- 快捷问题区域 -->
+  <view class="quick-questions-wrapper">
+    <scroll-view class="quick-questions" scroll-x="true" enhanced="true" show-scrollbar="false">
+      <view class="quick-list">
+        <view 
+          class="quick-item" 
+          wx:for="{{quickQuestions}}" 
+          wx:key="*this"
+          bindtap="onQuickQuestion"
+          data-question="{{item}}"
+        >
+          <text>{{item}}</text>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 输入区域 -->
+  <view class="input-area">
+    <view class="input-wrapper">
+      <input 
+        class="message-input" 
+        placeholder="在这里倾诉..." 
+        placeholder-class="input-placeholder"
+        value="{{inputText}}"
+        bindinput="onInputChange"
+        bindconfirm="onSend"
+        confirm-type="send"
+        adjust-position="{{true}}"
+        cursor-spacing="20"
+      />
+      <view class="send-btn {{inputText ? 'send-active' : ''}}" bindtap="onSend">
+        <text class="send-icon">➤</text>
+      </view>
+    </view>
+  </view>
+</view>

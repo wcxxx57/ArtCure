@@ -1,153 +1,354 @@
-/* profile/index.wxss */
+/* profile/index.wxss - 个人中心 */
 page {
-  background-color: #FAFAFA;
+  background-color: #F8F9FA;
 }
 
-.container {
+.page-container {
   min-height: 100vh;
-  min-width: 50vw;
-  background-color: #FAFAFA;
-  padding-bottom: 120rpx;
+  background-color: #F8F9FA;
+  padding-bottom: 180rpx;
 }
 
-/* 用户信息头部 */
+/* ==================== 顶部背景区域 ==================== */
+.header-bg {
+  background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+  padding-top: calc(160rpx + env(safe-area-inset-top));
+  padding-bottom: 100rpx;
+  border-radius: 0 0 60rpx 60rpx;
+  position: relative;
+}
+
+/* ==================== 用户信息区域 ==================== */
 .user-header {
-  background: linear-gradient(135deg, #FFE5F0 0%, #FFF8DC 100%);
-  padding: 60rpx 30rpx 40rpx;
-  margin-top: 5%;
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  min-height: 200rpx;
-  width: 88%;
-  box-sizing: border-box;
+  align-items: flex-start;
+  padding: 0 40rpx;
 }
 
-.user-info {
+.user-main {
   display: flex;
   align-items: center;
   flex: 1;
-  min-width: 0;
+}
+
+.avatar-wrapper {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  background-color: #FFFFFF;
+  padding: 6rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.1);
 }
 
 .avatar {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: 60rpx;
-  border: 4rpx solid #FFFFFF;
-  margin-right: 30rpx;
-  flex-shrink: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
 }
 
 .user-details {
+  margin-left: 24rpx;
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-width: 0;
 }
 
 .username {
-  font-size: 36rpx;
-  font-weight: 600;
+  font-size: 40rpx;
+  font-weight: 700;
   color: #333333;
-  margin-bottom: 10rpx;
+  margin-bottom: 12rpx;
+}
+
+.user-status {
+  display: flex;
+  gap: 12rpx;
+  flex-wrap: wrap;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 8rpx 16rpx;
+  border-radius: 20rpx;
+  font-size: 22rpx;
+}
+
+.mood-badge {
+  background-color: rgba(255, 255, 255, 0.5);
+  color: #666666;
+}
+
+.status-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background-color: #4CAF50;
+}
+
+.coin-badge {
+  background-color: #FFF9C4;
+  color: #F57C00;
+  font-weight: 600;
 }
 
 .user-desc {
+  font-size: 26rpx;
+  color: #666666;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+}
+
+.login-btn {
+  background-color: #FFFFFF;
+  padding: 14rpx 40rpx;
+  border-radius: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.08);
+  margin-top: 40rpx;
+}
+
+.login-btn text {
+  font-size: 28rpx;
+  color: #4A90E2;
+  font-weight: 600;
+}
+
+.settings-btn {
+  width: 64rpx;
+  height: 64rpx;
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-icon {
+  font-size: 32rpx;
+}
+
+/* ==================== 心情曲线卡片 ==================== */
+.mood-curve-section {
+  margin: -60rpx 32rpx 24rpx;
+  position: relative;
+  z-index: 10;
+}
+
+.mood-curve-card {
+  background-color: #FFFFFF;
+  border-radius: 32rpx;
+  padding: 32rpx;
+  box-shadow: 0 8rpx 32rpx rgba(74, 144, 226, 0.12);
+}
+
+.curve-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32rpx;
+}
+
+.curve-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #333333;
+}
+
+.period-selector {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  background-color: #F8F8F8;
+  padding: 10rpx 20rpx;
+  border-radius: 16rpx;
+}
+
+.period-selector text {
   font-size: 24rpx;
   color: #666666;
 }
 
-.login-btn {
-  background-color: #FFB6C1;
-  color: #FFFFFF;
-  padding: 16rpx 32rpx;
-  border-radius: 50rpx;
-  font-size: 26rpx;
-  flex-shrink: 0;
-  width: 130rpx;
-  text-align: center;
+.period-arrow {
+  font-size: 18rpx !important;
+  color: #999999 !important;
 }
 
-/* 统计信息区域 */
-.stats-section {
-  min-width: 80vw;
+.curve-chart {
+  height: 200rpx;
+  position: relative;
+  margin-bottom: 16rpx;
+}
+
+.chart-lines {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.chart-line {
+  height: 2rpx;
+  background-color: #F5F5F5;
+}
+
+.chart-curve {
+  position: absolute;
+  inset: 0;
+}
+
+.curve-point {
+  position: absolute;
+  width: 16rpx;
+  height: 16rpx;
   background-color: #FFFFFF;
-  margin: 30rpx 20rpx 20rpx;
-  padding: 40rpx 20rpx;
+  border: 4rpx solid #FFB7B2;
+  border-radius: 50%;
+  transform: translate(-50%, 50%);
+}
+
+.curve-point.active {
+  width: 20rpx;
+  height: 20rpx;
+  border-width: 6rpx;
+  box-shadow: 0 2rpx 8rpx rgba(255, 183, 178, 0.4);
+}
+
+.chart-labels {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 16rpx;
+}
+
+.chart-labels text {
+  font-size: 20rpx;
+  color: #CCCCCC;
+}
+
+/* ==================== 统计数据 ==================== */
+.stats-section {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20rpx;
+  padding: 0 32rpx 24rpx;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  background-color: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 28rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.stat-icon {
+  width: 72rpx;
+  height: 72rpx;
   border-radius: 20rpx;
   display: flex;
   align-items: center;
-  justify-content: space-around;
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.05);
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.stat-item {
+.stat-icon text {
+  font-size: 32rpx;
+}
+
+.stat-info {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  flex: 1;
 }
 
 .stat-number {
-  font-size: 40rpx;
-  font-weight: 600;
-  color: #FFB6C1;
-  margin-bottom: 10rpx;
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #333333;
 }
 
 .stat-label {
-  font-size: 24rpx;
+  font-size: 22rpx;
   color: #999999;
+  margin-top: 4rpx;
 }
 
-.stat-divider {
-  width: 2rpx;
-  height: 60rpx;
-  background-color: #EEEEEE;
-}
-
-/* 菜单列表 */
+/* ==================== 功能菜单 ==================== */
 .menu-section {
-  min-width: 80vw;
+  padding: 0 32rpx;
+}
+
+.menu-group {
   background-color: #FFFFFF;
-  margin: 0 20rpx 20rpx;
-  border-radius: 20rpx;
+  border-radius: 24rpx;
+  margin-bottom: 20rpx;
   overflow: hidden;
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
 }
 
 .menu-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 30rpx;
-  border-bottom: 1rpx solid #F5F5F5;
+  padding: 32rpx;
+  border-bottom: 2rpx solid #F8F8F8;
+  transition: background-color 0.2s ease;
 }
 
 .menu-item:last-child {
   border-bottom: none;
 }
 
+.menu-item:active {
+  background-color: #FAFAFA;
+}
+
 .menu-left {
   display: flex;
   align-items: center;
-  flex: 1;
+  gap: 20rpx;
 }
 
 .menu-icon {
-  width: 44rpx;
-  height: 44rpx;
-  margin-right: 20rpx;
+  font-size: 36rpx;
 }
 
 .menu-title {
-  font-size: 28rpx;
+  font-size: 30rpx;
   color: #333333;
+  font-weight: 500;
 }
 
 .menu-arrow {
-  width: 24rpx;
-  height: 24rpx;
-  transform: rotate(180deg);
+  font-size: 32rpx;
+  color: #CCCCCC;
+}
+
+/* ==================== 退出登录 ==================== */
+.logout-section {
+  padding: 40rpx 0;
+}
+
+.logout-btn {
+  background-color: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 32rpx;
+  text-align: center;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.logout-btn text {
+  font-size: 30rpx;
+  color: #FF6B6B;
+  font-weight: 500;
+}
+
+/* ==================== 底部占位 ==================== */
+.bottom-space {
+  height: 40rpx;
 }

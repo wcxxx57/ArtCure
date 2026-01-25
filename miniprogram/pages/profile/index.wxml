@@ -1,88 +1,158 @@
 <!--profile/index.wxml-->
-<view class="container">
-  <!-- 顶部用户信息区域 -->
-  <view class="user-header" bindtap="{{isLogin ? 'onUserHeaderTap' : ''}}">
-    <view class="user-info">
-      <image class="avatar" src="{{userInfo.avatar || '/miniprogram/images/avatar.png'}}"></image>
-      <view class="user-details">
-        <text class="username">{{userInfo.nickname || '未登录'}}</text>
-        <text class="user-desc">{{userInfo.desc || '点击登录，开启疗愈之旅'}}</text>
+<view class="page-container">
+  <!-- 顶部背景区域 -->
+  <view class="header-bg">
+    <!-- 用户信息区域 -->
+    <view class="user-header">
+      <view class="user-main" bindtap="{{isLogin ? 'onUserHeaderTap' : ''}}">
+        <view class="avatar-wrapper">
+          <image class="avatar" src="{{userInfo.avatar || '/miniprogram/images/avatar.png'}}"></image>
+        </view>
+        <view class="user-details">
+          <text class="username">{{userInfo.nickname || '点击登录'}}</text>
+          <view class="user-status" wx:if="{{isLogin}}">
+            <view class="status-badge mood-badge">
+              <view class="status-dot"></view>
+              <text>心情平稳</text>
+            </view>
+            <view class="status-badge coin-badge">
+              <text>🪙 {{stats.points}} 金币</text>
+            </view>
+          </view>
+          <text class="user-desc" wx:else>开启你的疗愈之旅</text>
+        </view>
       </view>
-    </view>
-    <view class="login-btn" wx:if="{{!isLogin}}" bindtap="onLoginTap" catchtap="onLoginTap">
-      <text>登录/注册</text>
+      <view class="header-actions">
+        <view class="login-btn" wx:if="{{!isLogin}}" bindtap="onLoginTap">
+          <text>登录</text>
+        </view>
+        <view class="settings-btn" wx:else bindtap="onSettingsTap">
+          <text class="settings-icon">⚙️</text>
+        </view>
+      </view>
     </view>
   </view>
 
-  <!-- 个人统计信息 -->
+  <!-- 心情曲线卡片 -->
+  <view class="mood-curve-section" wx:if="{{isLogin}}">
+    <view class="mood-curve-card">
+      <view class="curve-header">
+        <text class="curve-title">心情曲线</text>
+        <picker mode="selector" range="{{['本周', '本月']}}" bindchange="onPeriodChange">
+          <view class="period-selector">
+            <text>{{currentPeriod}}</text>
+            <text class="period-arrow">▼</text>
+          </view>
+        </picker>
+      </view>
+      <view class="curve-chart">
+        <!-- 简化版曲线图 -->
+        <view class="chart-lines">
+          <view class="chart-line"></view>
+          <view class="chart-line"></view>
+          <view class="chart-line"></view>
+        </view>
+        <view class="chart-curve">
+          <view class="curve-point" style="left: 10%; bottom: 60%"></view>
+          <view class="curve-point" style="left: 30%; bottom: 40%"></view>
+          <view class="curve-point" style="left: 50%; bottom: 70%"></view>
+          <view class="curve-point" style="left: 70%; bottom: 50%"></view>
+          <view class="curve-point active" style="left: 90%; bottom: 65%"></view>
+        </view>
+      </view>
+      <view class="chart-labels">
+        <text>周一</text>
+        <text>周三</text>
+        <text>周五</text>
+        <text>周日</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 统计数据 -->
   <view class="stats-section">
-    <view class="stat-item">
-      <text class="stat-number">{{stats.days}}</text>
-      <text class="stat-label">疗愈天数</text>
+    <view class="stat-card">
+      <view class="stat-icon" style="background-color: #E3F2FD">
+        <text>⏱️</text>
+      </view>
+      <view class="stat-info">
+        <text class="stat-number">{{stats.totalHours || 0}}h</text>
+        <text class="stat-label">累计疗愈</text>
+      </view>
     </view>
-    <view class="stat-divider"></view>
-    <view class="stat-item">
-      <text class="stat-number">{{stats.sessions}}</text>
-      <text class="stat-label">完成课程</text>
-    </view>
-    <view class="stat-divider"></view>
-    <view class="stat-item">
-      <text class="stat-number">{{stats.points}}</text>
-      <text class="stat-label">积分</text>
+    <view class="stat-card">
+      <view class="stat-icon" style="background-color: #FEE5E6">
+        <text>📅</text>
+      </view>
+      <view class="stat-info">
+        <text class="stat-number">{{stats.days}}</text>
+        <text class="stat-label">疗愈天数</text>
+      </view>
     </view>
   </view>
 
   <!-- 功能菜单列表 -->
   <view class="menu-section">
-    <view class="menu-item" bindtap="onMenuTap" data-page="/pages/my-plan/index">
-      <view class="menu-left">
-        <image class="menu-icon" src="/miniprogram/images/icons/goods.png"></image>
-        <text class="menu-title">我的计划</text>
+    <view class="menu-group">
+      <view class="menu-item" bindtap="onMenuTap" data-page="/pages/my-orders/index">
+        <view class="menu-left">
+          <text class="menu-icon">📋</text>
+          <text class="menu-title">我的订单</text>
+        </view>
+        <text class="menu-arrow">›</text>
       </view>
-      <image class="menu-arrow" src="/miniprogram/images/arrow.svg"></image>
+
+      <view class="menu-item" bindtap="onMenuTap" data-page="/pages/my-appointments/index">
+        <view class="menu-left">
+          <text class="menu-icon">📆</text>
+          <text class="menu-title">预约记录</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+
+      <view class="menu-item" bindtap="onMenuTap" data-page="/pages/coin-detail/index">
+        <view class="menu-left">
+          <text class="menu-icon">🪙</text>
+          <text class="menu-title">金币明细</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
     </view>
 
-    <view class="menu-item" bindtap="onMenuTap" data-page="/pages/my-records/index">
-      <view class="menu-left">
-        <image class="menu-icon" src="/miniprogram/images/icons/examples.png"></image>
-        <text class="menu-title">疗愈记录</text>
+    <view class="menu-group">
+      <view class="menu-item" bindtap="onMenuTap" data-page="/pages/feedback/index">
+        <view class="menu-left">
+          <text class="menu-icon">💬</text>
+          <text class="menu-title">建议反馈</text>
+        </view>
+        <text class="menu-arrow">›</text>
       </view>
-      <image class="menu-arrow" src="/miniprogram/images/arrow.svg"></image>
+
+      <view class="menu-item" bindtap="onMenuTap" data-page="/pages/about/index">
+        <view class="menu-left">
+          <text class="menu-icon">ℹ️</text>
+          <text class="menu-title">关于我们</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+
+      <view class="menu-item" wx:if="{{isLogin}}" bindtap="onMenuTap" data-page="/pages/settings/index">
+        <view class="menu-left">
+          <text class="menu-icon">⚙️</text>
+          <text class="menu-title">账户设置</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
     </view>
 
-    <view class="menu-item" bindtap="onMenuTap" data-page="/pages/my-favorites/index">
-      <view class="menu-left">
-        <image class="menu-icon" src="/miniprogram/images/icons/business.png"></image>
-        <text class="menu-title">我的收藏</text>
+    <!-- 退出登录 -->
+    <view class="logout-section" wx:if="{{isLogin}}">
+      <view class="logout-btn" bindtap="onLogoutTap">
+        <text>退出登录</text>
       </view>
-      <image class="menu-arrow" src="/miniprogram/images/arrow.svg"></image>
     </view>
   </view>
 
-  <!-- 设置菜单 -->
-  <view class="menu-section">
-    <view class="menu-item" bindtap="onMenuTap" data-page="/pages/settings/index">
-      <view class="menu-left">
-        <image class="menu-icon" src="/miniprogram/images/icons/setting.svg"></image>
-        <text class="menu-title">设置</text>
-      </view>
-      <image class="menu-arrow" src="/miniprogram/images/arrow.svg"></image>
-    </view>
-
-    <view class="menu-item" bindtap="onMenuTap" data-page="/pages/about/index">
-      <view class="menu-left">
-        <image class="menu-icon" src="/miniprogram/images/icons/question.svg"></image>
-        <text class="menu-title">关于我们</text>
-      </view>
-      <image class="menu-arrow" src="/miniprogram/images/arrow.svg"></image>
-    </view>
-
-    <view class="menu-item" wx:if="{{isLogin}}" bindtap="onLogoutTap">
-      <view class="menu-left">
-        <image class="menu-icon" src="/miniprogram/images/icons/close.png"></image>
-        <text class="menu-title">退出登录</text>
-      </view>
-      <image class="menu-arrow" src="/miniprogram/images/arrow.svg"></image>
-    </view>
-  </view>
+  <!-- 底部占位 -->
+  <view class="bottom-space"></view>
 </view>
