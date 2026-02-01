@@ -29,7 +29,7 @@
     ├── knowledge_base/                # 知识库文件（示例，待后期完善，目前仅支持txt文档，最好markdown格式好分隔）
     │   ├── art_therapy_theory.txt     # 艺术疗愈理论知识
     │   └── empathy_scripts.txt        # 共情对话话术库
-    （以下是根据README.md可构建的向量数据库&环境文件，未push）
+    （以下是根据对应文件/命令构建的向量数据库&环境，未push）
     ├── vector_index/                  # （运行build_index后构建的FAISS向量索引）
     │   ├── index.faiss               # FAISS索引文件
     │   └── index.pkl                 # 向量存储元数据
@@ -49,7 +49,14 @@
       // 注意：微信开发者工具中需要关闭"不校验合法域名"才能访问本地服务器
       const AI_SERVER_URL = 'http://127.0.0.1:8000'
       ```
-
+  
+  - 现在三个模式的效果大概这样：
+  
+    ![image-20260201154050156](Readme_image/1.png)
+  
+    ![image-20260201154107554](Readme_image/2.png)
+  
+    ![image-20260201154128942](Readme_image/3.png)
 
 ## 参考文档
 
