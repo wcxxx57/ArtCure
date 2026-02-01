@@ -1,5 +1,8 @@
 <!--index.wxml-->
 <view class="page-container">
+  <!-- 背景图层 -->
+  <image class="page-bg" src="/images/background/bkgd.jpg" mode="aspectFill"></image>
+  
   <!-- 顶部问候区域 -->
   <view class="header-section">
     <view class="greeting-area">

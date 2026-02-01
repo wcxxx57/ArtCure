@@ -65,14 +65,14 @@
             <image class="avatar-logo" src="/images/virtual_image/chat.png" mode="aspectFit"></image>
           </view>
           <view class="message-bubble bot-bubble">
-            <text class="message-text">{{item.text}}</text>
+            <rich-text class="message-text" nodes="{{item.richText || item.text}}"></rich-text>
           </view>
         </view>
         
         <!-- 用户消息 -->
         <view wx:else class="message-item user-message" id="msg-{{item.id}}">
           <view class="message-bubble user-bubble">
-            <text class="message-text">{{item.text}}</text>
+            <text class="message-text user-text">{{item.text}}</text>
           </view>
         </view>
       </block>

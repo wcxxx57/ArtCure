@@ -54,17 +54,15 @@ Page({
     // 滚动到的消息ID
     scrollToMessage: '',
     
-    // 是否正在输入
-    isTyping: false,
+    // 各模式独立的加载状态
+    modeTypingStatus: {
+      comfort: false,
+      therapist: false,
+      companion: false
+    },
     
-    // 快捷问题列表
-    quickQuestions: [
-      '今天有点难过...',
-      '感觉很累，想休息',
-      '心里有些话想说',
-      '最近压力好大',
-      '需要一些安慰'
-    ],
+    // 当前模式是否正在输入（用于显示）
+    isTyping: false,
     
     // 不同模式的快捷问题
     modeQuickQuestions: {
@@ -102,8 +100,47 @@ Page({
     }
   },
 
+  // Markdown 转 HTML（回复消息渲染）
+  parseMarkdown(text) {
+    if (!text) return text
+    
+    let html = text
+    
+    // 转义 HTML 特殊字符
+    html = html.replace(/&/g, '&amp;')
+    html = html.replace(/</g, '&lt;')
+    html = html.replace(/>/g, '&gt;')
+    
+    // 标题处理 - 支持 # ## ### #### 等
+    html = html.replace(/^#### (.+)$/gm, '<div style="font-weight:bold;font-size:30rpx;margin:16rpx 0 8rpx;color:#4A90E2;">$1</div>')
+    html = html.replace(/^### (.+)$/gm, '<div style="font-weight:bold;font-size:32rpx;margin:16rpx 0 8rpx;color:#4A90E2;">$1</div>')
+    html = html.replace(/^## (.+)$/gm, '<div style="font-weight:bold;font-size:34rpx;margin:18rpx 0 10rpx;color:#4A90E2;">$1</div>')
+    html = html.replace(/^# (.+)$/gm, '<div style="font-weight:bold;font-size:36rpx;margin:20rpx 0 12rpx;color:#4A90E2;">$1</div>')
+    
+    // 加粗 **text** -> <strong>
+    html = html.replace(/\*\*(.+?)\*\*/g, '<span style="font-weight:bold;color:#333;">$1</span>')
+    
+    // 斜体 *text* -> <em>
+    html = html.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, '<span style="font-style:italic;">$1</span>')
+    
+    // 有序列表 1. item -> 带序号的列表
+    html = html.replace(/^(\d+)\.\s+(.+)$/gm, '<div style="margin:8rpx 0;padding-left:16rpx;position:relative;"><span style="position:absolute;left:0;color:#4A90E2;font-weight:bold;">$1.</span><span style="margin-left:24rpx;">$2</span></div>')
+    
+    // 无序列表 - item 或 * item -> 带圆点的列表
+    html = html.replace(/^[-*]\s+(.+)$/gm, '<div style="margin:8rpx 0;padding-left:16rpx;position:relative;"><span style="position:absolute;left:0;color:#4A90E2;">•</span><span style="margin-left:20rpx;">$1</span></div>')
+    
+    // 代码块（简单处理）
+    html = html.replace(/`([^`]+)`/g, '<span style="background-color:#f5f5f5;padding:2rpx 8rpx;border-radius:6rpx;font-family:monospace;color:#d63384;">$1</span>')
+    
+    // 换行处理
+    html = html.replace(/\n\n/g, '<br/><br/>')
+    html = html.replace(/\n/g, '<br/>')
+    
+    return html
+  },
+
   onLoad(options) {
-    // 初始化当前模式的消息
+    // 初始化当前模式的消息和快捷问题
     this.setData({
       messages: this.data.modeMessages[this.data.currentMode],
       quickQuestions: this.data.modeQuickQuestions[this.data.currentMode]
@@ -119,15 +156,16 @@ Page({
     const mode = e.currentTarget.dataset.mode
     if (mode === this.data.currentMode) return
     
-    const { modeConfig, modeQuickQuestions, modeMessages } = this.data
+    const { modeConfig, modeQuickQuestions, modeMessages, modeTypingStatus } = this.data
     const config = modeConfig[mode]
     
-    // 切换到对应模式的聊天记录
+    // 切换到对应模式的聊天记录，并同步该模式的加载状态
     this.setData({
       currentMode: mode,
       currentModeName: config.name,
       quickQuestions: modeQuickQuestions[mode],
-      messages: modeMessages[mode]
+      messages: modeMessages[mode],
+      isTyping: modeTypingStatus[mode]  // 同步当前模式的加载状态
     })
     
     // 滚动到底部
@@ -172,7 +210,7 @@ Page({
 
   // 发送消息逻辑
   sendMessage(text) {
-    const { currentMode, modeMessages, modeMessageCounters } = this.data
+    const { currentMode, modeMessages, modeMessageCounters, modeTypingStatus } = this.data
     const messageId = modeMessageCounters[currentMode]
     
     // 添加用户消息
@@ -200,23 +238,142 @@ Page({
       scrollToMessage: `msg-${messageId}`
     })
     
-    // 显示正在输入
+    // 显示正在输入（只在当前模式显示）
     setTimeout(() => {
-      this.setData({ isTyping: true })
+      const newTypingStatus = { ...modeTypingStatus }
+      newTypingStatus[currentMode] = true
+      
+      this.setData({ 
+        isTyping: true,
+        modeTypingStatus: newTypingStatus
+      })
       this.scrollToBottom()
     }, 300)
     
-    // 模拟 AI 回复
-    setTimeout(() => {
-      this.generateReply(text)
-    }, 1000 + Math.random() * 1000)
+    // 调用 RAG AI 服务器，传入发送时的模式
+    this.callRAGService(text, currentMode)
   },
 
-  // 生成 AI 回复
-  generateReply(userText) {
-    const { currentMode, modeMessages, modeMessageCounters, replies } = this.data
-    const messageId = modeMessageCounters[currentMode]
+  // 调用 RAG AI 服务器（统一的AI服务接口）
+  async callRAGService(userText, requestMode) {
+    // 使用请求时的模式，而不是当前显示的模式
+    const mode = requestMode || this.data.currentMode
     
+    // AI 服务器地址 - 本地测试用，部署时改为公网地址
+    const AI_SERVER_URL = 'http://127.0.0.1:8000'
+    
+    try {
+      // 获取用户ID（从用户登录信息获取）
+      const userId = wx.getStorageSync('userId') || 'miniprogram_user'
+      
+      console.log('[AI Chat] 调用 RAG 服务器:', AI_SERVER_URL)
+      console.log('[AI Chat] 请求模式:', mode)
+      
+      // 调用 AI 服务器
+      const res = await new Promise((resolve, reject) => {
+        wx.request({
+          url: `${AI_SERVER_URL}/chat`,
+          method: 'POST',
+          header: {
+            'Content-Type': 'application/json'
+          },
+          data: {
+            user_id: userId,
+            query: userText,
+            mode: mode,
+            user_profile: '微信小程序用户'
+          },
+          timeout: 30000,
+          success: (response) => {
+            console.log('[AI Chat] RAG 服务器响应:', response)
+            resolve(response)
+          },
+          fail: (error) => {
+            console.error('[AI Chat] RAG 请求失败:', error)
+            reject(error)
+          }
+        })
+      })
+      
+      if (res.statusCode === 200 && res.data && res.data.success) {
+        // 回复添加到请求时的模式，而不是当前显示的模式
+        this.addBotMessage(res.data.reply, mode)
+        
+        // 可选：显示检索来源（调试用）
+        if (res.data.sources && res.data.sources.length > 0) {
+          console.log('[AI Chat] 知识来源:', res.data.sources)
+        }
+      } else {
+        console.error('[AI Chat] RAG 返回错误:', res.data)
+        this.addBotMessage('抱歉，我现在有点忙，请稍后再试。如果你需要帮助，也可以切换到其他模式聊聊。', mode)
+      }
+      
+    } catch (err) {
+      console.error('[AI Chat] 调用 RAG 服务失败:', err)
+      // 降级到本地回复 - 传入请求时的模式
+      this.generateLocalReply(userText, mode)
+    }
+  },
+
+  // 添加机器人消息
+  addBotMessage(replyText, targetMode) {
+    // 使用指定的模式，如果没有指定则使用当前模式
+    const mode = targetMode || this.data.currentMode
+    const { currentMode, modeMessages, modeMessageCounters, modeTypingStatus } = this.data
+    const messageId = modeMessageCounters[mode]
+    
+    // 解析 Markdown 为富文本
+    const richText = this.parseMarkdown(replyText)
+    
+    const botMessage = {
+      id: messageId,
+      type: 'bot',
+      text: replyText,
+      richText: richText
+    }
+    
+    // 更新指定模式的消息列表
+    const targetMessages = modeMessages[mode]
+    const newMessages = [...targetMessages, botMessage]
+    
+    // 更新数据
+    const newModeMessages = { ...modeMessages }
+    newModeMessages[mode] = newMessages
+    
+    const newCounters = { ...modeMessageCounters }
+    newCounters[mode] = messageId + 1
+    
+    // 更新该模式的加载状态
+    const newTypingStatus = { ...modeTypingStatus }
+    newTypingStatus[mode] = false
+    
+    // 判断是否需要更新当前显示的消息
+    const updateData = {
+      modeMessages: newModeMessages,
+      modeMessageCounters: newCounters,
+      modeTypingStatus: newTypingStatus
+    }
+    
+    // 只有当目标模式是当前显示的模式时，才更新 messages 和 isTyping
+    if (mode === currentMode) {
+      updateData.messages = newMessages
+      updateData.isTyping = false
+      updateData.scrollToMessage = `msg-${messageId}`
+    }
+    
+    this.setData(updateData)
+    
+    // 如果是当前模式，延迟滚动确保渲染完成
+    if (mode === currentMode) {
+      setTimeout(() => {
+        this.scrollToBottom()
+      }, 100)
+    }
+  },
+
+  // 本地回复（降级方案）
+  generateLocalReply(userText, targetMode) {
+    const { replies } = this.data
     let replyText = replies.default
     const lowerText = userText.toLowerCase()
     
@@ -233,35 +390,7 @@ Page({
       replyText = replies.stressed
     }
     
-    const botMessage = {
-      id: messageId,
-      type: 'bot',
-      text: replyText
-    }
-    
-    // 更新当前模式的消息列表
-    const currentMessages = modeMessages[currentMode]
-    const newMessages = [...currentMessages, botMessage]
-    
-    // 更新数据
-    const newModeMessages = { ...modeMessages }
-    newModeMessages[currentMode] = newMessages
-    
-    const newCounters = { ...modeMessageCounters }
-    newCounters[currentMode] = messageId + 1
-    
-    this.setData({
-      messages: newMessages,
-      modeMessages: newModeMessages,
-      modeMessageCounters: newCounters,
-      isTyping: false,
-      scrollToMessage: `msg-${messageId}`
-    })
-    
-    // 延迟滚动确保渲染完成
-    setTimeout(() => {
-      this.scrollToBottom()
-    }, 100)
+    this.addBotMessage(replyText, targetMode)
   },
 
   // 滚动到底部

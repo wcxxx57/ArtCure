@@ -111,9 +111,9 @@ page {
 }
 
 .mode-active {
-  background: linear-gradient(135deg, #FFB7B2 0%, #FF8A80 100%);
+  background: linear-gradient(135deg, #FFC5C1 0%, #FFB5B0 100%);
   border-color: transparent;
-  box-shadow: 0 4rpx 16rpx rgba(255, 138, 128, 0.3);
+  box-shadow: 0 4rpx 16rpx rgba(255, 197, 193, 0.3);
 }
 
 .mode-icon {
@@ -147,11 +147,15 @@ page {
   display: flex;
   align-items: flex-start;
   gap: 16rpx;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* 机器人消息 */
 .bot-message {
   flex-direction: row;
+  padding-right: 60rpx;
+  justify-content: flex-start;
 }
 
 .message-avatar {
@@ -177,37 +181,81 @@ page {
 }
 
 .message-bubble {
-  max-width: 75%;
   padding: 24rpx 28rpx;
   border-radius: 28rpx;
   box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  word-wrap: break-word;
+  word-break: break-all;
 }
 
 .bot-bubble {
   background-color: #FFFFFF;
   border-radius: 4rpx 28rpx 28rpx 28rpx;
   border: 2rpx solid rgba(0, 0, 0, 0.03);
+  max-width: 70%; /* 只对机器人消息限制最大宽度 */
 }
 
 /* 用户消息 */
 .user-message {
   flex-direction: row-reverse;
+  padding-left: 0; /* 完全移除左侧padding */
+  padding-right: 45rpx; /* 给右侧适当的padding */
+  justify-content: flex-start; /* 确保从右侧开始布局 */
+}
+
+.user-message .message-bubble {
+  max-width: 75%; /* 设置合理的最大宽度 */
+  min-width: auto; /* 允许根据内容自适应 */
 }
 
 .user-bubble {
-  background: linear-gradient(135deg, #FFB7B2 0%, #FF8A80 100%);
+  background: linear-gradient(135deg, #f7cdc9ff 0%, #fde1d6ff 100%);
   border-radius: 28rpx 4rpx 28rpx 28rpx;
+  max-width: 100%; /* 在容器内完全展示 */
+  width: auto; /* 自适应宽度 */
+  flex-shrink: 0; /* 防止被压缩 */
 }
 
-.user-bubble .message-text {
-  color: #FFFFFF;
+.user-bubble .message-text,
+.user-bubble .user-text {
+  color: #151515ff;
 }
 
 .message-text {
   font-size: 28rpx;
   color: #333333;
-  line-height: 1.6;
-  white-space: pre-wrap;
+  line-height: 1.7;
+  word-wrap: break-word;
+  word-break: break-word;
+  white-space: pre-wrap; /* 保留换行和空格 */
+}
+
+.user-text {
+  display: block;
+  word-wrap: break-word;
+  word-break: break-word;
+  white-space: pre-wrap; /* 保留换行和空格 */
+  width: 100%; /* 确保完整显示 */
+}
+
+/* Rich-text 样式 */
+.bot-bubble rich-text {
+  font-size: 28rpx;
+  color: #333333;
+  line-height: 1.7;
+  width: 100%;
+  display: block;
+}
+
+/* Rich-text 内部样式优化 */
+.message-bubble rich-text div {
+  margin: 0;
+  padding: 0;
+}
+
+.message-bubble rich-text br {
+  display: block;
+  margin: 4rpx 0;
 }
 
 /* 正在输入指示器 */
@@ -286,7 +334,7 @@ page {
 
 .quick-item:active {
   background-color: #E3F2FD;
-  border-color: #4A90E2;
+  border-color: #FFC5C1;
   color: #4A90E2;
 }
 
@@ -318,7 +366,7 @@ page {
 }
 
 .message-input:focus {
-  border-color: #FFB7B2;
+  border-color: #FFC5C1;
   background-color: #FFFFFF;
 }
 
@@ -338,8 +386,8 @@ page {
 }
 
 .send-active {
-  background: linear-gradient(135deg, #FFB7B2 0%, #FF8A80 100%);
-  box-shadow: 0 4rpx 16rpx rgba(255, 138, 128, 0.4);
+  background: linear-gradient(135deg, #FFC5C1 0%, #FFB5B0 100%);
+  box-shadow: 0 4rpx 16rpx rgba(255, 197, 193, 0.4);
 }
 
 .send-active:active {
