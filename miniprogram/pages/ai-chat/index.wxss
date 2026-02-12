@@ -1,6 +1,6 @@
 /* AI 对话页面样式 index.wxss */
 page {
-  background-color: #FFFBF0;
+  background: linear-gradient(180deg, #FFF5F0 0%, #FFE8E0 100%);
   height: 100%;
 }
 
@@ -8,16 +8,16 @@ page {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background-color: #FFFBF0;
+  background: linear-gradient(180deg, #FFF5F0 0%, #FFE8E0 100%);
 }
 
 /* ==================== 顶部导航 ==================== */
 .chat-header {
   flex-shrink: 0;
-  background: linear-gradient(135deg, #E3F2FD 0%, #F3E5F5 100%);
+  background: linear-gradient(135deg, #FFD6C8 0%, #FFCABC 100%);
   padding-bottom: 24rpx;
   border-radius: 0 0 48rpx 48rpx;
-  box-shadow: 0 4rpx 20rpx rgba(74, 144, 226, 0.1);
+  box-shadow: 0 4rpx 20rpx rgba(255, 154, 139, 0.15);
 }
 
 /* 顶部栏 */

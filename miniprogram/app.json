@@ -8,7 +8,6 @@
     "pages/healing-hall/index",
     "pages/healing-plan/index",
     "pages/profile/index",
-    "pages/index/index",
     "pages/example/index"
   ],
   "window": {
@@ -20,34 +19,34 @@
     "navigationStyle": "custom"
   },
   "tabBar": {
-    "color": "#AAAAAA",
-    "selectedColor": "#FF8A80",
-    "backgroundColor": "#FFFFFF",
+    "color": "#444444",
+    "selectedColor": "#fbaab4",
+    "backgroundColor": "#e7f4fb",
     "borderStyle": "white",
     "list": [
       {
         "pagePath": "pages/page1/index",
         "text": "小屋",
-        "iconPath": "images/icons/home.png",
-        "selectedIconPath": "images/icons/home-active.png"
+        "iconPath": "images/tab_bar/home.png",
+        "selectedIconPath": "images/tab_bar/home-active.png"
       },
       {
         "pagePath": "pages/healing-hall/index",
         "text": "疗愈馆",
-        "iconPath": "images/icons/examples.png",
-        "selectedIconPath": "images/icons/examples-active.png"
+        "iconPath": "images/tab_bar/institute.png",
+        "selectedIconPath": "images/tab_bar/institute-active.png"
       },
       {
         "pagePath": "pages/healing-plan/index",
         "text": "计划",
-        "iconPath": "images/icons/goods.png",
-        "selectedIconPath": "images/icons/goods-active.png"
+        "iconPath": "images/tab_bar/plan.png",
+        "selectedIconPath": "images/tab_bar/plan-active.png"
       },
       {
         "pagePath": "pages/profile/index",
         "text": "我的",
-        "iconPath": "images/icons/usercenter.png",
-        "selectedIconPath": "images/icons/usercenter-active.png"
+        "iconPath": "images/tab_bar/profile.png",
+        "selectedIconPath": "images/tab_bar/profile-active.png"
       }
     ]
   },

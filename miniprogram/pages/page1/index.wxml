@@ -1,7 +1,10 @@
 <!--index.wxml-->
 <view class="page-container">
   <!-- 背景图层 -->
-  <image class="page-bg" src="/images/background/bkgd.jpg" mode="aspectFill"></image>
+  <view class="bg-wrapper">
+    <image class="page-bg" src="../../images/main_page/背景.png" mode="aspectFill"></image>
+    <image class="page-symbols" src="../../images/main_page/符号.png" mode="aspectFill"></image>
+  </view>
   
   <!-- 顶部问候区域 -->
   <view class="header-section">
@@ -26,7 +29,7 @@
     <view class="avatar-blob blob-2"></view>
     <view class="virtual-avatar" bindtap="onAvatarTap">
       <view class="avatar-character">
-        <image class="back-logo" src="/images/virtual_image/virtual_image.png" mode="aspectFit"></image>
+        <image class="back-logo" src="../../images/main_page/ip.png" mode="aspectFit"></image>
       </view>
       <view class="chat-hint">
         <text>点我聊天 ✨</text>
