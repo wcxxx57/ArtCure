@@ -3,27 +3,9 @@ const AuthService = require('../../utils/auth.js')
 
 Page({
   data: {
-    // 我的进行中计划
-    myPlans: [
-      { 
-        id: 1, 
-        title: '七天绘画疗愈', 
-        emoji: '🎨', 
-        bgColor: '#FEE5E6',
-        progress: 71,
-        currentDay: 5,
-        totalDays: 7
-      },
-      { 
-        id: 2, 
-        title: '30天正念冥想', 
-        emoji: '🧘', 
-        bgColor: '#E3F2FD',
-        progress: 10,
-        currentDay: 3,
-        totalDays: 30
-      }
-    ],
+    isLogin: false,
+    // 我的进行中计划（从数据库加载）
+    myPlans: [],
     
     // 经典方案
     classicPlans: [
@@ -45,6 +27,7 @@ Page({
   // 检查登录并加载计划
   checkLoginAndLoadPlans() {
     const isLoggedIn = AuthService.isLoggedIn()
+    this.setData({ isLogin: isLoggedIn })
     if (isLoggedIn) {
       this.loadMyPlans()
     } else {
@@ -52,13 +35,54 @@ Page({
     }
   },
   
+  // 我的计划入口点击
+  onMyPlansEntryTap() {
+    wx.navigateTo({
+      url: '/pages/my-plans/index'
+    })
+  },
+  
   // 加载我的计划
   loadMyPlans() {
-    // TODO: 从云数据库加载用户计划
-    // wx.cloud.callFunction({
-    //   name: 'plan',
-    //   data: { action: 'getUserPlans' }
-    // })
+    const userInfo = AuthService.getUserInfo()
+    if (!userInfo) {
+      this.setData({ myPlans: [] })
+      return
+    }
+
+    wx.cloud.callFunction({
+      name: 'planManagement',
+      data: { 
+        action: 'getUserPlans',
+        userId: userInfo._id
+      }
+    }).then(res => {
+      if (res.result.code === 0) {
+        const { ongoingPlans } = res.result.data
+        
+        // 只显示前3个进行中的计划
+        const displayPlans = ongoingPlans.slice(0, 3).map(plan => {
+          const progress = Math.round((plan.currentDay / plan.totalDays) * 100)
+          return {
+            ...plan,
+            id: plan._id,
+            title: plan.name,
+            progress: progress,
+            displayDay: plan.currentDay  // 已完成的天数
+          }
+        })
+        
+        this.setData({
+          myPlans: displayPlans
+        })
+      } else {
+        console.error('加载计划失败:', res.result.message)
+        this.setData({ myPlans: [] })
+      }
+    }).catch(err => {
+      console.error('加载计划失败:', err)
+      this.setData({ myPlans: [] })
+    })
   },
 
   // AI 推荐点击
@@ -86,11 +110,9 @@ Page({
   // 我的计划点击
   onMyPlanTap(e) {
     const plan = e.currentTarget.dataset.plan
-    wx.showToast({
-      title: `继续「${plan.title}」`,
-      icon: 'none'
+    wx.navigateTo({
+      url: `/pages/plan-detail/index?planId=${plan._id}`
     })
-    // TODO: 跳转到计划详情/今日任务页
   },
   
   // 经典方案点击
@@ -111,20 +133,25 @@ Page({
       return
     }
     
-    wx.showModal({
-      title: plan.title,
-      content: '是否加入该疗愈计划？',
-      confirmText: '加入',
-      success: (res) => {
-        if (res.confirm) {
-          wx.showToast({
-            title: '已加入计划',
-            icon: 'success'
-          })
-          // TODO: 调用云函数加入计划
-        }
-      }
-    })
+    // 根据计划ID跳转到对应的模板页
+    const templateMap = {
+      1: 'anxiety-7days',      // 7天焦虑缓解计划
+      2: 'sleep-emotion',       // 睡前情绪清理
+      3: 'mindfulness-14days',  // 14天正念入门
+      4: 'music-healing'        // 音乐疗愈之旅
+    }
+    
+    const templateId = templateMap[plan.id]
+    if (templateId) {
+      wx.navigateTo({
+        url: `/pages/plan-template/index?templateId=${templateId}`
+      })
+    } else {
+      wx.showToast({
+        title: '该计划开发中',
+        icon: 'none'
+      })
+    }
   },
   
   // 定制计划点击

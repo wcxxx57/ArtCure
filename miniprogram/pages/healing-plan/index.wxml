@@ -17,9 +17,19 @@
     </view>
   </view>
 
+  <!-- 我的计划入口 -->
+  <view class="my-plans-entry" wx:if="{{isLogin}}" bindtap="onMyPlansEntryTap">
+    <view class="entry-icon">📋</view>
+    <view class="entry-content">
+      <text class="entry-title">我的计划</text>
+      <text class="entry-desc">查看所有已加入的计划</text>
+    </view>
+    <view class="entry-arrow">→</view>
+  </view>
+
   <!-- 我的计划 -->
   <view class="my-plans-section" wx:if="{{myPlans.length > 0}}">
-    <text class="section-title">我的计划</text>
+    <text class="section-title">进行中的计划</text>
     <view class="my-plans-list">
       <view 
         class="my-plan-card"
@@ -36,7 +46,7 @@
           <view class="plan-progress-bar">
             <view class="progress-fill" style="width: {{item.progress}}%"></view>
           </view>
-          <text class="plan-progress-text">第{{item.currentDay}}天/{{item.totalDays}}天</text>
+          <text class="plan-progress-text">已完成{{item.currentDay}}天/共{{item.totalDays}}天</text>
         </view>
         <view class="plan-action">
           <text class="action-text">继续</text>

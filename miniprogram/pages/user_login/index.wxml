@@ -35,7 +35,7 @@
           />
           <image 
             class="eye-icon" 
-            src="/miniprogram/images/icons/{{showPassword ? 'close' : 'question'}}.png"
+            src="/images/icons/{{showPassword ? 'close' : 'question'}}.png"
             bindtap="togglePasswordVisibility"
           ></image>
         </view>

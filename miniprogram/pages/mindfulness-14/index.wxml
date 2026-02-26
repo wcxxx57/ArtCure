@@ -1,0 +1,113 @@
+<!--mindfulness-14/index.wxml-->
+<view class="container">
+  <!-- 自定义导航栏 -->
+  <view class="custom-navbar">
+    <view class="navbar-back" bindtap="onBack">
+      <text class="back-icon">←</text>
+    </view>
+    <text class="navbar-title">计划详情</text>
+  </view>
+
+  <!-- 计划信息卡片 -->
+  <view class="plan-info-card">
+    <view class="plan-header">
+      <view class="plan-icon-large" style="background-color: {{templateInfo.bgColor}}">
+        <text class="plan-emoji-large">{{templateInfo.emoji}}</text>
+      </view>
+      <view class="plan-title-section">
+        <text class="plan-name">{{templateInfo.name}}</text>
+        <text class="plan-description">{{templateInfo.description}}</text>
+      </view>
+    </view>
+    
+    <view class="plan-meta">
+      <view class="meta-item">
+        <text class="meta-icon">📅</text>
+        <text class="meta-text">{{templateInfo.totalDays}}天计划</text>
+      </view>
+      <view class="meta-item">
+        <text class="meta-icon">👥</text>
+        <text class="meta-text">{{templateInfo.participants}}人参与</text>
+      </view>
+    </view>
+    
+    <view class="plan-tags">
+      <text class="tag" wx:for="{{templateInfo.tags}}" wx:key="*this">#{{item}}</text>
+    </view>
+  </view>
+
+  <!-- 任务列表 -->
+  <view class="tasks-list">
+    <text class="section-title">每日任务</text>
+    <view class="task-item" wx:for="{{tasks}}" wx:key="day">
+      <view class="task-header" bindtap="toggleTask" data-index="{{index}}">
+        <view class="task-day-badge">
+          <text class="day-number">Day {{item.day}}</text>
+        </view>
+        <view class="task-info">
+          <text class="task-title">{{item.title}}</text>
+          <view class="task-type">
+            <text class="type-icon">{{item.typeIcon}}</text>
+            <text class="type-name">{{item.typeName}}</text>
+            <text class="task-duration">{{item.duration}}分钟</text>
+          </view>
+        </view>
+        <view class="task-arrow {{item.expanded ? 'expanded' : ''}}">
+          <text>▼</text>
+        </view>
+      </view>
+      
+      <view class="task-detail" wx:if="{{item.expanded}}">
+        <text class="task-description">{{item.description}}</text>
+        <button class="edit-task-btn" bindtap="onEditTask" data-index="{{index}}">
+          <text class="edit-icon">✏️</text>
+          <text>自定义任务</text>
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部按钮 -->
+  <view class="bottom-actions">
+    <button class="action-btn secondary" bindtap="onSaveCustom">
+      <text class="btn-icon">✏️</text>
+      <text>自定义后加入</text>
+    </button>
+    <button class="action-btn primary" bindtap="onUseDefault">
+      <text class="btn-icon">✓</text>
+      <text>使用默认计划</text>
+    </button>
+  </view>
+
+  <!-- 编辑任务弹窗 -->
+  <view class="modal-mask" wx:if="{{showEditModal}}" bindtap="onCloseEditModal">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <text class="modal-title">编辑任务</text>
+        <text class="modal-close" bindtap="onCloseEditModal">×</text>
+      </view>
+      
+      <view class="modal-body">
+        <view class="form-item">
+          <text class="form-label">任务标题</text>
+          <input class="form-input" value="{{editingTask.title}}" bindinput="onTitleInput" placeholder="请输入任务标题" />
+        </view>
+        
+        <view class="form-item">
+          <text class="form-label">任务描述</text>
+          <textarea class="form-textarea" value="{{editingTask.description}}" bindinput="onDescriptionInput" placeholder="请输入任务描述" />
+        </view>
+        
+        <view class="form-item">
+          <text class="form-label">时长（分钟）</text>
+          <input class="form-input" type="number" value="{{editingTask.duration}}" bindinput="onDurationInput" placeholder="请输入时长" />
+        </view>
+      </view>
+      
+      <view class="modal-footer">
+        <button class="modal-btn cancel" bindtap="onCloseEditModal">取消</button>
+        <button class="modal-btn confirm" bindtap="onConfirmEdit">确定</button>
+      </view>
+    </view>
+  </view>
+</view>

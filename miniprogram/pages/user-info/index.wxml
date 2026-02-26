@@ -5,9 +5,9 @@
     <view class="avatar-container">
       <!-- 左侧头像 -->
       <view class="avatar-wrapper" bindtap="onChooseAvatar">
-        <image class="avatar" src="{{userInfo.avatar || '/miniprogram/images/avatar.png'}}" mode="aspectFill"></image>
+        <image class="avatar" src="{{userInfo.avatar || '/images/avatar.png'}}" mode="aspectFill"></image>
         <view class="avatar-mask">
-          <image class="camera-icon" src="/miniprogram/images/icons/question.svg"></image>
+          <image class="camera-icon" src="/images/icons/question.svg"></image>
         </view>
       </view>
 
@@ -16,7 +16,7 @@
         <text class="nickname-label">昵称</text>
         <text class="nickname-text">{{userInfo.nickname || '疗愈用户'}}</text>
         <button class="edit-nickname-btn" bindtap="onEditNickname">
-          <image class="edit-icon" src="/miniprogram/images/icons/question.svg"></image>
+          <image class="edit-icon" src="/images/icons/question.svg"></image>
           <text>修改昵称</text>
         </button>
       </view>
@@ -36,7 +36,7 @@
     <!-- 账号信息 -->
     <view class="info-item">
       <view class="item-label">
-        <image class="item-icon" src="/miniprogram/images/icons/{{accountType === 'email' ? 'examples' : 'goods'}}.png"></image>
+        <image class="item-icon" src="/images/icons/{{accountType === 'email' ? 'examples' : 'goods'}}.png"></image>
         <text>{{accountType === 'email' ? '邮箱' : '手机号'}}</text>
       </view>
       <view class="item-value">
@@ -47,12 +47,12 @@
     <!-- 密码管理 -->
     <view class="info-item clickable" bindtap="onChangePassword">
       <view class="item-label">
-        <image class="item-icon" src="/miniprogram/images/icons/close.png"></image>
+        <image class="item-icon" src="/images/icons/close.png"></image>
         <text>密码</text>
       </view>
       <view class="item-value">
         <text class="password-text">••••••••</text>
-        <image class="arrow-icon" src="/miniprogram/images/arrow.svg"></image>
+        <image class="arrow-icon" src="/images/arrow.svg"></image>
       </view>
     </view>
   </view>
@@ -62,7 +62,7 @@
     <view class="modal-content" catchtap="stopPropagation">
       <view class="modal-header">
         <text class="modal-title">修改昵称</text>
-        <image class="modal-close" src="/miniprogram/images/icons/close.png" bindtap="onCloseNicknameModal"></image>
+        <image class="modal-close" src="/images/icons/close.png" bindtap="onCloseNicknameModal"></image>
       </view>
 
       <view class="modal-body">
@@ -94,7 +94,7 @@
     <view class="modal-content" catchtap="stopPropagation">
       <view class="modal-header">
         <text class="modal-title">修改密码</text>
-        <image class="modal-close" src="/miniprogram/images/icons/close.png" bindtap="onClosePasswordModal"></image>
+        <image class="modal-close" src="/images/icons/close.png" bindtap="onClosePasswordModal"></image>
       </view>
 
       <view class="modal-body">
@@ -111,7 +111,7 @@
             />
             <image 
               class="eye-icon" 
-              src="/miniprogram/images/icons/{{showOldPassword ? 'close.png' : 'question.svg'}}"
+              src="/images/icons/{{showOldPassword ? 'close.png' : 'question.svg'}}"
               bindtap="toggleOldPassword"
             ></image>
           </view>
@@ -130,7 +130,7 @@
             />
             <image 
               class="eye-icon" 
-              src="/miniprogram/images/icons/{{showNewPassword ? 'close.png' : 'question.svg'}}"
+              src="/images/icons/{{showNewPassword ? 'close.png' : 'question.svg'}}"
               bindtap="toggleNewPassword"
             ></image>
           </view>
@@ -156,7 +156,7 @@
             />
             <image 
               class="eye-icon" 
-              src="/miniprogram/images/icons/{{showConfirmPassword ? 'close.png' : 'question.svg'}}"
+              src="/images/icons/{{showConfirmPassword ? 'close.png' : 'question.svg'}}"
               bindtap="toggleConfirmPassword"
             ></image>
           </view>

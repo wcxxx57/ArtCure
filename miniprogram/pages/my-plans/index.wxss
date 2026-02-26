@@ -1,0 +1,325 @@
+/* my-plans/index.wxss */
+page {
+  background-color: #F8F8F8;
+}
+
+.container {
+  min-height: 100vh;
+  padding-top: 120rpx;
+  padding-left: 30rpx;
+  padding-right: 30rpx;
+  padding-bottom: 180rpx;
+}
+
+/* 自定义导航栏 */
+.custom-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 88rpx;
+  background-color: #FFE5F0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding-top: env(safe-area-inset-top);
+}
+
+.navbar-back {
+  position: absolute;
+  left: 20rpx;
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+}
+
+.navbar-back:active {
+  background-color: rgba(255, 255, 255, 0.8);
+  transform: scale(0.95);
+}
+
+.back-icon {
+  font-size: 36rpx;
+  color: #333333;
+  font-weight: 600;
+}
+
+.navbar-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333333;
+}
+
+/* 统计卡片 */
+.stats-card {
+  min-width: 70%;
+  background: linear-gradient(135deg, #FFE5F0 0%, #FFF8DC 100%);
+  border-radius: 24rpx;
+  padding: 40rpx;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  margin-bottom: 30rpx;
+  box-shadow: 0 4rpx 20rpx rgba(255, 182, 193, 0.2);
+}
+
+.stats-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stats-number {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: #333333;
+  margin-bottom: 8rpx;
+}
+
+.stats-label {
+  font-size: 24rpx;
+  color: #666666;
+}
+
+.stats-divider {
+  width: 2rpx;
+  height: 60rpx;
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* 分组标题 */
+.section {
+  margin-bottom: 30rpx;
+  min-width: 80%;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #333333;
+  display: block;
+  margin-bottom: 20rpx;
+}
+
+.toggle-icon {
+  font-size: 24rpx;
+  color: #999999;
+}
+
+/* 计划列表 */
+.plans-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.plan-card {
+  background-color: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 24rpx;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 2rpx 16rpx rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s;
+}
+
+.plan-card:active {
+  transform: scale(0.98);
+}
+
+.plan-card.completed {
+  opacity: 0.7;
+}
+
+.plan-icon {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.plan-emoji {
+  font-size: 48rpx;
+}
+
+.plan-info {
+  flex: 1;
+  margin-left: 20rpx;
+}
+
+.plan-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333333;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+.plan-progress {
+  margin-bottom: 12rpx;
+}
+
+.progress-bar {
+  height: 8rpx;
+  background-color: #F0F0F0;
+  border-radius: 4rpx;
+  overflow: hidden;
+  margin-bottom: 8rpx;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4A90E2 0%, #63B3ED 100%);
+  border-radius: 4rpx;
+  transition: width 0.3s;
+}
+
+.progress-text {
+  font-size: 22rpx;
+  color: #999999;
+}
+
+.plan-status {
+  margin-top: 8rpx;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 6rpx 16rpx;
+  border-radius: 12rpx;
+  font-size: 22rpx;
+  font-weight: 500;
+}
+
+.status-badge.checked {
+  background-color: #E8F8F5;
+  color: #51CF66;
+}
+
+.status-badge.unchecked {
+  background-color: #FFF3E0;
+  color: #FF9800;
+}
+
+.plan-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12rpx;
+}
+
+.plan-action {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 12rpx 24rpx;
+  background-color: #E3F2FD;
+  border-radius: 20rpx;
+}
+
+.action-text {
+  font-size: 24rpx;
+  color: #4A90E2;
+  font-weight: 500;
+}
+
+.action-arrow {
+  font-size: 24rpx;
+  color: #4A90E2;
+}
+
+.delete-btn {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 28rpx;
+  background-color: #FFE5E5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+}
+
+.delete-btn:active {
+  background-color: #FFD0D0;
+  transform: scale(0.95);
+}
+
+.delete-icon {
+  font-size: 28rpx;
+}
+
+.completed-text {
+  font-size: 24rpx;
+  color: #999999;
+}
+
+.completed-badge {
+  width: 48rpx;
+  height: 48rpx;
+  background-color: #51CF66;
+  border-radius: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 120rpx 60rpx;
+}
+
+.empty-emoji {
+  font-size: 120rpx;
+  margin-bottom: 30rpx;
+}
+
+.empty-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333333;
+  margin-bottom: 12rpx;
+}
+
+.empty-desc {
+  font-size: 26rpx;
+  color: #999999;
+  margin-bottom: 40rpx;
+}
+
+.explore-btn {
+  background: linear-gradient(135deg, #FFB6C1 0%, #FFA07A 100%);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 50rpx;
+  padding: 24rpx 60rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  box-shadow: 0 4rpx 16rpx rgba(255, 182, 193, 0.3);
+}
+
+.explore-btn::after {
+  border: none;
+}

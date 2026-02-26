@@ -66,7 +66,7 @@ exports.main = async (event, context) => {
       _openid: wxContext.OPENID,
       password: hashedPassword,
       nickname: '疗愈用户',
-      avatar: '/miniprogram/images/avatar.png',
+      avatar: '/images/avatar.png',
       coins: 0,
       createdAt: new Date(),
       updatedAt: new Date(),

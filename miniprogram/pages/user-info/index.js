@@ -48,7 +48,7 @@ Page({
       
       this.setData({
         userInfo: {
-          avatar: userInfo.avatar || '/miniprogram/images/avatar.png',
+          avatar: userInfo.avatar || '/images/avatar.png',
           account: account,
           nickname: userInfo.nickname || '疗愈用户'
         },

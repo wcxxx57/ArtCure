@@ -89,6 +89,45 @@ page {
   box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.15);
 }
 
+/* ==================== 我的计划入口 ==================== */
+.my-plans-entry {
+  margin: 0 32rpx 32rpx;
+  background: linear-gradient(135deg, #E8F8F5 0%, #B2EBF2 100%);
+  border-radius: 24rpx;
+  padding: 32rpx;
+  display: flex;
+  align-items: center;
+  border: 2rpx solid rgba(255, 255, 255, 0.5);
+}
+
+.entry-icon {
+  font-size: 48rpx;
+  margin-right: 20rpx;
+}
+
+.entry-content {
+  flex: 1;
+}
+
+.entry-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333333;
+  display: block;
+  margin-bottom: 6rpx;
+}
+
+.entry-desc {
+  font-size: 24rpx;
+  color: #666666;
+}
+
+.entry-arrow {
+  font-size: 32rpx;
+  color: #4A90E2;
+  font-weight: 600;
+}
+
 /* ==================== 我的计划 ==================== */
 .my-plans-section {
   padding: 0 32rpx 32rpx;

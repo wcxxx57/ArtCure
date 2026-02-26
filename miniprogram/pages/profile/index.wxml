@@ -6,7 +6,7 @@
     <view class="user-header">
       <view class="user-main" bindtap="{{isLogin ? 'onUserHeaderTap' : ''}}">
         <view class="avatar-wrapper">
-          <image class="avatar" src="{{userInfo.avatar || '/miniprogram/images/avatar.png'}}"></image>
+          <image class="avatar" src="{{userInfo.avatar || '/images/avatar.png'}}"></image>
         </view>
         <view class="user-details">
           <text class="username">{{userInfo.nickname || '点击登录'}}</text>

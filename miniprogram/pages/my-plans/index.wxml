@@ -1,0 +1,110 @@
+<!--my-plans/index.wxml-->
+<view class="container">
+  <!-- 自定义导航栏 -->
+  <view class="custom-navbar">
+    <view class="navbar-back" bindtap="onBack">
+      <text class="back-icon">←</text>
+    </view>
+    <text class="navbar-title">我的计划</text>
+  </view>
+
+  <!-- 顶部统计卡片 -->
+  <view class="stats-card">
+    <view class="stats-item">
+      <text class="stats-number">{{stats.ongoing}}</text>
+      <text class="stats-label">进行中</text>
+    </view>
+    <view class="stats-divider"></view>
+    <view class="stats-item">
+      <text class="stats-number">{{stats.completed}}</text>
+      <text class="stats-label">已完成</text>
+    </view>
+    <view class="stats-divider"></view>
+    <view class="stats-item">
+      <text class="stats-number">{{stats.totalDays}}</text>
+      <text class="stats-label">累计打卡</text>
+    </view>
+  </view>
+
+  <!-- 进行中的计划 -->
+  <view class="section" wx:if="{{ongoingPlans.length > 0}}">
+    <text class="section-title">进行中</text>
+    <view class="plans-list">
+      <view 
+        class="plan-card"
+        wx:for="{{ongoingPlans}}"
+        wx:key="id"
+        bindtap="onPlanTap"
+        data-plan="{{item}}"
+      >
+        <view class="plan-icon" style="background-color: {{item.bgColor}}">
+          <text class="plan-emoji">{{item.emoji}}</text>
+        </view>
+        <view class="plan-info">
+          <text class="plan-title">{{item.name}}</text>
+          <view class="plan-progress">
+            <view class="progress-bar">
+              <view class="progress-fill" style="width: {{item.progress}}%"></view>
+            </view>
+            <text class="progress-text">已完成{{item.currentDay}}天/共{{item.totalDays}}天</text>
+          </view>
+          <view class="plan-status">
+            <text class="status-badge {{item.todayChecked ? 'checked' : 'unchecked'}}">
+              {{item.todayChecked ? '✓ 已打卡' : '待打卡'}}
+            </text>
+          </view>
+        </view>
+        <view class="plan-actions">
+          <view class="plan-action" catchtap="onPlanTap" data-plan="{{item}}">
+            <text class="action-text">继续</text>
+            <text class="action-arrow">→</text>
+          </view>
+          <view class="delete-btn" catchtap="onDeletePlan" data-plan="{{item}}">
+            <text class="delete-icon">🗑️</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 已完成的计划 -->
+  <view class="section" wx:if="{{completedPlans.length > 0}}">
+    <view class="section-header" bindtap="toggleCompleted">
+      <text class="section-title">已完成</text>
+      <text class="toggle-icon">{{showCompleted ? '▼' : '▶'}}</text>
+    </view>
+    <view class="plans-list" wx:if="{{showCompleted}}">
+      <view 
+        class="plan-card completed"
+        wx:for="{{completedPlans}}"
+        wx:key="id"
+        bindtap="onPlanTap"
+        data-plan="{{item}}"
+      >
+        <view class="plan-icon" style="background-color: {{item.bgColor}}">
+          <text class="plan-emoji">{{item.emoji}}</text>
+        </view>
+        <view class="plan-info">
+          <text class="plan-title">{{item.name}}</text>
+          <text class="completed-text">已完成 · {{item.completedDate}}</text>
+        </view>
+        <view class="plan-actions">
+          <view class="completed-badge">
+            <text>✓</text>
+          </view>
+          <view class="delete-btn" catchtap="onDeletePlan" data-plan="{{item}}">
+            <text class="delete-icon">🗑️</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{ongoingPlans.length === 0 && completedPlans.length === 0}}">
+    <text class="empty-emoji">📋</text>
+    <text class="empty-title">还没有加入任何计划</text>
+    <text class="empty-desc">开始你的疗愈之旅吧</text>
+    <button class="explore-btn" bindtap="onExploreTap">去探索计划</button>
+  </view>
+</view>

@@ -1,0 +1,432 @@
+/* plan-edit/index.wxss */
+page {
+  background-color: #F8F8F8;
+}
+
+.container {
+  min-height: 100vh;
+  padding: 30rpx;
+  padding-top: 118rpx;
+  padding-bottom: 200rpx;
+}
+
+/* 自定义导航栏 */
+.custom-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 88rpx;
+  background-color: #FFE5F0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+}
+
+.navbar-back {
+  position: absolute;
+  left: 20rpx;
+  width: 60rpx;
+  height: 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.5);
+  border-radius: 30rpx;
+}
+
+.back-text {
+  font-size: 40rpx;
+  color: #333333;
+  font-weight: 600;
+}
+
+.navbar-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333333;
+}
+
+/* 分组 */
+.section {
+  margin-bottom: 30rpx;
+  min-width: 100%;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #333333;
+  display: block;
+  margin-bottom: 20rpx;
+}
+
+.task-count {
+  font-size: 24rpx;
+  color: #999999;
+}
+
+/* 信息卡片 */
+.info-card {
+  background-color: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 30rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.form-item {
+  margin-bottom: 30rpx;
+}
+
+.form-item:last-child {
+  margin-bottom: 0;
+}
+
+.form-item.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.form-label {
+  display: block;
+  font-size: 26rpx;
+  color: #666666;
+  margin-bottom: 12rpx;
+  font-weight: 500;
+}
+
+.form-item.row .form-label {
+  margin-bottom: 0;
+}
+
+.form-input {
+  width: 100%;
+  background-color: #F5F5F5;
+  border-radius: 12rpx;
+  padding: 20rpx;
+  font-size: 28rpx;
+  color: #333333;
+}
+
+.form-textarea {
+  width: 100%;
+  min-height: 150rpx;
+  background-color: #F5F5F5;
+  border-radius: 12rpx;
+  padding: 20rpx;
+  font-size: 28rpx;
+  color: #333333;
+}
+
+.picker-value {
+  background-color: #F5F5F5;
+  border-radius: 12rpx;
+  padding: 20rpx;
+  font-size: 28rpx;
+  color: #333333;
+}
+
+/* Emoji选择器 */
+.emoji-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.emoji-picker.small {
+  gap: 12rpx;
+}
+
+.emoji-item {
+  width: 80rpx;
+  height: 80rpx;
+  background-color: #F5F5F5;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3rpx solid transparent;
+  transition: all 0.3s;
+}
+
+.emoji-picker.small .emoji-item {
+  width: 60rpx;
+  height: 60rpx;
+}
+
+.emoji-item.selected {
+  background-color: #FFE5F0;
+  border-color: #FFB6C1;
+  transform: scale(1.1);
+}
+
+.emoji-text {
+  font-size: 40rpx;
+}
+
+.emoji-picker.small .emoji-text {
+  font-size: 32rpx;
+}
+
+/* 颜色选择器 */
+.color-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.color-item {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3rpx solid transparent;
+  transition: all 0.3s;
+}
+
+.color-item.selected {
+  border-color: #333333;
+  transform: scale(1.1);
+}
+
+.check-icon {
+  font-size: 32rpx;
+  color: #FFFFFF;
+  font-weight: 700;
+}
+
+/* 任务列表 */
+.tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  margin-bottom: 20rpx;
+}
+
+.task-card {
+  background-color: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.task-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12rpx;
+}
+
+.task-day {
+  background-color: #E3F2FD;
+  color: #4A90E2;
+  padding: 6rpx 16rpx;
+  border-radius: 12rpx;
+  font-size: 22rpx;
+  font-weight: 500;
+}
+
+.task-actions {
+  display: flex;
+  gap: 16rpx;
+}
+
+.action-btn {
+  font-size: 24rpx;
+  padding: 6rpx 16rpx;
+  border-radius: 12rpx;
+}
+
+.action-btn.edit {
+  color: #4A90E2;
+  background-color: #E3F2FD;
+}
+
+.action-btn.delete {
+  color: #FF6B6B;
+  background-color: #FFE5E5;
+}
+
+.task-content {
+  padding-left: 12rpx;
+}
+
+.task-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333333;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.task-type {
+  font-size: 22rpx;
+  color: #666666;
+}
+
+.task-duration {
+  font-size: 22rpx;
+  color: #999999;
+}
+
+/* 添加任务按钮 */
+.add-task-btn {
+  width: 100%;
+  background-color: #FFFFFF;
+  border: 2rpx dashed #CCCCCC;
+  border-radius: 20rpx;
+  padding: 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  color: #999999;
+  font-size: 28rpx;
+}
+
+.add-task-btn::after {
+  border: none;
+}
+
+.add-icon {
+  font-size: 36rpx;
+  font-weight: 600;
+}
+
+/* 底部按钮 */
+.bottom-actions {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #FFFFFF;
+  padding: 20rpx 30rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.05);
+  display: flex;
+  gap: 20rpx;
+  z-index: 99;
+}
+
+.bottom-actions .action-btn {
+  flex: 1;
+  border: none;
+  border-radius: 50rpx;
+  padding: 28rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.bottom-actions .action-btn::after {
+  border: none;
+}
+
+.cancel-btn {
+  background-color: #F5F5F5;
+  color: #666666;
+}
+
+.save-btn {
+  background: linear-gradient(135deg, #FFB6C1 0%, #FFA07A 100%);
+  color: #FFFFFF;
+  box-shadow: 0 4rpx 16rpx rgba(255, 182, 193, 0.3);
+}
+
+/* 弹窗 */
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  width: 600rpx;
+  max-height: 80vh;
+  background-color: #FFFFFF;
+  border-radius: 24rpx;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  padding: 30rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1rpx solid #F5F5F5;
+  flex-shrink: 0;
+}
+
+.modal-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333333;
+}
+
+.modal-close {
+  font-size: 32rpx;
+  color: #999999;
+  padding: 8rpx;
+}
+
+.modal-body {
+  padding: 30rpx;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-footer {
+  padding: 20rpx 30rpx 30rpx;
+  display: flex;
+  gap: 20rpx;
+  flex-shrink: 0;
+}
+
+.modal-btn {
+  flex: 1;
+  border: none;
+  border-radius: 50rpx;
+  padding: 24rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.modal-btn::after {
+  border: none;
+}
+
+.modal-btn.cancel-btn {
+  background-color: #F5F5F5;
+  color: #666666;
+}
+
+.modal-btn.confirm-btn {
+  background-color: #FFB6C1;
+  color: #FFFFFF;
+}

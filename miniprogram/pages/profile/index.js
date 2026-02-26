@@ -58,7 +58,7 @@ Page({
     if (userInfo) {
       this.setData({
         userInfo: {
-          avatar: userInfo.avatar || '/miniprogram/images/avatar.png',
+          avatar: userInfo.avatar || '/images/avatar.png',
           nickname: userInfo.nickname || '疗愈用户'
         },
         stats: {
