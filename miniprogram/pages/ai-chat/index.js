@@ -283,7 +283,7 @@ Page({
             mode: mode,
             user_profile: '微信小程序用户'
           },
-          timeout: 30000,
+          timeout: 90000,  // 增加到90秒，DeepSeek有时响应较慢
           success: (response) => {
             console.log('[AI Chat] RAG 服务器响应:', response)
             resolve(response)

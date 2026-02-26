@@ -7,20 +7,42 @@ page {
   min-height: 100vh;
   position: relative;
   padding-bottom: 180rpx;
+  overflow: hidden;
 }
 
-/* 背景图层 */
-.page-bg {
+/* ==================== 背景图层 ==================== */
+.bg-wrapper {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: -1;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.page-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.page-symbols { /* 符号位置调整*/
+  position: absolute;
+  top: 18%;
+  left: 18%;
+  width: 60%;
+  height: 60%;
+  z-index: 2;
 }
 
 /* ==================== 顶部问候区域 ==================== */
 .header-section {
+  position: relative;
+  z-index: 10;
   padding: 40rpx 40rpx 30rpx;
   padding-top: calc(140rpx + env(safe-area-inset-top));
 }
@@ -92,6 +114,7 @@ page {
 /* ==================== 虚拟形象区域 ==================== */
 .avatar-section {
   position: relative;
+  z-index: 10;
   height: 400rpx;
   display: flex;
   align-items: center;
@@ -185,8 +208,10 @@ page {
 
 /* ==================== 每日心情打卡 ==================== */
 .mood-section {
+  position: relative;
+  z-index: 10;
   margin: 0 32rpx;
-  background-color: rgba(255, 255, 255, 0.8);
+  background-color: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(20rpx);
   border-radius: 32rpx;
   padding: 32rpx;
@@ -250,11 +275,13 @@ page {
 
 /* ==================== 每日心理语录 ==================== */
 .quote-section {
+  position: relative;
+  z-index: 10;
   margin: 24rpx 32rpx;
 }
 
 .quote-card {
-  background: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(20rpx);
   border-radius: 32rpx;
   padding: 32rpx;
@@ -303,6 +330,8 @@ page {
 
 /* ==================== 快捷功能 ==================== */
 .quick-section {
+  position: relative;
+  z-index: 10;
   margin: 32rpx;
 }
 
@@ -334,6 +363,7 @@ page {
   align-items: center;
   justify-content: center;
   box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+  background-color: rgba(255, 255, 255, 0.9);
 }
 
 .quick-emoji {
