@@ -23,7 +23,28 @@ Page({
   },
 
   onLoad(options) {
-    if (options.planId) {
+    // 处理AI生成的新计划
+    if (options.isNewPlan === 'true' && options.planData) {
+      try {
+        const planData = JSON.parse(decodeURIComponent(options.planData))
+        this.setData({
+          planInfo: {
+            name: planData.name,
+            emoji: planData.emoji || '🌊',
+            bgColor: planData.bgColor || '#E3F2FD'
+          },
+          tasks: planData.tasks || []
+        })
+      } catch (e) {
+        console.error('解析计划数据失败:', e)
+        wx.showToast({
+          title: '数据加载失败',
+          icon: 'none'
+        })
+      }
+    }
+    // 处理编辑现有计划
+    else if (options.planId) {
       this.setData({ planId: options.planId })
       this.loadPlanData()
     }
@@ -301,7 +322,7 @@ Page({
 
   // 保存
   onSave() {
-    const { planInfo, tasks } = this.data
+    const { planId, planInfo, tasks } = this.data
     
     // 验证
     if (!planInfo.name) {
@@ -331,20 +352,33 @@ Page({
     
     wx.showLoading({ title: '保存中...' })
     
+    // 判断是创建新计划还是更新现有计划
+    const action = planId ? 'updatePlan' : 'createPlan'
+    const requestData = {
+      action: action,
+      userId: userInfo._id,
+      name: planInfo.name,
+      emoji: planInfo.emoji,
+      bgColor: planInfo.bgColor,
+      tasks: tasks,
+      totalDays: tasks.length
+    }
+    
+    // 如果是更新，添加planId
+    if (planId) {
+      requestData.planId = planId
+      requestData.updates = {
+        name: planInfo.name,
+        emoji: planInfo.emoji,
+        bgColor: planInfo.bgColor,
+        tasks: tasks,
+        totalDays: tasks.length
+      }
+    }
+    
     wx.cloud.callFunction({
       name: 'planManagement',
-      data: {
-        action: 'updatePlan',
-        planId: this.data.planId,
-        userId: userInfo._id,
-        updates: {
-          name: planInfo.name,
-          emoji: planInfo.emoji,
-          bgColor: planInfo.bgColor,
-          tasks: tasks,
-          totalDays: tasks.length
-        }
-      }
+      data: requestData
     }).then(res => {
       wx.hideLoading()
       
@@ -355,7 +389,14 @@ Page({
         })
         
         setTimeout(() => {
-          wx.navigateBack()
+          // 如果是新创建的计划，跳转到计划详情页
+          if (!planId && res.result.data && res.result.data.planId) {
+            wx.redirectTo({
+              url: `/pages/plan-detail/index?planId=${res.result.data.planId}`
+            })
+          } else {
+            wx.navigateBack()
+          }
         }, 1500)
       } else {
         wx.showToast({

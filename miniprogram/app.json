@@ -11,6 +11,7 @@
     "pages/plan-detail/index",
     "pages/plan-template/index",
     "pages/plan-edit/index",
+    "pages/plan-custom/index",
     "pages/profile/index",
     "pages/example/index"
   ],

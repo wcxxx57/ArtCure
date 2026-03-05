@@ -170,10 +170,9 @@ Page({
       return
     }
     
-    wx.showToast({
-      title: '定制功能开发中',
-      icon: 'none'
+    // 跳转到AI定制计划页面
+    wx.navigateTo({
+      url: '/pages/plan-custom/index'
     })
-    // TODO: 跳转到 AI 定制计划页面
   }
 })

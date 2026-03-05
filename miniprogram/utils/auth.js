@@ -1,116 +1,67 @@
-// auth.js - 认证服务模块
+// utils/auth.js
+const AUTH_KEY = 'user_auth'
+const TOKEN_KEY = 'user_token'
 
 const AuthService = {
-  // 存储键名
-  STORAGE_KEYS: {
-    TOKEN: 'userToken',
-    USER_INFO: 'userInfo',
-    LOGIN_TIME: 'loginTime'
-  },
-
-  /**
-   * 保存登录状态
-   * @param {object} userInfo - 用户信息
-   * @param {string} token - 用户token
-   */
+  // 保存登录状态
   saveLoginState(userInfo, token) {
     try {
-      wx.setStorageSync(this.STORAGE_KEYS.TOKEN, token)
-      wx.setStorageSync(this.STORAGE_KEYS.USER_INFO, userInfo)
-      wx.setStorageSync(this.STORAGE_KEYS.LOGIN_TIME, Date.now())
-      console.log('登录状态已保存')
-    } catch (error) {
-      console.error('保存登录状态失败:', error)
+      wx.setStorageSync(AUTH_KEY, userInfo)
+      wx.setStorageSync(TOKEN_KEY, token)
+      return true
+    } catch (e) {
+      console.error('保存登录状态失败:', e)
+      return false
     }
   },
 
-  /**
-   * 获取登录状态
-   * @returns {object|null} 登录信息
-   */
-  getLoginState() {
+  // 获取用户信息
+  getUserInfo() {
     try {
-      const token = wx.getStorageSync(this.STORAGE_KEYS.TOKEN)
-      const userInfo = wx.getStorageSync(this.STORAGE_KEYS.USER_INFO)
-      const loginTime = wx.getStorageSync(this.STORAGE_KEYS.LOGIN_TIME)
-
-      if (!token || !userInfo) {
-        return null
-      }
-
-      // 检查token是否过期（7天）
-      const now = Date.now()
-      const sevenDays = 7 * 24 * 60 * 60 * 1000
-      if (now - loginTime > sevenDays) {
-        this.clearLoginState()
-        return null
-      }
-
-      return {
-        token,
-        userInfo,
-        loginTime
-      }
-    } catch (error) {
-      console.error('获取登录状态失败:', error)
+      return wx.getStorageSync(AUTH_KEY)
+    } catch (e) {
+      console.error('获取用户信息失败:', e)
       return null
     }
   },
 
-  /**
-   * 清除登录状态
-   */
-  clearLoginState() {
+  // 获取token
+  getToken() {
     try {
-      wx.removeStorageSync(this.STORAGE_KEYS.TOKEN)
-      wx.removeStorageSync(this.STORAGE_KEYS.USER_INFO)
-      wx.removeStorageSync(this.STORAGE_KEYS.LOGIN_TIME)
-      console.log('登录状态已清除')
-    } catch (error) {
-      console.error('清除登录状态失败:', error)
+      return wx.getStorageSync(TOKEN_KEY)
+    } catch (e) {
+      console.error('获取token失败:', e)
+      return null
     }
   },
 
-  /**
-   * 检查是否已登录
-   * @returns {boolean} 是否已登录
-   */
+  // 检查是否已登录
   isLoggedIn() {
-    const loginState = this.getLoginState()
-    return loginState !== null
+    const userInfo = this.getUserInfo()
+    const token = this.getToken()
+    return !!(userInfo && token)
   },
 
-  /**
-   * 获取用户信息
-   * @returns {object|null} 用户信息
-   */
-  getUserInfo() {
-    const loginState = this.getLoginState()
-    return loginState ? loginState.userInfo : null
-  },
-
-  /**
-   * 获取用户Token
-   * @returns {string|null} Token
-   */
-  getToken() {
-    const loginState = this.getLoginState()
-    return loginState ? loginState.token : null
-  },
-
-  /**
-   * 更新用户信息
-   * @param {object} userInfo - 新的用户信息
-   */
+  // 更新用户信息
   updateUserInfo(userInfo) {
     try {
-      const token = this.getToken()
-      if (token) {
-        wx.setStorageSync(this.STORAGE_KEYS.USER_INFO, userInfo)
-        console.log('用户信息已更新')
-      }
-    } catch (error) {
-      console.error('更新用户信息失败:', error)
+      wx.setStorageSync(AUTH_KEY, userInfo)
+      return true
+    } catch (e) {
+      console.error('更新用户信息失败:', e)
+      return false
+    }
+  },
+
+  // 清除登录状态
+  clearLoginState() {
+    try {
+      wx.removeStorageSync(AUTH_KEY)
+      wx.removeStorageSync(TOKEN_KEY)
+      return true
+    } catch (e) {
+      console.error('清除登录状态失败:', e)
+      return false
     }
   }
 }

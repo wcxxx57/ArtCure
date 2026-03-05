@@ -1,0 +1,113 @@
+<!--plan-custom/index.wxml-->
+<view class="page">
+  <!-- 返回按钮 -->
+  <view class="back-button" bindtap="onBack">
+    <text class="back-icon">←</text>
+  </view>
+
+  <!-- 主容器 -->
+  <view class="container">
+    <!-- 标题区域 -->
+    <view class="header">
+      <text class="title">AI定制专属计划</text>
+      <text class="subtitle">让AI为你量身打造疗愈方案</text>
+    </view>
+
+    <!-- 表单卡片 -->
+    <view class="form-card">
+      <scroll-view class="form-scroll" scroll-y>
+        <!-- 计划名称 -->
+        <view class="form-section">
+          <view class="section-title">计划名称</view>
+          <input 
+            class="input-field" 
+            placeholder="给你的计划起个名字" 
+            value="{{planName}}"
+            bindinput="onPlanNameInput"
+            maxlength="20"
+          />
+        </view>
+
+        <!-- 计划天数 -->
+        <view class="form-section">
+          <view class="section-title">计划天数</view>
+          <view class="options-row">
+            <view 
+              wx:for="{{daysOptions}}" 
+              wx:key="index"
+              class="option-item {{selectedDays === item ? 'selected' : ''}}"
+              data-days="{{item}}"
+              bindtap="onDaysSelect"
+            >
+              {{item}}天
+            </view>
+          </view>
+        </view>
+
+        <!-- 每日时长 -->
+        <view class="form-section">
+          <view class="section-title">每日时长</view>
+          <view class="options-row">
+            <view 
+              wx:for="{{durationOptions}}" 
+              wx:key="index"
+              class="option-item {{selectedDuration === item ? 'selected' : ''}}"
+              data-duration="{{item}}"
+              bindtap="onDurationSelect"
+            >
+              {{item}}分钟
+            </view>
+          </view>
+        </view>
+
+        <!-- 疗愈主题 -->
+        <view class="form-section">
+          <view class="section-title">疗愈主题（可多选）</view>
+          <view class="themes-grid">
+            <view 
+              wx:for="{{themeOptions}}" 
+              wx:key="id"
+              class="theme-item {{item.selected ? 'selected' : ''}}"
+              data-index="{{index}}"
+              bindtap="onThemeToggle"
+            >
+              {{item.name}}
+            </view>
+          </view>
+        </view>
+
+        <!-- 需求描述 -->
+        <view class="form-section">
+          <view class="section-title">详细需求</view>
+          <view class="section-desc">告诉AI你的具体情况和期望</view>
+          <textarea 
+            class="textarea-field" 
+            placeholder="例如：我最近工作压力大，经常失眠，希望通过冥想和放松练习改善睡眠质量..."
+            value="{{requirement}}"
+            bindinput="onRequirementInput"
+            maxlength="500"
+            show-confirm-bar="{{false}}"
+          />
+          <view class="char-count">{{requirement.length}}/500</view>
+        </view>
+
+        <!-- 生成按钮 -->
+        <view class="button-container">
+          <button 
+            class="generate-btn {{isGenerating ? 'disabled' : ''}}" 
+            bindtap="onGeneratePlan"
+            disabled="{{isGenerating}}"
+          >
+            {{isGenerating ? '生成中...' : '生成专属计划'}}
+          </button>
+        </view>
+
+        <!-- 底部提示 -->
+        <view class="tips">
+          <text class="tips-icon">💡</text>
+          <text class="tips-text">AI将根据您的需求生成个性化疗愈计划</text>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+</view>
