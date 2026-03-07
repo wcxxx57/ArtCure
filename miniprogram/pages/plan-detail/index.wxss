@@ -12,7 +12,7 @@ page {
 /* 自定义导航栏 */
 .custom-navbar {
   position: fixed;
-  top: 0;
+  top: 75rpx;
   left: 0;
   right: 0;
   height: 88rpx;
@@ -50,7 +50,7 @@ page {
 
 /* 计划头部 */
 .plan-header {
-  margin-top: 20px;
+  margin-top: 50px;
   min-width: 80%;
   background: linear-gradient(135deg, #FFE5F0 0%, #FFF8DC 100%);
   padding: 60rpx 30rpx 40rpx;
