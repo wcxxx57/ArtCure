@@ -35,6 +35,11 @@ logs/
 
 # 排除.kiro目录
 .kiro/
+kiro日志
 
 # 开发过程ai辅助生成的文档
 docs_ai/
+
+# 其他本地文件
+personal-curer
+data_collection

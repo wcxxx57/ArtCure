@@ -1,0 +1,151 @@
+<!--healing-hall-ai-advisor/index.wxml-->
+<view class="advisor-container">
+  <!-- 顶部导航区域 -->
+  <view class="advisor-header">
+    <!-- 顶部栏 -->
+    <view class="header-top">
+      <!-- 左侧：返回按钮 -->
+      <view class="header-back" bindtap="onClose">
+        <text class="back-icon">‹</text>
+      </view>
+      
+      <!-- 中间：标题 -->
+      <view class="header-center">
+        <text class="advisor-title">愈见 · AI资源顾问</text>
+        <text class="advisor-subtitle">专业、高效、精准推荐</text>
+      </view>
+      
+      <!-- 右侧：清空按钮 -->
+      <view class="header-right" bindtap="onClearConversation">
+        <text class="clear-icon">🗑️</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 消息列表区域 -->
+  <scroll-view 
+    class="message-area" 
+    scroll-y="true" 
+    scroll-into-view="{{scrollToMessage}}"
+    scroll-with-animation="true"
+  >
+    <view class="message-list">
+      <block wx:for="{{messages}}" wx:key="id">
+        <!-- 机器人消息 -->
+        <view wx:if="{{item.type === 'bot'}}" class="message-item bot-message" id="msg-{{item.id}}">
+          <view class="message-avatar">
+            <text class="avatar-icon">✨</text>
+          </view>
+          <view class="message-bubble bot-bubble">
+            <rich-text class="message-text" nodes="{{item.richText || item.text}}"></rich-text>
+
+            <view wx:if="{{item.recommendations && item.recommendations.length}}" class="recommendation-list">
+              <view
+                wx:for="{{item.recommendations}}"
+                wx:key="id"
+                wx:for-item="recommendation"
+                class="recommendation-card"
+              >
+                <view class="recommendation-head">
+                  <text class="recommendation-title">{{recommendation.title}}</text>
+                  <text class="recommendation-source">{{recommendation.source_platform}}</text>
+                </view>
+
+                <view class="recommendation-meta">
+                  <text class="meta-pill meta-medium">{{recommendation.therapy_medium}}</text>
+                  <text wx:if="{{recommendation.district}}" class="meta-pill meta-district">{{recommendation.district}}</text>
+                  <text wx:if="{{recommendation.price_text}}" class="meta-pill meta-price">{{recommendation.price_text}}</text>
+                </view>
+
+                <text wx:if="{{recommendation.address_text}}" class="recommendation-address">{{recommendation.address_text}}</text>
+                <text wx:if="{{recommendation.description}}" class="recommendation-desc">{{recommendation.description}}</text>
+
+                <view wx:if="{{recommendation.feature_tags && recommendation.feature_tags.length}}" class="tag-list">
+                  <text
+                    wx:for="{{recommendation.feature_tags}}"
+                    wx:key="*this"
+                    wx:for-item="tag"
+                    class="tag-chip"
+                  >{{tag}}</text>
+                </view>
+
+                <view class="recommendation-actions">
+                  <view class="action-btn detail-btn" bindtap="onOpenRecommendation" data-resource-id="{{recommendation.id}}">
+                    <text>查看详情</text>
+                  </view>
+                  <view wx:if="{{recommendation.contact_info && recommendation.contact_info.wechat}}" class="action-btn copy-btn" bindtap="onCopyContact" data-text="{{recommendation.contact_info.wechat}}">
+                    <text>复制微信</text>
+                  </view>
+                  <view wx:if="{{recommendation.contact_info && recommendation.contact_info.phone}}" class="action-btn call-btn" bindtap="onCallPhone" data-phone="{{recommendation.contact_info.phone}}">
+                    <text>电话预约</text>
+                  </view>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+        
+        <!-- 用户消息 -->
+        <view wx:else class="message-item user-message" id="msg-{{item.id}}">
+          <view class="message-bubble user-bubble">
+            <text class="message-text user-text">{{item.text}}</text>
+          </view>
+        </view>
+      </block>
+      
+      <!-- 正在输入提示 -->
+      <view wx:if="{{isTyping}}" class="message-item bot-message">
+        <view class="message-avatar">
+          <text class="avatar-icon">✨</text>
+        </view>
+        <view class="message-bubble bot-bubble typing-bubble">
+          <view class="typing-indicator">
+            <view class="typing-dot"></view>
+            <view class="typing-dot"></view>
+            <view class="typing-dot"></view>
+          </view>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 底部占位 -->
+    <view class="scroll-bottom" id="scroll-bottom"></view>
+  </scroll-view>
+
+  <!-- 快捷问题区域 -->
+  <view class="quick-questions-wrapper">
+    <scroll-view class="quick-questions" scroll-x="true" enhanced="true" show-scrollbar="false">
+      <view class="quick-list">
+        <view 
+          class="quick-item" 
+          wx:for="{{quickQuestions}}" 
+          wx:key="*this"
+          bindtap="onQuickQuestion"
+          data-question="{{item}}"
+        >
+          <text>{{item}}</text>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 输入区域 -->
+  <view class="input-area">
+    <view class="input-wrapper">
+      <input 
+        class="message-input" 
+        placeholder="告诉我你的需求..." 
+        placeholder-class="input-placeholder"
+        value="{{inputText}}"
+        bindinput="onInputChange"
+        bindconfirm="onSend"
+        confirm-type="send"
+        adjust-position="{{true}}"
+        cursor-spacing="20"
+      />
+      <view class="send-btn {{inputText ? 'send-active' : ''}}" bindtap="onSend">
+        <text class="send-icon">➤</text>
+      </view>
+    </view>
+  </view>
+</view>

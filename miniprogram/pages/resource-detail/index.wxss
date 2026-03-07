@@ -1,0 +1,612 @@
+/* resource-detail/index.wxss */
+
+page {
+  background: linear-gradient(180deg, #FFF5F0 0%, #FFE8E0 100%);
+  height: 100%;
+}
+
+.detail-container {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #FFF5F0 0%, #FFE8E0 100%);
+}
+
+/* ==================== 顶部导航 ==================== */
+.detail-nav {
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #FF9A8B 0%, #FECFEF 100%);
+  padding: 20rpx 32rpx;
+  padding-top: calc(68rpx + env(safe-area-inset-top));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 4rpx 20rpx rgba(255, 154, 139, 0.2);
+}
+
+.nav-back {
+  display: flex;
+  align-items: center;
+  padding: 8rpx;
+  width: 60rpx;
+}
+
+.back-icon {
+  font-size: 48rpx;
+  color: #FFFFFF;
+  font-weight: bold;
+}
+
+.nav-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #FFFFFF;
+  flex: 1;
+  text-align: center;
+}
+
+.nav-right {
+  width: 60rpx;
+}
+
+/* ==================== 加载状态 ==================== */
+.loading-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  color: #999;
+}
+
+/* ==================== 滚动区域 ==================== */
+.detail-scroll {
+  flex: 1;
+  height: 0;
+}
+
+/* ==================== 顶部封面 ==================== */
+.hero-section {
+  position: relative;
+  width: 100%;
+}
+
+.hero-swiper {
+  width: 100%;
+  height: 440rpx;
+}
+
+.hero-image {
+  width: 100%;
+  height: 100%;
+}
+
+.hero-placeholder {
+  width: 100%;
+  height: 320rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-emoji {
+  font-size: 120rpx;
+}
+
+.hero-badge {
+  position: absolute;
+  bottom: 20rpx;
+  right: 20rpx;
+  background: linear-gradient(135deg, #FF6B6B 0%, #ee5a24 100%);
+  color: #FFF;
+  font-size: 22rpx;
+  font-weight: 600;
+  padding: 8rpx 20rpx;
+  border-radius: 20rpx;
+  box-shadow: 0 4rpx 12rpx rgba(238, 90, 36, 0.3);
+}
+
+/* ==================== 标题区域 ==================== */
+.title-section {
+  padding: 28rpx 32rpx 16rpx;
+}
+
+.detail-name {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #333;
+  display: block;
+  line-height: 1.3;
+  margin-bottom: 12rpx;
+}
+
+.title-meta {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  flex-wrap: wrap;
+}
+
+.rating-badge {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+}
+
+.rating-star { font-size: 24rpx; }
+
+.rating-num {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #FF9A8B;
+}
+
+.review-count {
+  font-size: 22rpx;
+  color: #999;
+  margin-left: 4rpx;
+}
+
+.level-text {
+  font-size: 22rpx;
+  color: #666;
+  background: #F5F5F5;
+  padding: 4rpx 12rpx;
+  border-radius: 12rpx;
+}
+
+/* ==================== 快捷信息条 ==================== */
+.quick-info {
+  display: flex;
+  align-items: center;
+  margin: 0 32rpx 20rpx;
+  padding: 20rpx 0;
+  background: #FFFFFF;
+  border-radius: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.quick-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6rpx;
+}
+
+.quick-label {
+  font-size: 22rpx;
+  color: #999;
+}
+
+.quick-value {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.quick-price {
+  color: #FF6B6B;
+}
+
+.quick-divider {
+  width: 1rpx;
+  height: 48rpx;
+  background: #EEEEEE;
+}
+
+/* ==================== 通用卡片 ==================== */
+.card {
+  margin: 0 32rpx 16rpx;
+  padding: 24rpx;
+  background: #FFFFFF;
+  border-radius: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.card-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #4A3535;
+  display: block;
+  margin-bottom: 14rpx;
+}
+
+.card-text {
+  font-size: 26rpx;
+  color: #555;
+  line-height: 1.8;
+  word-break: break-word;
+  display: block;
+}
+
+/* ==================== 标签排列 ==================== */
+.pills-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.pill {
+  display: inline-flex;
+  padding: 8rpx 20rpx;
+  border-radius: 24rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+}
+
+.pill-format {
+  background: #EEF2FF;
+  color: #5B6ABF;
+}
+
+.pill-source {
+  background: #F5F5F5;
+  color: #666;
+}
+
+.pill-feature {
+  background: linear-gradient(135deg, #FFF5F0 0%, #FFE8E0 100%);
+  color: #E07B5F;
+}
+
+.pill-mood {
+  background: #E8F5E9;
+  color: #43A047;
+}
+
+/* ==================== 疗愈师卡片 ==================== */
+.therapist-row {
+  display: flex;
+  gap: 16rpx;
+  align-items: flex-start;
+}
+
+.therapist-avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #FF9A8B 0%, #FECFEF 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.avatar-text {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #FFF;
+}
+
+.therapist-info {
+  flex: 1;
+}
+
+.therapist-name {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333;
+  display: block;
+  margin-bottom: 6rpx;
+}
+
+.therapist-intro {
+  font-size: 24rpx;
+  color: #666;
+  line-height: 1.6;
+  display: block;
+}
+
+.cert-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  margin-top: 14rpx;
+  padding-top: 14rpx;
+  border-top: 1rpx solid #F0F0F0;
+}
+
+.cert-tag {
+  font-size: 22rpx;
+  color: #666;
+  line-height: 1.5;
+}
+
+/* ==================== 多疗愈师支持 ==================== */
+.therapist-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  margin-bottom: 14rpx;
+}
+
+.therapist-card-title-row .card-title {
+  margin-bottom: 0;
+}
+
+.therapist-count-badge {
+  font-size: 20rpx;
+  color: #FF9A8B;
+  background: #FFF0EB;
+  padding: 4rpx 14rpx;
+  border-radius: 16rpx;
+  font-weight: 500;
+}
+
+.therapist-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  margin-bottom: 4rpx;
+}
+
+.therapist-name-row .therapist-name {
+  margin-bottom: 0;
+}
+
+.therapist-title-tag {
+  font-size: 20rpx;
+  color: #5B6ABF;
+  background: #EEF2FF;
+  padding: 3rpx 12rpx;
+  border-radius: 10rpx;
+  flex-shrink: 0;
+}
+
+.therapist-separator {
+  height: 1rpx;
+  background: #F0F0F0;
+  margin: 16rpx 0;
+}
+
+/* Avatar 色彩变体 (index % 3) */
+.therapist-avatar.therapist-avatar-1 {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.therapist-avatar.therapist-avatar-2 {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+/* ==================== 套餐价格 ==================== */
+.price-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14rpx;
+}
+
+.price-card-header .card-title {
+  margin-bottom: 0;
+}
+
+.per-person-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 4rpx;
+}
+
+.per-person-label {
+  font-size: 22rpx;
+  color: #999;
+}
+
+.per-person-value {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #FF6B6B;
+}
+
+.package-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.package-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #F5F5F5;
+}
+
+.package-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.package-hot {
+  background: linear-gradient(135deg, #FFFBF0 0%, #FFF5EB 100%);
+  margin: 0 -24rpx;
+  padding: 16rpx 24rpx;
+  border-radius: 12rpx;
+}
+
+.package-left {
+  flex: 1;
+}
+
+.package-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  margin-bottom: 4rpx;
+}
+
+.package-name {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.package-hot-tag {
+  font-size: 18rpx;
+  color: #FF6B6B;
+  background: #FFF0EB;
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
+  font-weight: 600;
+}
+
+.package-extra-tag {
+  font-size: 18rpx;
+  color: #5B6ABF;
+  background: #EEF2FF;
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
+}
+
+.package-desc {
+  font-size: 22rpx;
+  color: #999;
+  line-height: 1.4;
+}
+
+.package-right {
+  display: flex;
+  align-items: baseline;
+  gap: 2rpx;
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+
+.package-price {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #FF6B6B;
+}
+
+.package-free {
+  color: #43A047;
+}
+
+.package-unit {
+  font-size: 20rpx;
+  color: #999;
+}
+
+/* ==================== 地址卡片 ==================== */
+.address-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.address-card .address-text {
+  flex: 1;
+  font-size: 26rpx;
+  color: #555;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.copy-btn {
+  flex-shrink: 0;
+  padding: 8rpx 20rpx;
+  border-radius: 16rpx;
+  background: #FFF0EB;
+  font-size: 22rpx;
+  color: #FF6B6B;
+  font-weight: 500;
+}
+
+/* ==================== 联系方式卡片 ==================== */
+.contact-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 14rpx 0;
+  border-bottom: 1rpx solid #F5F5F5;
+}
+
+.contact-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.contact-icon { font-size: 28rpx; }
+
+.contact-label {
+  font-size: 26rpx;
+  color: #666;
+  font-weight: 500;
+  min-width: 60rpx;
+}
+
+.contact-value {
+  flex: 1;
+  font-size: 26rpx;
+  color: #333;
+  word-break: break-all;
+}
+
+.contact-action {
+  flex-shrink: 0;
+  padding: 8rpx 24rpx;
+  border-radius: 16rpx;
+  background: #FFF0EB;
+  font-size: 22rpx;
+  color: #FF6B6B;
+  font-weight: 500;
+}
+
+.call-action {
+  background: #E8F5E9;
+  color: #2E7D32;
+}
+
+/* ==================== 底部操作栏 ==================== */
+.bottom-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 16rpx 32rpx;
+  padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
+  background: #FFFFFF;
+  box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.06);
+}
+
+.bar-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rpx;
+  padding: 0 16rpx;
+}
+
+.bar-icon { font-size: 36rpx; }
+
+.bar-label {
+  font-size: 20rpx;
+  color: #666;
+}
+
+.bar-chat .bar-label {
+  color: #5B6ABF;
+}
+
+.bar-main-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 80rpx;
+  border-radius: 40rpx;
+  background: linear-gradient(135deg, #FF9A8B 0%, #FF6B6B 100%);
+  color: #FFFFFF;
+  font-size: 30rpx;
+  font-weight: 600;
+  box-shadow: 0 6rpx 20rpx rgba(255, 107, 107, 0.3);
+}
+
+.bar-main-btn:active {
+  transform: scale(0.97);
+}
+
+/* ==================== 滚动底部间距 ==================== */
+.scroll-bottom {
+  height: 40rpx;
+}

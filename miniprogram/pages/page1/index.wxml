@@ -2,8 +2,8 @@
 <view class="page-container">
   <!-- 背景图层 -->
   <view class="bg-wrapper">
-    <image class="page-bg" src="../../images/main_page/背景.png" mode="aspectFill"></image>
-    <image class="page-symbols" src="../../images/main_page/符号.png" mode="aspectFill"></image>
+    <image class="page-bg" src="https://picui.ogmua.cn/s1/2026/03/07/69ab9a239315c.webp" mode="aspectFill"></image>
+    <image class="page-symbols" src="https://picui.ogmua.cn/s1/2026/03/07/69ab9a20d1edc.webp" mode="aspectFill"></image>
   </view>
   
   <!-- 顶部问候区域 -->
@@ -29,7 +29,7 @@
     <view class="avatar-blob blob-2"></view>
     <view class="virtual-avatar" bindtap="onAvatarTap">
       <view class="avatar-character">
-        <image class="back-logo" src="../../images/main_page/ip.png" mode="aspectFit"></image>
+        <image class="back-logo" src="https://picui.ogmua.cn/s1/2026/03/07/69ab9a20a82a5.webp" mode="aspectFit"></image>
       </view>
       <view class="chat-hint">
         <text>点我聊天 ✨</text>

@@ -1,0 +1,12 @@
+{
+  "name": "healingResources",
+  "version": "1.0.0",
+  "description": "疗愈资源云函数",
+  "main": "index.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

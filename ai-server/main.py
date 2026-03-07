@@ -4,10 +4,14 @@
 """
 
 import os
+
+# 解决 OpenMP 库冲突警告
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+
 from pathlib import Path
 from typing import Optional, List, Dict
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import json
@@ -37,6 +41,7 @@ LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7"))
 
 # 路径配置
 INDEX_DIR = Path(__file__).parent / "vector_index"
+RESOURCE_INDEX_DIR = Path(__file__).parent / "resource_vector_index"
 
 # ==================== 初始化 ====================
 
@@ -57,6 +62,7 @@ app.add_middleware(
 
 # 全局变量
 vector_store = None
+resource_vector_store = None  # 资源专用向量库
 rag_chains = {}
 user_sessions = {}  # 存储用户对话历史
 
@@ -70,7 +76,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     user_id: str
     query: str
-    mode: str = "comfort"  # comfort | therapist | companion
+    mode: str = "comfort"  # comfort | therapist | companion | resource_advisor
     user_profile: Optional[str] = None
     chat_history: Optional[List[ChatMessage]] = None
 
@@ -139,7 +145,53 @@ PROMPT_TEMPLATES = {
 【朋友说】：
 {question}
 
-请用轻松、朋友般的语气回应。聊天长度和内容就和平常和好友在微信聊天那样。如果【参考信息】里有相关内容，可以自然地融入对话中，但不要生硬地照搬。如果聊天记录不是"无历史记录"，说明我们之前聊过天，请自然地提及之前的话题体现友谊的温暖；如果是"无历史记录"，这是我们第一次聊天，请开朗地自我介绍。可以适当使用表情符号，让对话更生动有趣。"""
+请用轻松、朋友般的语气回应。聊天长度和内容就和平常和好友在微信聊天那样。如果【参考信息】里有相关内容，可以自然地融入对话中，但不要生硬地照搬。如果聊天记录不是"无历史记录"，说明我们之前聊过天，请自然地提及之前的话题体现友谊的温暖；如果是"无历史记录"，这是我们第一次聊天，请开朗地自我介绍。可以适当使用表情符号，让对话更生动有趣。""",
+
+    "resource_advisor": """你是"愈见AI资源顾问"，一位专业、高效的艺术疗愈资源推荐专家。你的特点是：
+- 专业、理性、高效，快速理解用户需求
+- 精通上海地区的各类艺术疗愈资源：工作坊、疗愈师、工作室等
+- 能够根据用户的具体需求（疗愈类型、地点、预算、时间）精准推荐
+- 提供详细的资源信息：价格、地址、联系方式、特色标签
+- 语气专业但不失温度，像一位可靠的顾问
+
+【资源知识库】：
+{context}
+
+【用户偏好】：
+{user_profile}
+
+【咨询历史】：
+{chat_history}
+
+【用户需求】：
+{question}
+
+请基于【资源知识库】中的真实资源信息，为用户提供精准的推荐。回复格式要求：
+
+1. **开场**：简短回应用户需求（1-2句话）
+
+2. **推荐资源**：为每个推荐的资源提供以下信息（使用清晰的结构）：
+   - **资源名称**：标题
+   - **类型**：工作坊/1v1/工作室/疗愈师等
+   - **疗愈方式**：流体画/颂钵/冥想/舞动等
+   - **价格**：具体价格
+   - **地址**：详细地址和区域
+   - **特色**：2-3个标签（如"零基础友好"、"预约制"、"性价比高"）
+   - **推荐理由**：为什么推荐这个资源（结合用户需求）
+   - **联系方式**：微信号或电话（如果有）
+   - **来源**：小红书/大众点评
+
+3. **补充建议**：根据用户需求提供额外的建议或注意事项
+
+重要规则：
+- 只推荐【资源知识库】中真实存在的资源，不要编造
+- 每次推荐3-4个资源，不要太多
+- 如果知识库中没有完全匹配的资源，推荐最接近的，并说明差异
+- 如果用户询问具体某个资源的详情，提供该资源的完整信息
+- 价格、地址、联系方式等关键信息必须准确
+- 使用清晰的格式，方便用户快速浏览
+- 如果咨询历史不是"无历史记录"，体现对之前对话的记忆
+- 语气专业、高效，但保持友好和耐心"""
 }
 
 # ==================== 会话管理 ====================
@@ -240,17 +292,20 @@ def init_llm():
         temperature=LLM_TEMPERATURE
     )
 
-def load_vector_store(embeddings):
+def load_vector_store(embeddings, index_dir=None):
     """加载向量数据库"""
-    if not INDEX_DIR.exists():
+    if index_dir is None:
+        index_dir = INDEX_DIR
+    
+    if not index_dir.exists():
         raise FileNotFoundError(
-            f"向量索引不存在: {INDEX_DIR}\n"
-            "请先运行 build_index.py 构建索引"
+            f"向量索引不存在: {index_dir}\n"
+            "请先运行相应的构建脚本"
         )
     
-    print(f"正在加载向量数据库: {INDEX_DIR}")
+    print(f"正在加载向量数据库: {index_dir}")
     return FAISS.load_local(
-        str(INDEX_DIR), 
+        str(index_dir), 
         embeddings,
         allow_dangerous_deserialization=True
     )
@@ -322,7 +377,7 @@ def build_rag_chain(mode: str, retriever, llm):
 @app.on_event("startup")
 async def startup_event():
     """服务启动时初始化"""
-    global vector_store, rag_chains
+    global vector_store, resource_vector_store, rag_chains
     
     print("=" * 50)
     print("艺术疗愈 AI 服务器启动中...")
@@ -334,12 +389,26 @@ async def startup_event():
         vector_store = load_vector_store(embeddings)
         llm = init_llm()
         
+        # 尝试加载资源向量索引
+        try:
+            resource_vector_store = load_vector_store(embeddings, RESOURCE_INDEX_DIR)
+            print("✅ 资源向量索引加载成功")
+        except FileNotFoundError:
+            print("⚠️  资源向量索引未找到，resource_advisor 模式将使用通用索引")
+            print("   提示：运行 python build_resource_index.py 构建资源索引")
+            resource_vector_store = vector_store
+        
         # 创建检索器
         retriever = vector_store.as_retriever(search_kwargs={"k": 3})
         
         # 为每种模式构建 RAG 链
-        for mode in ["comfort", "therapist", "companion"]:
-            rag_chains[mode] = build_rag_chain(mode, retriever, llm)
+        for mode in ["comfort", "therapist", "companion", "resource_advisor"]:
+            # resource_advisor 模式使用资源向量库和更多的检索结果
+            if mode == "resource_advisor":
+                resource_retriever = resource_vector_store.as_retriever(search_kwargs={"k": 5})
+                rag_chains[mode] = build_rag_chain(mode, resource_retriever, llm)
+            else:
+                rag_chains[mode] = build_rag_chain(mode, retriever, llm)
             print(f"✅ {mode} 模式 RAG 链已就绪")
         
         print("=" * 50)
@@ -494,6 +563,64 @@ async def get_all_user_sessions(user_id: str):
         "user_id": user_id,
         "active_sessions": sessions
     }
+
+# ==================== 店铺搜索 ====================
+
+# 在初始化部分加载店铺向量索引
+SHOP_VECTOR_STORE = None
+SHOP_METADATA = []
+
+def load_shop_vector_index():
+    global SHOP_VECTOR_STORE, SHOP_METADATA
+    try:
+        idx_dir = INDEX_DIR
+        # 使用 FAISS 向量库加载
+        SHOP_VECTOR_STORE = FAISS.load_local(str(idx_dir), HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL))
+        meta_path = idx_dir / 'shop_metadata.json'
+        if meta_path.exists():
+            with open(meta_path, 'r', encoding='utf-8') as f:
+                SHOP_METADATA = json.load(f)
+        print('已加载店铺向量索引')
+    except Exception as e:
+        print('加载店铺向量索引失败:', e)
+
+# 在启动时尝试加载
+load_shop_vector_index()
+
+# 新增语义搜索接口
+@app.post('/shops/semantic_search')
+async def semantic_shop_search(request: Request):
+    payload = await request.json()
+    query = payload.get('query')
+    k = int(payload.get('k', 5))
+    region = payload.get('region', '').strip()
+    category = payload.get('category', '').strip()
+
+    if not query:
+        raise HTTPException(status_code=400, detail='缺少 query 参数')
+
+    if not SHOP_VECTOR_STORE:
+        raise HTTPException(status_code=500, detail='店铺向量索引未加载')
+
+    # 向量检索
+    docs = SHOP_VECTOR_STORE.similarity_search(query, k=k)
+
+    # docs 的 metadata 里应该包含索引时保存的字段
+    results = []
+    for doc in docs:
+        meta = doc.metadata if hasattr(doc, 'metadata') else {}
+        # region/category 过滤（基于元数据）
+        if region:
+            addr = (meta.get('address') or '').lower()
+            if region.lower() not in addr:
+                continue
+        if category:
+            tags = meta.get('tags') or []
+            if category not in tags:
+                continue
+        results.append({ 'name': meta.get('name'), 'address': meta.get('address'), 'tags': meta.get('tags'), 'score': doc.score if hasattr(doc, 'score') else None })
+
+    return { 'success': True, 'data': results }
 
 # ==================== 启动入口 ====================
 

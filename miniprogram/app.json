@@ -2,6 +2,8 @@
   "pages": [
     "pages/page1/index",
     "pages/ai-chat/index",
+    "pages/healing-hall-ai-advisor/index",
+    "pages/resource-detail/index",
     "pages/user_login/index",
     "pages/user_register/index",
     "pages/user-info/index",

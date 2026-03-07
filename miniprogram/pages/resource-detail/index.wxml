@@ -1,0 +1,209 @@
+<!--resource-detail/index.wxml-->
+<view class="detail-container">
+  <!-- 顶部导航 -->
+  <view class="detail-nav">
+    <view class="nav-back" bindtap="onBack">
+      <text class="back-icon">‹</text>
+    </view>
+    <text class="nav-title">资源详情</text>
+    <view class="nav-right"></view>
+  </view>
+
+  <!-- 加载状态 -->
+  <view wx:if="{{loading}}" class="loading-wrap">
+    <text>加载中...</text>
+  </view>
+
+  <!-- 空状态 -->
+  <view wx:elif="{{!resource}}" class="loading-wrap">
+    <text>未找到该资源</text>
+  </view>
+
+  <!-- 详情内容 -->
+  <scroll-view wx:else scroll-y class="detail-scroll">
+    <!-- 顶部封面区域 -->
+    <view class="hero-section">
+      <!-- 有图片则轮播，无则展示emoji -->
+      <swiper wx:if="{{resource.cover_images && resource.cover_images.length > 0}}" class="hero-swiper" indicator-dots autoplay circular bindchange="onSwiperChange">
+        <swiper-item wx:for="{{resource.cover_images}}" wx:key="*this">
+          <image class="hero-image" src="{{item}}" mode="aspectFill" bindtap="onPreviewImage" data-url="{{item}}" />
+        </swiper-item>
+      </swiper>
+      <view wx:else class="hero-placeholder" style="background-color: {{resource.bgColor || '#F5F5F5'}}">
+        <text class="hero-emoji">{{resource.emoji || '✨'}}</text>
+      </view>
+      <!-- 独家合作角标 -->
+      <view class="hero-badge" wx:if="{{resource.is_exclusive_partner}}">
+        <text>🤝 独家合作</text>
+      </view>
+    </view>
+
+    <!-- 标题区域 -->
+    <view class="title-section">
+      <text class="detail-name">{{resource.name}}</text>
+      <view class="title-meta">
+        <view class="rating-badge" wx:if="{{resource.displayRating}}">
+          <text class="rating-star">⭐</text>
+          <text class="rating-num">{{resource.displayRating}}</text>
+          <text class="review-count" wx:if="{{resource.reviewText}}">{{resource.reviewText}}</text>
+        </view>
+        <text class="level-text" wx:if="{{resource.levelText}}">{{resource.levelText}}</text>
+      </view>
+    </view>
+
+    <!-- 快捷信息条 -->
+    <view class="quick-info">
+      <view class="quick-item price-item">
+        <text class="quick-label">人均</text>
+        <text class="quick-value quick-price">{{resource.per_person ? '¥' + resource.per_person : (resource.price_min ? '¥' + resource.price_min + '+' : '咨询')}}</text>
+      </view>
+      <view class="quick-divider"></view>
+      <view class="quick-item">
+        <text class="quick-label">区域</text>
+        <text class="quick-value">{{resource.district || resource.city || '上海'}}</text>
+      </view>
+      <view class="quick-divider"></view>
+      <view class="quick-item">
+        <text class="quick-label">形式</text>
+        <text class="quick-value">{{resource.formats[0] || '-'}}</text>
+      </view>
+    </view>
+
+    <!-- 套餐价格 -->
+    <view class="card price-packages-card" wx:if="{{resource.packages && resource.packages.length > 0}}">
+      <view class="price-card-header">
+        <text class="card-title">套餐价格</text>
+        <view class="per-person-wrap" wx:if="{{resource.per_person}}">
+          <text class="per-person-label">人均</text>
+          <text class="per-person-value">¥{{resource.per_person}}</text>
+        </view>
+      </view>
+      <view class="package-list">
+        <view class="package-item {{item.hot ? 'package-hot' : ''}}" wx:for="{{resource.packages}}" wx:key="name">
+          <view class="package-left">
+            <view class="package-name-row">
+              <text class="package-name">{{item.name}}</text>
+              <text class="package-hot-tag" wx:if="{{item.hot}}">热门</text>
+              <text class="package-extra-tag" wx:if="{{item.tag && !item.hot}}">{{item.tag}}</text>
+            </view>
+            <text class="package-desc" wx:if="{{item.desc}}">{{item.desc}}</text>
+          </view>
+          <view class="package-right">
+            <text class="package-price" wx:if="{{item.price > 0}}">¥{{item.price}}</text>
+            <text class="package-price package-free" wx:elif="{{item.price === 0}}">免费</text>
+            <text class="package-unit" wx:if="{{item.price > 0}}">/{{item.unit}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 来源平台 -->
+    <view class="card" wx:if="{{resource.platformLabels && resource.platformLabels.length > 0}}">
+      <text class="card-title">信息来源</text>
+      <view class="pills-row">
+        <text class="pill pill-source" wx:for="{{resource.platformLabels}}" wx:key="*this">{{item}}</text>
+      </view>
+    </view>
+
+    <!-- 介绍 -->
+    <view class="card" wx:if="{{resource.description}}">
+      <text class="card-title">介绍</text>
+      <text class="card-text">{{resource.description}}</text>
+    </view>
+
+    <!-- 疗愈师信息 -->
+    <view class="card therapist-card" wx:if="{{resource.therapists && resource.therapists.length > 0}}">
+      <view class="therapist-card-title-row">
+        <text class="card-title">疗愈师</text>
+        <text class="therapist-count-badge" wx:if="{{resource.therapists.length > 1}}">{{resource.therapists.length}} 位</text>
+      </view>
+      <view class="therapist-item" wx:for="{{resource.therapists}}" wx:key="name" wx:for-item="t">
+        <view class="therapist-row">
+          <view class="therapist-avatar therapist-avatar-{{index % 3}}">
+            <text class="avatar-text">{{t.name[0]}}</text>
+          </view>
+          <view class="therapist-info">
+            <view class="therapist-name-row">
+              <text class="therapist-name">{{t.name}}</text>
+              <text class="therapist-title-tag" wx:if="{{t.title}}">{{t.title}}</text>
+            </view>
+            <text class="therapist-intro" wx:if="{{t.intro}}">{{t.intro}}</text>
+          </view>
+        </view>
+        <!-- 认证标签 -->
+        <view class="cert-list" wx:if="{{t.certifications && t.certifications.length > 0}}">
+          <text class="cert-tag" wx:for="{{t.certifications}}" wx:for-item="cert" wx:key="*this">🏅 {{cert}}</text>
+        </view>
+        <view class="therapist-separator" wx:if="{{index < resource.therapists.length - 1}}"></view>
+      </view>
+    </view>
+
+    <!-- 特色标签 -->
+    <view class="card" wx:if="{{resource.feature_tags && resource.feature_tags.length > 0}}">
+      <text class="card-title">特色亮点</text>
+      <view class="pills-row">
+        <text class="pill pill-feature" wx:for="{{resource.feature_tags}}" wx:key="*this">{{item}}</text>
+      </view>
+    </view>
+
+    <!-- 适合心情 -->
+    <view class="card" wx:if="{{resource.mood_tags && resource.mood_tags.length > 0}}">
+      <text class="card-title">适合心情</text>
+      <view class="pills-row">
+        <text class="pill pill-mood" wx:for="{{resource.mood_tags}}" wx:key="*this">{{item}}</text>
+      </view>
+    </view>
+
+    <!-- 地址 -->
+    <view class="card address-card" wx:if="{{resource.address_text}}">
+      <text class="card-title">📍 地址</text>
+      <view class="address-row">
+        <text class="address-text">{{resource.address_text}}</text>
+        <view class="copy-btn" bindtap="onCopyAddress">
+          <text>复制</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 联系方式 -->
+    <view class="card contact-card" wx:if="{{resource.hasContact}}">
+      <text class="card-title">联系方式</text>
+      <!-- 微信 -->
+      <view class="contact-row" wx:if="{{resource.hasWechat}}">
+        <text class="contact-icon">💬</text>
+        <text class="contact-label">微信</text>
+        <text class="contact-value">{{resource.contact_info.wechat}}</text>
+        <view class="contact-action" bindtap="onCopyWeChat">
+          <text>复制</text>
+        </view>
+      </view>
+      <!-- 电话 -->
+      <view class="contact-row" wx:if="{{resource.hasPhone}}">
+        <text class="contact-icon">📞</text>
+        <text class="contact-label">电话</text>
+        <text class="contact-value">{{resource.contact_info.phone}}</text>
+        <view class="contact-action call-action" bindtap="onCallPhone">
+          <text>拨打</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 底部间距 -->
+    <view class="scroll-bottom"></view>
+  </scroll-view>
+
+  <!-- 底部操作栏 -->
+  <view class="bottom-bar" wx:if="{{resource}}">
+    <view class="bar-btn bar-favorite" bindtap="onFavorite">
+      <text class="bar-icon">🤍</text>
+      <text class="bar-label">收藏</text>
+    </view>
+    <view class="bar-btn bar-chat" wx:if="{{resource.is_exclusive_partner}}" bindtap="onChatConsult">
+      <text class="bar-icon">💬</text>
+      <text class="bar-label">在线咨询</text>
+    </view>
+    <view class="bar-main-btn" bindtap="onBookNow">
+      <text>立即预约</text>
+    </view>
+  </view>
+</view>

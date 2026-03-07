@@ -1,5 +1,6 @@
 // cloudfunctions/askAI/index.js
 // AI 对话云函数 - 连接小程序和 AI 服务器
+// 支持模式：comfort, therapist, companion, resource_advisor
 
 const cloud = require('wx-server-sdk')
 const axios = require('axios')
@@ -11,7 +12,8 @@ cloud.init({
 const db = cloud.database()
 
 // AI 服务器地址 - 部署后替换为实际地址
-const AI_SERVER_URL = process.env.AI_SERVER_URL || 'http://YOUR_SERVER_IP:8000'
+// 开发环境下如果未配置，直接返回降级回复
+const AI_SERVER_URL = process.env.AI_SERVER_URL || null
 
 exports.main = async (event, context) => {
   const { query, mode = 'comfort', chatHistory = [] } = event
@@ -36,10 +38,13 @@ exports.main = async (event, context) => {
       console.log('[askAI] 获取用户信息失败:', dbErr)
     }
 
-    // 2. (可选) 查询推荐资源
+    // 2. (可选) 查询推荐资源 - 仅在 resource_advisor 模式或相关关键词时
     let recommendData = ""
-    const resourceKeywords = ['推荐', '去哪', '哪里', '工坊', '画室', '课程']
-    if (resourceKeywords.some(kw => query.includes(kw))) {
+    const resourceKeywords = ['推荐', '去哪', '哪里', '工坊', '画室', '课程', '疗愈', '体验']
+    const isResourceMode = mode === 'resource_advisor'
+    const hasResourceKeyword = resourceKeywords.some(kw => query.includes(kw))
+    
+    if (isResourceMode || hasResourceKeyword) {
       try {
         const recs = await db.collection('healing_resources').limit(3).get()
         if (recs.data.length > 0) {
@@ -57,6 +62,16 @@ exports.main = async (event, context) => {
 
     // 3. 调用 AI 服务器
     console.log(`[askAI] 请求 AI 服务器: ${AI_SERVER_URL}/chat`)
+    
+    // 如果未配置 AI 服务器，直接返回降级回复
+    if (!AI_SERVER_URL) {
+      console.log('[askAI] AI 服务器未配置，使用降级回复')
+      return {
+        success: false,
+        reply: getFallbackReply(mode, query),
+        error: 'AI 服务器未配置'
+      }
+    }
     
     const response = await axios.post(`${AI_SERVER_URL}/chat`, {
       user_id: openid,
@@ -92,7 +107,8 @@ exports.main = async (event, context) => {
       return {
         success: true,
         reply: response.data.reply,
-        sources: response.data.sources
+        sources: response.data.sources,
+        mode: mode  // 返回模式信息
       }
     } else {
       throw new Error(response.data.error || 'AI 服务返回错误')
@@ -131,6 +147,11 @@ function getFallbackReply(mode, query) {
       '哎呀，我刚才走神了！再说一遍好不好？😅',
       '不好意思呀，我现在脑子有点转不过来，待会再来找我聊天吧~ ☕',
       '我现在有点忙，但很快就好！你可以先去看看有什么好玩的~'
+    ],
+    resource_advisor: [
+      '抱歉，我现在暂时无法为你查询资源信息。请稍后再试，或者直接浏览疗愈馆页面查看推荐资源。',
+      '系统正在更新资源数据库，请稍后重试。你也可以先浏览疗愈馆的精选资源。',
+      '暂时无法连接到资源数据库。建议你先查看疗愈馆页面的店铺推荐，或稍后再来咨询我。'
     ]
   }
   

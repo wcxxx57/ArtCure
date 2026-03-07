@@ -10,17 +10,17 @@ Page({
     modeConfig: {
       comfort: {
         name: '树洞模式 · 倾听你的心声',
-        greeting: '嗨，我是小云。这里是你的专属树洞，想说什么都可以，我会一直陪着你，静静地听。💙',
+        greeting: '大家好呀，我是艺哟。我是来自艺术疗愈星球的爱心小精灵，也是你的专属树洞！\n不管是 emo、焦虑还是想放空，都可以来找我贴贴～ 用色彩和温柔，把烦恼揉成小棉花糖，把快乐慢慢点亮！\n快来和我一起，在艺术里找回内心的软乎乎吧～💙',
         style: 'gentle' // 温柔、倾听、安慰
       },
       therapist: {
         name: '疗愈师模式 · 专业陪伴',
-        greeting: '你好，我是小云疗愈师。我会运用艺术疗愈的专业知识，帮助你探索内心、缓解情绪。有什么想和我聊聊的吗？🌿',
+        greeting: '你好，我是艺呦疗愈师。我是来自艺术疗愈星球的爱心小精灵，我会运用艺术疗愈的专业知识，帮助你探索内心、缓解情绪。有什么想和我聊聊的吗？🌿',
         style: 'professional' // 专业、引导、建议
       },
       companion: {
         name: '日常陪伴 · 轻松聊天',
-        greeting: '哈喽～我是小云！今天过得怎么样呀？有什么开心的事想分享吗？或者只是想找人聊聊天也可以哦～ ☕',
+        greeting: '哈喽～我是艺呦！今天过得怎么样呀？有什么开心的事想分享吗？或者只是想找人聊聊天也可以哦～ ☕',
         style: 'casual' // 轻松、活泼、朋友感
       }
     },
@@ -31,13 +31,13 @@ Page({
     // 各模式独立的聊天记录
     modeMessages: {
       comfort: [
-        { id: 1, type: 'bot', text: '嗨，我是小云。这里是你的专属树洞，想说什么都可以，我会一直陪着你，静静地听。💙' }
+        { id: 1, type: 'bot', text: '你好呀，我是~~艺哟~~^^！我是来自艺术疗愈星球的爱心小精灵，也是你的~~专属树洞~~！不管是 emo、焦虑还是想放空，都可以来找我贴贴～ 💙', richText: '' }
       ],
       therapist: [
-        { id: 1, type: 'bot', text: '你好，我是小云疗愈师。我会运用艺术疗愈的专业知识，帮助你探索内心、缓解情绪。有什么想和我聊聊的吗？🌿' }
+        { id: 1, type: 'bot', text: '你好，我是~~疗愈师艺呦~~。我会运用~~艺术疗愈的专业知识~~，帮助你探索内心、缓解情绪。有什么想和我聊聊的吗？🌿', richText: '' }
       ],
       companion: [
-        { id: 1, type: 'bot', text: '哈喽～我是小云！今天过得怎么样呀？有什么开心的事想分享吗？或者只是想找人聊聊天也可以哦～ ☕' }
+        { id: 1, type: 'bot', text: '哈喽～我是~~艺呦~~！今天过得怎么样呀？有什么开心的事想分享吗？或者只是想找人~~聊聊天~~也可以哦～ ☕', richText: '' }
       ]
     },
     
@@ -117,8 +117,17 @@ Page({
     html = html.replace(/^## (.+)$/gm, '<div style="font-weight:bold;font-size:34rpx;margin:18rpx 0 10rpx;color:#4A90E2;">$1</div>')
     html = html.replace(/^# (.+)$/gm, '<div style="font-weight:bold;font-size:36rpx;margin:20rpx 0 12rpx;color:#4A90E2;">$1</div>')
     
-    // 加粗 **text** -> <strong>
-    html = html.replace(/\*\*(.+?)\*\*/g, '<span style="font-weight:bold;color:#333;">$1</span>')
+    // 加粗蓝色 **text**
+    html = html.replace(/\*\*(.+?)\*\*/g, '<span style="font-weight:bold;color:#1976D2;">$1</span>')
+    
+    // 红色强调 ~~text~~
+    html = html.replace(/~~(.+?)~~/g, '<span style="color:#e8757e;font-weight:bold;">$1</span>')
+    
+    // 绿色标签 ##text##
+    html = html.replace(/##(.+?)##/g, '<span style="color:#43A047;background:#E8F5E9;padding:4rpx 8rpx;border-radius:4rpx;">$1</span>')
+    
+    // 橙色标签 %%text%%
+    html = html.replace(/%%(.+?)%%/g, '<span style="color:#FB8C00;background:#FFF3E0;padding:4rpx 8rpx;border-radius:4rpx;">$1</span>')
     
     // 斜体 *text* -> <em>
     html = html.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, '<span style="font-style:italic;">$1</span>')
@@ -141,8 +150,13 @@ Page({
 
   onLoad(options) {
     // 初始化当前模式的消息和快捷问题
+    const messages = this.data.modeMessages[this.data.currentMode]
+    // 解析第一条欢迎消息的格式
+    if (messages.length > 0 && messages[0].type === 'bot') {
+      messages[0].richText = this.parseMarkdown(messages[0].text)
+    }
     this.setData({
-      messages: this.data.modeMessages[this.data.currentMode],
+      messages: messages,
       quickQuestions: this.data.modeQuickQuestions[this.data.currentMode]
     })
   },
@@ -159,12 +173,18 @@ Page({
     const { modeConfig, modeQuickQuestions, modeMessages, modeTypingStatus } = this.data
     const config = modeConfig[mode]
     
+    // 获取该模式的消息并解析欢迎消息
+    const messages = modeMessages[mode]
+    if (messages.length > 0 && messages[0].type === 'bot' && !messages[0].richText) {
+      messages[0].richText = this.parseMarkdown(messages[0].text)
+    }
+    
     // 切换到对应模式的聊天记录，并同步该模式的加载状态
     this.setData({
       currentMode: mode,
       currentModeName: config.name,
       quickQuestions: modeQuickQuestions[mode],
-      messages: modeMessages[mode],
+      messages: messages,
       isTyping: modeTypingStatus[mode]  // 同步当前模式的加载状态
     })
     

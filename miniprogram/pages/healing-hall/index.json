@@ -1,5 +1,8 @@
 {
   "navigationBarTitleText": "疗愈馆",
   "navigationBarBackgroundColor": "#FFFFFF",
-  "navigationBarTextStyle": "black"
+  "navigationBarTextStyle": "black",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "dark",
+  "onReachBottomDistance": 100
 }

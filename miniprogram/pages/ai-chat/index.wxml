@@ -7,13 +7,13 @@
       <!-- 左侧：返回按钮（logo） -->
       <view class="header-back" bindtap="onClose">
         <view class="back-avatar">
-          <image class="back-logo" src="../../images/chat_image/ip.png" mode="aspectFit"></image>
+          <image class="back-logo" src="https://picui.ogmua.cn/s1/2026/03/07/69ab9a20a82a5.webp" mode="aspectFit"></image>
         </view>
       </view>
       
       <!-- 中间：标题和状态 -->
       <view class="header-center">
-        <text class="bot-name">小云</text>
+        <text class="bot-name">愈见·艺呦</text>
         <text class="bot-status">{{currentModeName}}</text>
       </view>
       

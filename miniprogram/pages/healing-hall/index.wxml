@@ -3,100 +3,255 @@
   <!-- 页面标题 -->
   <view class="page-header">
     <text class="page-title">疗愈馆</text>
+    <text class="page-subtitle">找到适合你的疗愈方式</text>
   </view>
 
   <!-- 搜索栏 -->
   <view class="search-section">
     <view class="search-bar">
       <text class="search-icon">🔍</text>
-      <input 
-        class="search-input" 
-        placeholder="搜索疗愈资源..." 
+      <input
+        class="search-input"
+        placeholder="搜索名称、疗愈师、地址..."
         placeholder-class="search-placeholder"
         bindinput="onSearchInput"
+        bindconfirm="onSearchConfirm"
+        confirm-type="search"
         value="{{searchKeyword}}"
       />
+      <text class="search-clear" wx:if="{{searchKeyword}}" bindtap="onClearSearch">✕</text>
     </view>
   </view>
 
   <!-- 分类标签 -->
   <scroll-view class="category-scroll" scroll-x enable-flex>
-    <view 
+    <view
       class="category-item {{activeCategory === item.id ? 'category-active' : ''}}"
       wx:for="{{categories}}"
       wx:key="id"
       bindtap="onCategoryTap"
       data-category="{{item}}"
     >
+      <text class="category-icon">{{item.icon}}</text>
       <text>{{item.name}}</text>
     </view>
   </scroll-view>
 
-  <!-- 精选视频banner -->
-  <view class="featured-section">
-    <view class="featured-card" bindtap="onFeaturedTap">
-      <view class="featured-overlay"></view>
-      <view class="featured-play">
-        <text class="play-icon">▶</text>
+  <!-- 筛选栏 -->
+  <view class="filter-bar">
+    <view
+      class="filter-bar-item {{activeFilterType === 'priceRange' ? 'filter-bar-active' : ''}} {{filters.priceRange !== 'all' ? 'filter-bar-selected' : ''}}"
+      bindtap="onFilterBarTap"
+      data-type="priceRange"
+    >
+      <text>价格</text>
+      <text class="filter-arrow">{{activeFilterType === 'priceRange' ? '▴' : '▾'}}</text>
+    </view>
+    <view
+      class="filter-bar-item {{activeFilterType === 'format' ? 'filter-bar-active' : ''}} {{filters.format !== 'all' ? 'filter-bar-selected' : ''}}"
+      bindtap="onFilterBarTap"
+      data-type="format"
+    >
+      <text>形式</text>
+      <text class="filter-arrow">{{activeFilterType === 'format' ? '▴' : '▾'}}</text>
+    </view>
+    <view
+      class="filter-bar-item {{activeFilterType === 'level' ? 'filter-bar-active' : ''}} {{filters.level !== 'all' ? 'filter-bar-selected' : ''}}"
+      bindtap="onFilterBarTap"
+      data-type="level"
+    >
+      <text>等级</text>
+      <text class="filter-arrow">{{activeFilterType === 'level' ? '▴' : '▾'}}</text>
+    </view>
+    <view
+      class="filter-bar-item {{activeFilterType === 'source' ? 'filter-bar-active' : ''}} {{filters.source !== 'all' ? 'filter-bar-selected' : ''}}"
+      bindtap="onFilterBarTap"
+      data-type="source"
+    >
+      <text>来源</text>
+      <text class="filter-arrow">{{activeFilterType === 'source' ? '▴' : '▾'}}</text>
+    </view>
+    <view
+      class="filter-bar-item {{activeFilterType === 'sortBy' ? 'filter-bar-active' : ''}} {{filters.sortBy !== 'recommended' ? 'filter-bar-selected' : ''}}"
+      bindtap="onFilterBarTap"
+      data-type="sortBy"
+    >
+      <text>排序</text>
+      <text class="filter-arrow">{{activeFilterType === 'sortBy' ? '▴' : '▾'}}</text>
+    </view>
+  </view>
+
+  <!-- 筛选下拉面板 -->
+  <view class="filter-panel-wrap" wx:if="{{showFilterPanel}}">
+    <view class="filter-panel">
+      <!-- 价格区间 -->
+      <view class="filter-options" wx:if="{{activeFilterType === 'priceRange'}}">
+        <view
+          class="filter-option {{filters.priceRange === item.id ? 'filter-option-active' : ''}}"
+          wx:for="{{filterOptions.priceRanges}}"
+          wx:key="id"
+          bindtap="onFilterOptionTap"
+          data-type="priceRange"
+          data-value="{{item.id}}"
+        >{{item.label}}</view>
       </view>
-      <view class="featured-info">
-        <text class="featured-title">寻找内心的宁静：艺术疗愈纪录片</text>
-        <text class="featured-meta">独家放映 · 15分钟</text>
+      <!-- 形式 -->
+      <view class="filter-options" wx:if="{{activeFilterType === 'format'}}">
+        <view
+          class="filter-option {{filters.format === item.id ? 'filter-option-active' : ''}}"
+          wx:for="{{filterOptions.formats}}"
+          wx:key="id"
+          bindtap="onFilterOptionTap"
+          data-type="format"
+          data-value="{{item.id}}"
+        >{{item.label}}</view>
+      </view>
+      <!-- 等级 -->
+      <view class="filter-options" wx:if="{{activeFilterType === 'level'}}">
+        <view
+          class="filter-option {{filters.level === item.id ? 'filter-option-active' : ''}}"
+          wx:for="{{filterOptions.levels}}"
+          wx:key="id"
+          bindtap="onFilterOptionTap"
+          data-type="level"
+          data-value="{{item.id}}"
+        >{{item.label}}</view>
+      </view>
+      <!-- 来源 -->
+      <view class="filter-options" wx:if="{{activeFilterType === 'source'}}">
+        <view
+          class="filter-option {{filters.source === item.id ? 'filter-option-active' : ''}}"
+          wx:for="{{filterOptions.sources}}"
+          wx:key="id"
+          bindtap="onFilterOptionTap"
+          data-type="source"
+          data-value="{{item.id}}"
+        >{{item.label}}</view>
+      </view>
+      <!-- 排序 -->
+      <view class="filter-options" wx:if="{{activeFilterType === 'sortBy'}}">
+        <view
+          class="filter-option {{filters.sortBy === item.id ? 'filter-option-active' : ''}}"
+          wx:for="{{filterOptions.sortOptions}}"
+          wx:key="id"
+          bindtap="onFilterOptionTap"
+          data-type="sortBy"
+          data-value="{{item.id}}"
+        >{{item.label}}</view>
+      </view>
+    </view>
+    <view class="filter-mask" bindtap="onCloseFilterPanel"></view>
+  </view>
+
+  <!-- 活跃筛选标签 -->
+  <view class="active-filters" wx:if="{{activeFilterTags.length > 0}}">
+    <view class="active-filter-tag" wx:for="{{activeFilterTags}}" wx:key="key" bindtap="onRemoveFilterTag" data-key="{{item.key}}">
+      <text>{{item.label}}</text>
+      <text class="tag-remove">✕</text>
+    </view>
+    <view class="clear-all-btn" bindtap="onClearAllFilters">
+      <text>清除全部</text>
+    </view>
+  </view>
+
+  <!-- AI资源顾问入口 -->
+  <view class="ai-advisor-section">
+    <view class="ai-advisor-card" bindtap="onAIAdvisorTap">
+      <view class="ai-advisor-icon">
+        <text class="ai-icon">✨</text>
+      </view>
+      <view class="ai-advisor-content">
+        <text class="ai-advisor-title">愈见 · AI资源顾问</text>
+        <text class="ai-advisor-desc">不知道选什么？AI智能顾问帮你精准匹配</text>
+      </view>
+      <view class="ai-advisor-arrow">
+        <text>›</text>
       </view>
     </view>
   </view>
 
-  <!-- 精选推荐 -->
-  <view class="resources-section">
-    <text class="section-title">精选推荐</text>
-    <view class="resources-grid">
-      <view 
-        class="resource-card"
-        wx:for="{{resources}}"
-        wx:key="id"
-        bindtap="onResourceTap"
-        data-resource="{{item}}"
-      >
-        <view class="resource-cover" style="background-color: {{item.bgColor}}">
-          <text class="resource-emoji">{{item.emoji}}</text>
-          <view class="resource-badge">
-            <text>{{item.category}}</text>
-          </view>
-        </view>
-        <view class="resource-info">
-          <text class="resource-title">{{item.title}}</text>
-          <view class="resource-footer">
-            <text class="resource-views">{{item.views}} 体验</text>
-            <view class="resource-like">
-              <text class="like-icon">♡</text>
-            </view>
-          </view>
-        </view>
-      </view>
+  <!-- 结果统计 -->
+  <view class="result-header">
+    <text class="result-count">共 {{totalCount}} 个疗愈资源</text>
+  </view>
+
+  <!-- 加载中 -->
+  <view class="loading-container" wx:if="{{loading}}">
+    <text class="loading-text">正在加载...</text>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-container" wx:if="{{!loading && displayShops.length === 0}}">
+    <text class="empty-emoji">🔍</text>
+    <text class="empty-text">暂无匹配的疗愈资源</text>
+    <text class="empty-hint">试试调整筛选条件</text>
+    <view class="empty-action" bindtap="onClearAllFilters">
+      <text>清除所有筛选</text>
     </view>
   </view>
 
-  <!-- 线下沙龙 -->
-  <view class="salon-section">
-    <text class="section-title">线下沙龙</text>
-    <view class="salon-list">
-      <view 
-        class="salon-card"
-        wx:for="{{salons}}"
-        wx:key="id"
-        bindtap="onSalonTap"
-        data-salon="{{item}}"
-      >
-        <view class="salon-info">
-          <view class="salon-location">
-            <text class="location-icon">📍</text>
-            <text>{{item.city}}</text>
-          </view>
-          <text class="salon-title">{{item.title}}</text>
-          <text class="salon-time">{{item.date}} {{item.time}}</text>
+  <!-- 资源列表 -->
+  <view class="shops-list" wx:if="{{displayShops.length > 0}}">
+    <view
+      class="shop-card"
+      wx:for="{{displayShops}}"
+      wx:key="_id"
+      bindtap="onShopTap"
+      data-shop="{{item}}"
+    >
+      <!-- 封面区域 -->
+      <view class="shop-cover-wrap">
+        <!-- 有图片：展示真实封面 -->
+        <image
+          wx:if="{{item.coverImage}}"
+          class="shop-cover-img"
+          src="{{item.coverImage}}"
+          mode="aspectFill"
+          lazy-load
+        />
+        <!-- 无图片：展示emoji占位 -->
+        <view wx:else class="shop-cover-placeholder" style="background-color: {{item.bgColor}}">
+          <text class="shop-cover-emoji">{{item.emoji}}</text>
         </view>
-        <view class="salon-seats">
-          <text class="seats-text">剩余{{item.seats}}席</text>
+        <!-- 独家合作角标 -->
+        <view class="exclusive-badge" wx:if="{{item.is_exclusive_partner}}">
+          <text>🤝 独家合作</text>
+        </view>
+        <!-- 评分角标 -->
+        <view class="rating-badge" wx:if="{{item.displayRating}}">
+          <text class="rating-star-icon">★</text>
+          <text class="rating-num">{{item.displayRating}}</text>
+        </view>
+      </view>
+
+      <!-- 信息区域 -->
+      <view class="shop-info">
+        <!-- 名称 -->
+        <text class="shop-name">{{item.name}}</text>
+
+        <!-- 标签行：形式 + 等级 -->
+        <view class="tags-row">
+          <text class="format-tag" wx:for="{{item.displayFormats}}" wx:for-item="fmt" wx:key="*this">{{fmt}}</text>
+          <text class="level-badge level-{{item.certification_level}}" wx:if="{{item.levelLabel}}">{{item.levelLabel}}</text>
+        </view>
+
+        <!-- 价格 + 来源 -->
+        <view class="price-source-row">
+          <text class="price-text" wx:if="{{item.price_text}}">{{item.price_text}}</text>
+          <view class="source-tags">
+            <text class="source-tag" wx:for="{{item.sourceLabels}}" wx:for-item="src" wx:key="*this">{{src}}</text>
+          </view>
+        </view>
+
+        <!-- 地址 -->
+        <view class="shop-address" wx:if="{{item.displayAddress}}">
+          <text class="address-icon">📍</text>
+          <text class="address-text">{{item.displayAddress}}</text>
+        </view>
+
+        <!-- 特色标签 -->
+        <view class="feature-strip" wx:if="{{item.feature_tags && item.feature_tags.length > 0}}">
+          <text class="feature-chip" wx:for="{{item.feature_tags}}" wx:for-item="ft" wx:key="*this" wx:if="{{index < 4}}">{{ft}}</text>
         </view>
       </view>
     </view>
