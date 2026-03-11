@@ -30,15 +30,15 @@
     <view class="options-grid">
       <view 
         class="option-card"
-        style="background: {{item.selected ? '#6C63FF' : 'white'}}; border-color: {{item.selected ? '#6C63FF' : 'white'}}; transform: {{item.selected ? 'translateY(-4rpx)' : 'translateY(0)'}};"
+        style="background: {{item.selected ? 'linear-gradient(135deg, #FFB7B2 0%, #FEE5E6 100%)' : 'rgba(255, 255, 255, 0.9)'}}; border-color: {{item.selected ? '#FFB7B2' : 'rgba(255, 255, 255, 0.5)'}}; transform: {{item.selected ? 'translateY(-3rpx)' : 'translateY(0)'}}; box-shadow: {{item.selected ? '0 6rpx 20rpx rgba(255, 183, 178, 0.3)' : '0 4rpx 16rpx rgba(0, 0, 0, 0.06)'}};"
         wx:for="{{artFormOptions}}"
         wx:key="id"
         data-id="{{item.id}}"
         bindtap="onArtFormTap"
       >
         <view class="option-emoji">{{item.emoji}}</view>
-        <view class="option-name" style="color: {{item.selected ? 'white' : '#2C2C2C'}};">{{item.name}}</view>
-        <view class="option-desc" style="color: {{item.selected ? 'rgba(255,255,255,0.9)' : '#999'}};">{{item.desc}}</view>
+        <view class="option-name" style="color: {{item.selected ? 'white' : '#444'}};">{{item.name}}</view>
+        <view class="option-desc" style="color: {{item.selected ? 'rgba(255,255,255,0.9)' : '#888'}};">{{item.desc}}</view>
         <view class="option-check" wx:if="{{item.selected}}">✓</view>
       </view>
     </view>
@@ -54,15 +54,15 @@
     <view class="options-grid">
       <view 
         class="option-card"
-        style="background: {{item.selected ? '#6C63FF' : 'white'}}; border-color: {{item.selected ? '#6C63FF' : 'white'}}; transform: {{item.selected ? 'translateY(-4rpx)' : 'translateY(0)'}};"
+        style="background: {{item.selected ? 'linear-gradient(135deg, #FFB7B2 0%, #FEE5E6 100%)' : 'rgba(255, 255, 255, 0.9)'}}; border-color: {{item.selected ? '#FFB7B2' : 'rgba(255, 255, 255, 0.5)'}}; transform: {{item.selected ? 'translateY(-3rpx)' : 'translateY(0)'}}; box-shadow: {{item.selected ? '0 6rpx 20rpx rgba(255, 183, 178, 0.3)' : '0 4rpx 16rpx rgba(0, 0, 0, 0.06)'}};"
         wx:for="{{helpNeedOptions}}"
         wx:key="id"
         data-id="{{item.id}}"
         bindtap="onHelpNeedTap"
       >
         <view class="option-emoji">{{item.emoji}}</view>
-        <view class="option-name" style="color: {{item.selected ? 'white' : '#2C2C2C'}};">{{item.name}}</view>
-        <view class="option-desc" style="color: {{item.selected ? 'rgba(255,255,255,0.9)' : '#999'}};">{{item.desc}}</view>
+        <view class="option-name" style="color: {{item.selected ? 'white' : '#444'}};">{{item.name}}</view>
+        <view class="option-desc" style="color: {{item.selected ? 'rgba(255,255,255,0.9)' : '#888'}};">{{item.desc}}</view>
         <view class="option-check" wx:if="{{item.selected}}">✓</view>
       </view>
     </view>
@@ -78,7 +78,7 @@
     <view class="options-list">
       <view 
         class="option-card-large"
-        style="background: {{item.selected ? '#6C63FF' : 'white'}}; border-color: {{item.selected ? '#6C63FF' : 'white'}}; transform: {{item.selected ? 'translateY(-4rpx)' : 'translateY(0)'}};"
+        style="background: {{item.selected ? 'linear-gradient(135deg, #FFB7B2 0%, #FEE5E6 100%)' : 'rgba(255, 255, 255, 0.9)'}}; border-color: {{item.selected ? '#FFB7B2' : 'rgba(255, 255, 255, 0.5)'}}; transform: {{item.selected ? 'translateY(-3rpx)' : 'translateY(0)'}}; box-shadow: {{item.selected ? '0 6rpx 20rpx rgba(255, 183, 178, 0.3)' : '0 4rpx 16rpx rgba(0, 0, 0, 0.06)'}};"
         wx:for="{{formatOptions}}"
         wx:key="id"
         data-id="{{item.id}}"
@@ -88,8 +88,8 @@
           <view class="option-emoji-large">{{item.emoji}}</view>
         </view>
         <view class="option-right">
-          <view class="option-name-large" style="color: {{item.selected ? 'white' : '#2C2C2C'}};">{{item.name}}</view>
-          <view class="option-desc-large" style="color: {{item.selected ? 'rgba(255,255,255,0.9)' : '#888'}};">{{item.desc}}</view>
+          <view class="option-name-large" style="color: {{item.selected ? 'white' : '#444'}};">{{item.name}}</view>
+          <view class="option-desc-large" style="color: {{item.selected ? 'rgba(255,255,255,0.9)' : '#777'}};">{{item.desc}}</view>
         </view>
         <view class="option-check-large" wx:if="{{item.selected}}">✓</view>
       </view>
