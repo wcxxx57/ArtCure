@@ -1,6 +1,7 @@
 {
   "pages": [
     "pages/page1/index",
+    "pages/onboarding-survey/index",
     "pages/ai-chat/index",
     "pages/healing-hall-ai-advisor/index",
     "pages/resource-detail/index",

@@ -1,0 +1,131 @@
+<!-- pages/onboarding-survey/index.wxml -->
+<view class="survey-container">
+  <!-- 进度指示器 -->
+  <view class="progress-bar">
+    <view class="progress-steps">
+      <view class="step {{currentStep >= 1 ? 'active' : ''}}">
+        <view class="step-circle">1</view>
+        <view class="step-label">艺术偏好</view>
+      </view>
+      <view class="step-line {{currentStep >= 2 ? 'active' : ''}}"></view>
+      <view class="step {{currentStep >= 2 ? 'active' : ''}}">
+        <view class="step-circle">2</view>
+        <view class="step-label">期望帮助</view>
+      </view>
+      <view class="step-line {{currentStep >= 3 ? 'active' : ''}}"></view>
+      <view class="step {{currentStep >= 3 ? 'active' : ''}}">
+        <view class="step-circle">3</view>
+        <view class="step-label">活动形式</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 第一步：艺术形式 -->
+  <view class="step-content" wx:if="{{currentStep === 1}}">
+    <view class="step-header">
+      <view class="step-title">你对哪些艺术形式感兴趣？</view>
+      <view class="step-subtitle">可以选择多个，帮助我们为你推荐合适的内容</view>
+    </view>
+    
+    <view class="options-grid">
+      <view 
+        class="option-card"
+        style="background: {{item.selected ? '#6C63FF' : 'white'}}; border-color: {{item.selected ? '#6C63FF' : 'white'}}; transform: {{item.selected ? 'translateY(-4rpx)' : 'translateY(0)'}};"
+        wx:for="{{artFormOptions}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="onArtFormTap"
+      >
+        <view class="option-emoji">{{item.emoji}}</view>
+        <view class="option-name" style="color: {{item.selected ? 'white' : '#2C2C2C'}};">{{item.name}}</view>
+        <view class="option-desc" style="color: {{item.selected ? 'rgba(255,255,255,0.9)' : '#999'}};">{{item.desc}}</view>
+        <view class="option-check" wx:if="{{item.selected}}">✓</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 第二步：期望帮助 -->
+  <view class="step-content" wx:if="{{currentStep === 2}}">
+    <view class="step-header">
+      <view class="step-title">你希望获得什么帮助？</view>
+      <view class="step-subtitle">选择你当前最需要的，可以多选</view>
+    </view>
+    
+    <view class="options-grid">
+      <view 
+        class="option-card"
+        style="background: {{item.selected ? '#6C63FF' : 'white'}}; border-color: {{item.selected ? '#6C63FF' : 'white'}}; transform: {{item.selected ? 'translateY(-4rpx)' : 'translateY(0)'}};"
+        wx:for="{{helpNeedOptions}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="onHelpNeedTap"
+      >
+        <view class="option-emoji">{{item.emoji}}</view>
+        <view class="option-name" style="color: {{item.selected ? 'white' : '#2C2C2C'}};">{{item.name}}</view>
+        <view class="option-desc" style="color: {{item.selected ? 'rgba(255,255,255,0.9)' : '#999'}};">{{item.desc}}</view>
+        <view class="option-check" wx:if="{{item.selected}}">✓</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 第三步：活动形式 -->
+  <view class="step-content" wx:if="{{currentStep === 3}}">
+    <view class="step-header">
+      <view class="step-title">你更喜欢哪种参与方式？</view>
+      <view class="step-subtitle">选择你偏好的活动形式，可以多选</view>
+    </view>
+    
+    <view class="options-list">
+      <view 
+        class="option-card-large"
+        style="background: {{item.selected ? '#6C63FF' : 'white'}}; border-color: {{item.selected ? '#6C63FF' : 'white'}}; transform: {{item.selected ? 'translateY(-4rpx)' : 'translateY(0)'}};"
+        wx:for="{{formatOptions}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="onFormatTap"
+      >
+        <view class="option-left">
+          <view class="option-emoji-large">{{item.emoji}}</view>
+        </view>
+        <view class="option-right">
+          <view class="option-name-large" style="color: {{item.selected ? 'white' : '#2C2C2C'}};">{{item.name}}</view>
+          <view class="option-desc-large" style="color: {{item.selected ? 'rgba(255,255,255,0.9)' : '#888'}};">{{item.desc}}</view>
+        </view>
+        <view class="option-check-large" wx:if="{{item.selected}}">✓</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部按钮 -->
+  <view class="bottom-actions">
+    <view class="skip-button">
+      <text class="skip-text" bindtap="onSkip">稍后填写</text>
+    </view>
+    
+    <view class="action-buttons">
+      <button 
+        class="btn-secondary" 
+        wx:if="{{currentStep > 1}}"
+        bindtap="onPrevStep"
+      >
+        上一步
+      </button>
+      
+      <button 
+        class="btn-primary {{currentStep < totalSteps ? 'btn-next' : 'btn-submit'}}" 
+        wx:if="{{currentStep < totalSteps}}"
+        bindtap="onNextStep"
+      >
+        下一步
+      </button>
+      
+      <button 
+        class="btn-primary btn-submit" 
+        wx:if="{{currentStep === totalSteps}}"
+        bindtap="onSubmit"
+      >
+        完成
+      </button>
+    </view>
+  </view>
+</view>

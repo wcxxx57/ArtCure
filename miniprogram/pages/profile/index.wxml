@@ -46,25 +46,91 @@
         </picker>
       </view>
       <view class="curve-chart">
-        <!-- 简化版曲线图 -->
+        <!-- 背景网格线 -->
         <view class="chart-lines">
           <view class="chart-line"></view>
           <view class="chart-line"></view>
           <view class="chart-line"></view>
         </view>
+        <!-- 心情曲线点 -->
         <view class="chart-curve">
-          <view class="curve-point" style="left: 10%; bottom: 60%"></view>
-          <view class="curve-point" style="left: 30%; bottom: 40%"></view>
-          <view class="curve-point" style="left: 50%; bottom: 70%"></view>
-          <view class="curve-point" style="left: 70%; bottom: 50%"></view>
-          <view class="curve-point active" style="left: 90%; bottom: 65%"></view>
+          <view 
+            wx:for="{{chartPoints}}" 
+            wx:key="index"
+            class="curve-point {{item.value ? '' : 'curve-point-empty'}} {{index === chartPoints.length - 1 ? 'active' : ''}}" 
+            style="left: {{item.x}}%; bottom: {{item.y || 30}}%"
+            wx:if="{{item.value}}"
+          >
+            <view class="point-tooltip" wx:if="{{item.emoji}}">
+              <text>{{item.emoji}}</text>
+            </view>
+          </view>
+          <!-- 无数据提示 -->
+          <view class="no-data-tip" wx:if="{{chartPoints.length === 0}}">
+            <text>暂无心情数据</text>
+          </view>
         </view>
       </view>
       <view class="chart-labels">
-        <text>周一</text>
-        <text>周三</text>
-        <text>周五</text>
-        <text>周日</text>
+        <text wx:if="{{currentPeriod === '本周'}}">周一</text>
+        <text wx:if="{{currentPeriod === '本周'}}">周三</text>
+        <text wx:if="{{currentPeriod === '本周'}}">周五</text>
+        <text wx:if="{{currentPeriod === '本周'}}">周日</text>
+        <text wx:if="{{currentPeriod === '本月'}}">30天前</text>
+        <text wx:if="{{currentPeriod === '本月'}}">20天前</text>
+        <text wx:if="{{currentPeriod === '本月'}}">10天前</text>
+        <text wx:if="{{currentPeriod === '本月'}}">今天</text>
+      </view>
+      
+      <!-- 心情分析区域 -->
+      <view class="mood-analysis-section" wx:if="{{moodAnalysis}}">
+        <view class="analysis-toggle" bindtap="onToggleAnalysis">
+          <text class="analysis-title">智能心情分析</text>
+          <text class="toggle-icon">{{showMoodAnalysis ? '▲' : '▼'}}</text>
+        </view>
+        
+        <view class="analysis-content" wx:if="{{showMoodAnalysis}}">
+          <!-- 趋势分析 -->
+          <view class="analysis-item">
+            <view class="analysis-header">
+              <text class="analysis-icon">{{moodAnalysis.trendIcon}}</text>
+              <text class="analysis-label">心情趋势</text>
+            </view>
+            <text class="analysis-value" style="color: {{moodAnalysis.trendColor}}">{{moodAnalysis.description}}</text>
+          </view>
+          
+          <!-- 平均心情 -->
+          <view class="analysis-item">
+            <view class="analysis-header">
+              <text class="analysis-icon">📊</text>
+              <text class="analysis-label">平均心情</text>
+            </view>
+            <text class="analysis-value">{{moodAnalysis.avgMood}}分 ({{moodAnalysis.stabilityText}})</text>
+          </view>
+          
+          <!-- 记录统计 -->
+          <view class="analysis-item">
+            <view class="analysis-header">
+              <text class="analysis-icon">📝</text>
+              <text class="analysis-label">记录统计</text>
+            </view>
+            <text class="analysis-value">{{moodAnalysis.totalRecords}}次记录，范围{{moodAnalysis.moodRange[0]}}-{{moodAnalysis.moodRange[1]}}分</text>
+          </view>
+          
+          <!-- 心情分布 -->
+          <view class="mood-distribution">
+            <text class="distribution-title">心情分布</text>
+            <view class="distribution-bars">
+              <view class="distribution-item" wx:for="{{[1,2,3,4,5]}}" wx:key="*this">
+                <view class="bar-container">
+                  <view class="mood-bar" style="height: {{(moodAnalysis.moodDistribution[item] / moodAnalysis.totalRecords) * 100}}%"></view>
+                </view>
+                <text class="bar-label">{{item}}分</text>
+                <text class="bar-count">{{moodAnalysis.moodDistribution[item]}}</text>
+              </view>
+            </view>
+          </view>
+        </view>
       </view>
     </view>
   </view>
@@ -114,6 +180,16 @@
         <view class="menu-left">
           <text class="menu-icon">🪙</text>
           <text class="menu-title">金币明细</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+      
+      <!-- 问卷入口（仅未完成时显示） -->
+      <view class="menu-item" wx:if="{{isLogin && !hasCompletedSurvey}}" bindtap="onSurveyTap">
+        <view class="menu-left">
+          <text class="menu-icon">📝</text>
+          <text class="menu-title">完善个人偏好</text>
+          <view class="menu-badge">未完成</view>
         </view>
         <text class="menu-arrow">›</text>
       </view>

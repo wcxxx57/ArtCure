@@ -44,10 +44,13 @@ Page({
     this.setGreeting()
     this.setRandomQuote()
     this.checkLoginStatus()
+    this.loadTodayMood()
+    this.loadMoodStreak()
   },
   
   onShow() {
     this.checkLoginStatus()
+    this.loadTodayMood()
   },
 
   // 设置问候语
@@ -118,17 +121,152 @@ Page({
   // 心情选择
   onMoodSelect(e) {
     const mood = e.currentTarget.dataset.mood
+    
+    // 检查是否已登录
+    if (!AuthService.isLoggedIn()) {
+      wx.showModal({
+        title: '提示',
+        content: '请先登录后记录心情',
+        confirmText: '去登录',
+        success: (res) => {
+          if (res.confirm) {
+            wx.navigateTo({
+              url: '/pages/user_login/index'
+            })
+          }
+        }
+      })
+      return
+    }
+
     this.setData({
       selectedMood: mood.value
     })
     
-    wx.showToast({
-      title: `记录了「${mood.label}」的心情`,
-      icon: 'none',
-      duration: 2000
+    // 保存心情到云数据库
+    this.saveMoodRecord(mood)
+  },
+
+  // 保存心情记录
+  saveMoodRecord(mood) {
+    const userInfo = AuthService.getUserInfo()
+    if (!userInfo || (!userInfo.userId && !userInfo._id)) {
+      wx.showToast({
+        title: '用户信息异常',
+        icon: 'none'
+      })
+      return
+    }
+
+    // 使用 _id 或 userId，优先使用 _id
+    const userId = userInfo._id || userInfo.userId
+
+    wx.showLoading({
+      title: '记录中...'
     })
-    
-    // TODO: 保存心情到云数据库
+
+    wx.cloud.callFunction({
+      name: 'moodTracking',
+      data: {
+        action: 'saveMood',
+        userId: userId,
+        moodValue: mood.value,
+        moodLabel: mood.label,
+        moodEmoji: mood.emoji
+      }
+    }).then(res => {
+      wx.hideLoading()
+      
+      if (res.result.success) {
+        const message = res.result.isUpdate ? '心情更新成功' : '心情记录成功'
+        wx.showToast({
+          title: message,
+          icon: 'success',
+          duration: 2000
+        })
+        
+        // 重新加载连续打卡天数
+        this.loadMoodStreak()
+        
+        // 触发AI推荐生成（后台异步执行，不阻塞用户）
+        this.triggerAIRecommendation(userId, mood)
+      } else {
+        wx.showToast({
+          title: res.result.message || '记录失败',
+          icon: 'none'
+        })
+      }
+    }).catch(err => {
+      wx.hideLoading()
+      console.error('保存心情失败:', err)
+      wx.showToast({
+        title: '记录失败，请重试',
+        icon: 'none'
+      })
+    })
+  },
+
+  // 加载今日心情
+  loadTodayMood() {
+    if (!AuthService.isLoggedIn()) {
+      return
+    }
+
+    const userInfo = AuthService.getUserInfo()
+    if (!userInfo || (!userInfo.userId && !userInfo._id)) {
+      return
+    }
+
+    // 使用 _id 或 userId，优先使用 _id
+    const userId = userInfo._id || userInfo.userId
+
+    wx.cloud.callFunction({
+      name: 'moodTracking',
+      data: {
+        action: 'getTodayMood',
+        userId: userId
+      }
+    }).then(res => {
+      if (res.result.success && res.result.hasMood) {
+        this.setData({
+          selectedMood: res.result.mood.moodValue
+        })
+      }
+    }).catch(err => {
+      console.error('获取今日心情失败:', err)
+    })
+  },
+
+  // 加载连续打卡天数
+  loadMoodStreak() {
+    if (!AuthService.isLoggedIn()) {
+      this.setData({ moodStreak: 0 })
+      return
+    }
+
+    const userInfo = AuthService.getUserInfo()
+    if (!userInfo || (!userInfo.userId && !userInfo._id)) {
+      return
+    }
+
+    // 使用 _id 或 userId，优先使用 _id
+    const userId = userInfo._id || userInfo.userId
+
+    wx.cloud.callFunction({
+      name: 'moodTracking',
+      data: {
+        action: 'getStreak',
+        userId: userId
+      }
+    }).then(res => {
+      if (res.result.success) {
+        this.setData({
+          moodStreak: res.result.streak
+        })
+      }
+    }).catch(err => {
+      console.error('获取连续打卡天数失败:', err)
+    })
   },
   
   // 快捷功能点击
@@ -162,6 +300,35 @@ Page({
           duration: 2000
         })
       }
+    })
+  },
+
+  // 触发AI推荐生成（后台异步执行）
+  triggerAIRecommendation(userId, moodData) {
+    console.log('触发AI推荐生成，用户ID:', userId, '心情数据:', moodData)
+    
+    // 后台异步调用，不阻塞用户操作
+    wx.cloud.callFunction({
+      name: 'moodRecommendation',
+      data: {
+        action: 'generateAI',
+        userId: userId,
+        moodData: {
+          moodValue: moodData.value,
+          moodLabel: moodData.label,
+          moodEmoji: moodData.emoji
+        }
+      }
+    }).then(res => {
+      console.log('AI推荐生成结果:', res)
+      if (res.result && res.result.success) {
+        console.log('AI推荐生成成功，来源:', res.result.source)
+      } else {
+        console.log('AI推荐生成失败或跳过:', res.result)
+      }
+    }).catch(err => {
+      console.error('触发AI推荐失败:', err)
+      // 静默失败，不影响用户体验
     })
   }
 })

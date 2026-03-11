@@ -7,6 +7,11 @@ Page({
     // 我的进行中计划（从数据库加载）
     myPlans: [],
     
+    // AI推荐计划
+    recommendations: [],
+    recommendationSource: '', // cache/rule/ai
+    showRecommendations: false,
+    
     // 经典方案
     classicPlans: [
       { id: 1, title: '7天焦虑缓解计划', emoji: '🌊', bgColor: '#E3F2FD', tags: ['绘画', '冥想'] },
@@ -30,8 +35,13 @@ Page({
     this.setData({ isLogin: isLoggedIn })
     if (isLoggedIn) {
       this.loadMyPlans()
+      this.loadRecommendations()
     } else {
-      this.setData({ myPlans: [] })
+      this.setData({ 
+        myPlans: [],
+        recommendations: [],
+        showRecommendations: false
+      })
     }
   },
   
@@ -173,6 +183,233 @@ Page({
     // 跳转到AI定制计划页面
     wx.navigateTo({
       url: '/pages/plan-custom/index'
+    })
+  },
+
+  // 加载AI推荐
+  loadRecommendations() {
+    const userInfo = AuthService.getUserInfo()
+    if (!userInfo || (!userInfo._id && !userInfo.userId)) {
+      console.log('用户未登录，跳过推荐加载')
+      return
+    }
+
+    const userId = userInfo._id || userInfo.userId
+    console.log('开始加载推荐，用户ID:', userId)
+
+    wx.cloud.callFunction({
+      name: 'moodRecommendation',
+      data: {
+        action: 'getRecommendation',
+        userId: userId
+      }
+    }).then(res => {
+      console.log('推荐加载结果:', res)
+      if (res.result && res.result.success) {
+        const recommendations = res.result.recommendations || []
+        console.log('获取到推荐:', recommendations.length, '个')
+        this.setData({
+          recommendations: recommendations,
+          recommendationSource: res.result.source,
+          showRecommendations: recommendations.length > 0
+        })
+        
+        if (recommendations.length === 0) {
+          console.log('推荐为空，来源:', res.result.source)
+        }
+      } else {
+        console.error('推荐加载失败:', res.result)
+        // 显示规则推荐作为降级
+        this.showFallbackRecommendations()
+      }
+    }).catch(err => {
+      console.error('加载推荐失败:', err)
+      // 显示规则推荐作为降级
+      this.showFallbackRecommendations()
+    })
+  },
+
+  // 显示降级推荐
+  showFallbackRecommendations() {
+    const fallbackRecommendation = {
+      title: '呼吸放松练习',
+      description: '通过深呼吸缓解压力',
+      reason: '呼吸练习能快速平复情绪，帮助你找回内心的平静',
+      days: 7,
+      duration: 15,
+      icon: '🌬️',
+      bgColor: '#E3F2FD',
+      themes: ['呼吸练习', '压力缓解'],
+      tasks: [
+        { day: 1, title: '学习基础呼吸法', content: '练习4-7-8呼吸法，吸气4秒，屏息7秒，呼气8秒', duration: 10 },
+        { day: 2, title: '深度腹式呼吸', content: '专注腹部起伏，感受呼吸的节奏', duration: 15 },
+        { day: 3, title: '呼吸冥想结合', content: '在呼吸练习中加入简单的正念觉察', duration: 15 },
+        { day: 4, title: '情境呼吸练习', content: '在感到焦虑时立即使用呼吸技巧', duration: 15 },
+        { day: 5, title: '延长练习时间', content: '将呼吸练习时间延长到20分钟', duration: 20 },
+        { day: 6, title: '呼吸与放松', content: '结合肌肉放松，边呼吸边放松身体', duration: 15 },
+        { day: 7, title: '总结与巩固', content: '回顾一周练习，制定持续计划', duration: 15 }
+      ]
+    }
+    
+    this.setData({
+      recommendations: [fallbackRecommendation],
+      recommendationSource: 'fallback',
+      showRecommendations: true
+    })
+    
+    console.log('显示降级推荐')
+  },
+
+  // 推荐计划点击
+  onRecommendationTap(e) {
+    const recommendation = e.currentTarget.dataset.recommendation
+    
+    console.log('点击推荐计划:', recommendation)
+    
+    if (!AuthService.isLoggedIn()) {
+      wx.showModal({
+        title: '提示',
+        content: '请先登录后查看计划',
+        confirmText: '去登录',
+        success: (res) => {
+          if (res.confirm) {
+            wx.navigateTo({ url: '/pages/user_login/index' })
+          }
+        }
+      })
+      return
+    }
+    
+    // 处理任务数据，将content字段映射为description字段
+    let tasks = []
+    if (recommendation.tasks && Array.isArray(recommendation.tasks)) {
+      tasks = recommendation.tasks.map(task => ({
+        day: task.day,
+        title: task.title,
+        typeIcon: task.typeIcon || '🧘',
+        typeName: task.typeName || '疗愈练习',
+        duration: task.duration || recommendation.duration || 15,
+        description: task.content || task.description || '' // 映射content到description
+      }))
+    }
+    
+    console.log('处理后的任务列表:', tasks)
+    
+    // 构建完整的计划数据
+    const planData = {
+      name: recommendation.title,
+      emoji: recommendation.icon,
+      bgColor: recommendation.bgColor,
+      totalDays: recommendation.days,
+      duration: recommendation.duration,
+      description: recommendation.description,
+      reason: recommendation.reason,
+      themes: recommendation.themes || [],
+      tasks: tasks,
+      source: 'recommendation'
+    }
+
+    console.log('跳转到计划编辑页面，数据:', planData)
+
+    // 跳转到编辑页面让用户预览和修改
+    wx.navigateTo({
+      url: `/pages/plan-edit/index?isNewPlan=true&planData=${encodeURIComponent(JSON.stringify(planData))}`
+    })
+  },
+
+  // 刷新推荐
+  onRefreshRecommendations() {
+    const userInfo = AuthService.getUserInfo()
+    if (!userInfo || (!userInfo._id && !userInfo.userId)) {
+      return
+    }
+
+    const userId = userInfo._id || userInfo.userId
+
+    wx.showLoading({
+      title: '刷新中...'
+    })
+
+    wx.cloud.callFunction({
+      name: 'moodRecommendation',
+      data: {
+        action: 'refreshCache',
+        userId: userId
+      }
+    }).then(res => {
+      wx.hideLoading()
+      
+      if (res.result.success) {
+        wx.showToast({
+          title: '刷新成功',
+          icon: 'success'
+        })
+        this.loadRecommendations()
+      } else {
+        wx.showToast({
+          title: res.result.message || '刷新失败',
+          icon: 'none'
+        })
+      }
+    }).catch(err => {
+      wx.hideLoading()
+      console.error('刷新推荐失败:', err)
+      wx.showToast({
+        title: '刷新失败',
+        icon: 'none'
+      })
+    })
+  },
+
+  // 测试AI推荐生成
+  onTestAIGeneration() {
+    const userInfo = AuthService.getUserInfo()
+    if (!userInfo || (!userInfo._id && !userInfo.userId)) {
+      wx.showToast({
+        title: '请先登录',
+        icon: 'none'
+      })
+      return
+    }
+
+    const userId = userInfo._id || userInfo.userId
+
+    wx.showLoading({
+      title: '生成中...'
+    })
+
+    wx.cloud.callFunction({
+      name: 'moodRecommendation',
+      data: {
+        action: 'forceGenerateAI',
+        userId: userId
+      }
+    }).then(res => {
+      wx.hideLoading()
+      console.log('测试AI生成结果:', res)
+      
+      if (res.result.success) {
+        wx.showToast({
+          title: '生成成功',
+          icon: 'success'
+        })
+        // 重新加载推荐
+        setTimeout(() => {
+          this.loadRecommendations()
+        }, 1000)
+      } else {
+        wx.showToast({
+          title: res.result.message || '生成失败',
+          icon: 'none'
+        })
+      }
+    }).catch(err => {
+      wx.hideLoading()
+      console.error('测试AI生成失败:', err)
+      wx.showToast({
+        title: '生成失败',
+        icon: 'none'
+      })
     })
   }
 })

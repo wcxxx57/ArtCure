@@ -1,0 +1,130 @@
+<!--plan-template/index.wxml-->
+<view class="container">
+  <!-- 自定义导航栏 -->
+  <view class="custom-navbar">
+    <view class="navbar-back" bindtap="onBack">
+      <text class="back-text">←</text>
+    </view>
+    <text class="navbar-title">计划模板</text>
+  </view>
+
+  <!-- 计划信息卡片 -->
+  <view class="plan-info-card">
+    <view class="plan-icon" style="background-color: {{templateInfo.bgColor}}">
+      <text class="plan-emoji">{{templateInfo.emoji}}</text>
+    </view>
+    <text class="plan-name">{{templateInfo.name}}</text>
+    <text class="plan-description">{{templateInfo.description}}</text>
+    
+    <view class="plan-meta">
+      <view class="meta-item">
+        <text class="meta-icon">📅</text>
+        <text class="meta-text">{{templateInfo.totalDays}}天计划</text>
+      </view>
+      <view class="meta-item">
+        <text class="meta-icon">👥</text>
+        <text class="meta-text">{{templateInfo.participants}}人参与</text>
+      </view>
+    </view>
+    
+    <view class="plan-tags">
+      <text class="tag" wx:for="{{templateInfo.tags}}" wx:key="*this">#{{item}}</text>
+    </view>
+  </view>
+
+  <!-- 任务列表 -->
+  <view class="tasks-section">
+    <view class="section-header">
+      <text class="section-title">计划内容</text>
+      <text class="section-tip">可自定义调整</text>
+    </view>
+    
+    <view class="tasks-list">
+      <view 
+        class="task-item {{item.expanded ? 'expanded' : ''}}"
+        wx:for="{{tasks}}"
+        wx:key="day"
+      >
+        <view class="task-header" bindtap="toggleTask" data-index="{{index}}">
+          <view class="task-day-badge">
+            <text class="day-number">{{item.day}}</text>
+          </view>
+          <view class="task-info">
+            <text class="task-title">{{item.title}}</text>
+            <view class="task-meta">
+              <text class="task-type">{{item.typeIcon}} {{item.typeName}}</text>
+              <text class="task-duration">{{item.duration}}分钟</text>
+            </view>
+          </view>
+          <view class="task-actions">
+            <text class="edit-icon" catchtap="onEditTask" data-index="{{index}}">✏️</text>
+            <text class="expand-icon">{{item.expanded ? '▼' : '▶'}}</text>
+          </view>
+        </view>
+        
+        <view class="task-content" wx:if="{{item.expanded}}">
+          <text class="task-description">{{item.description}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部操作按钮 -->
+  <view class="bottom-actions">
+    <button class="action-btn default-btn" bindtap="onUseDefault">
+      使用默认模板
+    </button>
+    <button class="action-btn custom-btn" bindtap="onSaveCustom">
+      保存并加入
+    </button>
+  </view>
+</view>
+
+<!-- 编辑任务弹窗 -->
+<view class="modal-mask" wx:if="{{showEditModal}}" bindtap="onCloseEditModal">
+  <view class="modal-content" catchtap="stopPropagation">
+    <view class="modal-header">
+      <text class="modal-title">编辑任务</text>
+      <text class="modal-close" bindtap="onCloseEditModal">✕</text>
+    </view>
+    
+    <view class="modal-body">
+      <view class="form-item">
+        <text class="form-label">任务标题</text>
+        <input 
+          class="form-input" 
+          value="{{editingTask.title}}"
+          bindinput="onTitleInput"
+          placeholder="请输入任务标题"
+        />
+      </view>
+      
+      <view class="form-item">
+        <text class="form-label">任务描述</text>
+        <textarea 
+          class="form-textarea" 
+          value="{{editingTask.description}}"
+          bindinput="onDescriptionInput"
+          placeholder="请输入任务描述"
+          maxlength="200"
+        />
+      </view>
+      
+      <view class="form-item">
+        <text class="form-label">预计时长（分钟）</text>
+        <input 
+          class="form-input" 
+          type="number"
+          value="{{editingTask.duration}}"
+          bindinput="onDurationInput"
+          placeholder="请输入时长"
+        />
+      </view>
+    </view>
+    
+    <view class="modal-footer">
+      <button class="modal-btn cancel-btn" bindtap="onCloseEditModal">取消</button>
+      <button class="modal-btn confirm-btn" bindtap="onConfirmEdit">确认</button>
+    </view>
+  </view>
+</view>

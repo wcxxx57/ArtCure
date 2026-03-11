@@ -209,6 +209,7 @@ page {
   border: 4rpx solid #FFB7B2;
   border-radius: 50%;
   transform: translate(-50%, 50%);
+  transition: all 0.3s ease;
 }
 
 .curve-point.active {
@@ -216,6 +217,151 @@ page {
   height: 20rpx;
   border-width: 6rpx;
   box-shadow: 0 2rpx 8rpx rgba(255, 183, 178, 0.4);
+}
+
+.curve-point-empty {
+  background-color: #F5F5F5;
+  border-color: #E0E0E0;
+}
+
+.point-tooltip {
+  position: absolute;
+  top: -40rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 8rpx 12rpx;
+  border-radius: 8rpx;
+  font-size: 20rpx;
+  white-space: nowrap;
+}
+
+.no-data-tip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #CCCCCC;
+  font-size: 24rpx;
+}
+
+/* ==================== 心情分析 ==================== */
+.mood-analysis-section {
+  margin-top: 32rpx;
+  border-top: 2rpx solid #F5F5F5;
+  padding-top: 24rpx;
+}
+
+.analysis-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 0;
+}
+
+.analysis-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333333;
+}
+
+.toggle-icon {
+  font-size: 20rpx;
+  color: #999999;
+}
+
+.analysis-content {
+  margin-top: 16rpx;
+}
+
+.analysis-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #F8F8F8;
+}
+
+.analysis-item:last-child {
+  border-bottom: none;
+}
+
+.analysis-header {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.analysis-icon {
+  font-size: 24rpx;
+}
+
+.analysis-label {
+  font-size: 26rpx;
+  color: #666666;
+}
+
+.analysis-value {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: #333333;
+}
+
+.mood-distribution {
+  margin-top: 24rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #F8F8F8;
+}
+
+.distribution-title {
+  font-size: 26rpx;
+  color: #666666;
+  margin-bottom: 16rpx;
+  display: block;
+}
+
+.distribution-bars {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  height: 120rpx;
+  padding: 0 16rpx;
+}
+
+.distribution-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.bar-container {
+  height: 80rpx;
+  width: 24rpx;
+  background-color: #F5F5F5;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: flex-end;
+  margin-bottom: 8rpx;
+}
+
+.mood-bar {
+  width: 100%;
+  background: linear-gradient(180deg, #FFB7B2 0%, #FF8A80 100%);
+  border-radius: 12rpx;
+  min-height: 4rpx;
+}
+
+.bar-label {
+  font-size: 20rpx;
+  color: #999999;
+  margin-bottom: 4rpx;
+}
+
+.bar-count {
+  font-size: 18rpx;
+  color: #CCCCCC;
 }
 
 .chart-labels {
@@ -351,4 +497,16 @@ page {
 /* ==================== 底部占位 ==================== */
 .bottom-space {
   height: 40rpx;
+}
+
+/* 问卷入口徽章 */
+.menu-badge {
+  display: inline-block;
+  margin-left: 10rpx;
+  padding: 4rpx 12rpx;
+  background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%);
+  color: white;
+  font-size: 20rpx;
+  border-radius: 20rpx;
+  vertical-align: middle;
 }

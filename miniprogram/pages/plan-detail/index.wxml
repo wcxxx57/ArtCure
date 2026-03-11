@@ -42,7 +42,7 @@
         <text class="type-text">{{todayTask.typeName}}</text>
         <text class="task-duration">{{todayTask.duration}}分钟</text>
       </view>
-      <text class="task-description">{{todayTask.description}}</text>
+      <text class="task-description">{{todayTask.content || todayTask.description}}</text>
       
       <button 
         class="start-task-btn {{todayTask.started ? 'started' : ''}}" 
@@ -52,6 +52,32 @@
       >
         {{todayTask.started ? '✓ 已完成' : '开始任务'}}
       </button>
+    </view>
+  </view>
+
+  <!-- 完整任务列表 -->
+  <view class="all-tasks-section">
+    <view class="section-header">
+      <text class="section-title">完整计划</text>
+      <text class="task-count">共{{planInfo.totalDays}}天</text>
+    </view>
+    <view class="tasks-list">
+      <view 
+        class="task-item {{index < planInfo.currentDay ? 'completed' : index === planInfo.currentDay ? 'current' : 'upcoming'}}"
+        wx:for="{{planInfo.tasks}}"
+        wx:key="day"
+      >
+        <view class="task-day-badge">
+          <text class="day-number">{{item.day}}</text>
+          <view class="status-icon" wx:if="{{index < planInfo.currentDay}}">✓</view>
+          <view class="status-icon current" wx:elif="{{index === planInfo.currentDay}}">●</view>
+        </view>
+        <view class="task-content">
+          <text class="task-item-title">{{item.title}}</text>
+          <text class="task-item-desc">{{item.content}}</text>
+          <text class="task-item-duration">{{item.duration}}分钟</text>
+        </view>
+      </view>
     </view>
   </view>
 

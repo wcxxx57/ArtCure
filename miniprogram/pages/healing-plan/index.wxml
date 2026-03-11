@@ -6,14 +6,91 @@
     <text class="page-subtitle">坚持练习，看见改变的发生</text>
   </view>
 
-  <!-- AI 推荐卡片 -->
-  <view class="ai-recommend-section">
-    <view class="ai-recommend-card" bindtap="onAIRecommendTap">
-      <view class="ai-sparkle">✨</view>
-      <view class="ai-recommend-badge">AI 专属推荐</view>
-      <text class="ai-recommend-title">适合你的：21天情绪书写</text>
-      <text class="ai-recommend-desc">根据你最近的压力指数，我们为你定制了一套结合书写与轻音乐的舒缓方案。</text>
-      <view class="ai-recommend-btn">开启计划</view>
+  <!-- 心情专属推荐 -->
+  <view class="mood-recommend-section" wx:if="{{isLogin}}">
+    <view class="recommend-header">
+      <view class="recommend-title-area">
+        <text class="recommend-sparkle">✨</text>
+        <text class="recommend-title">为你推荐</text>
+      </view>
+      <view class="recommend-actions">
+        <view class="recommend-refresh" bindtap="onRefreshRecommendations">
+          <text class="refresh-icon">🔄</text>
+        </view>
+        <view class="recommend-test" bindtap="onTestAIGeneration">
+          <text class="test-icon">🤖</text>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 推荐来源提示 -->
+    <view class="recommend-source-badge" wx:if="{{recommendationSource === 'rule'}}">
+      <text class="badge-icon">⏳</text>
+      <text class="badge-text">正在为你生成个性化推荐...</text>
+    </view>
+    <view class="recommend-source-badge ai" wx:elif="{{recommendationSource === 'cache-ai'}}">
+      <text class="badge-icon">🤖</text>
+      <text class="badge-text">AI专属推荐</text>
+    </view>
+    <view class="recommend-source-badge fallback" wx:elif="{{recommendationSource === 'fallback'}}">
+      <text class="badge-icon">💡</text>
+      <text class="badge-text">基础推荐</text>
+    </view>
+    
+    <!-- 推荐加载状态 -->
+    <view class="recommend-loading" wx:if="{{!showRecommendations && recommendations.length === 0}}">
+      <view class="loading-animation">
+        <view class="loading-dot"></view>
+        <view class="loading-dot"></view>
+        <view class="loading-dot"></view>
+      </view>
+      <text class="loading-text">正在加载推荐...</text>
+    </view>
+    
+    <!-- 推荐卡片 -->
+    <view class="recommend-card-wrapper" wx:if="{{showRecommendations && recommendations.length > 0}}">
+      <view 
+        class="recommend-card-beautiful"
+        bindtap="onRecommendationTap"
+        data-recommendation="{{recommendations[0]}}"
+        style="background: linear-gradient(135deg, {{recommendations[0].bgColor}} 0%, {{recommendations[0].bgColor}}dd 100%)"
+      >
+        <!-- 装饰元素 -->
+        <view class="card-decoration">
+          <view class="deco-circle deco-1"></view>
+          <view class="deco-circle deco-2"></view>
+          <view class="deco-sparkle">✨</view>
+        </view>
+        
+        <!-- 卡片内容 -->
+        <view class="card-content-area">
+          <view class="card-icon-large">
+            <text class="icon-emoji">{{recommendations[0].icon}}</text>
+          </view>
+          
+          <view class="card-text-area">
+            <text class="card-title">{{recommendations[0].title}}</text>
+            <text class="card-description">{{recommendations[0].description}}</text>
+            <text class="card-reason">{{recommendations[0].reason}}</text>
+          </view>
+          
+          <view class="card-meta-info">
+            <view class="meta-item">
+              <text class="meta-icon">📅</text>
+              <text class="meta-text">{{recommendations[0].days}}天计划</text>
+            </view>
+            <view class="meta-item">
+              <text class="meta-icon">⏱️</text>
+              <text class="meta-text">{{recommendations[0].duration}}分钟/天</text>
+            </view>
+          </view>
+          
+          <view class="card-action-btn">
+            <text class="btn-text">查看详情</text>
+            <text class="btn-arrow">→</text>
+          </view>
+        </view>
+      </view>
     </view>
   </view>
 

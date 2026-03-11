@@ -20,6 +20,8 @@ exports.main = async (event, context) => {
         return await getPlanDetail(event.planId, userId)
       case 'createPlanFromTemplate':
         return await createPlanFromTemplate(event, userId)
+      case 'createPlan':
+        return await createPlan(event, userId)
       case 'checkIn':
         return await checkIn(event.planId, userId)
       case 'updatePlan':
@@ -185,6 +187,82 @@ async function getPlanDetail(planId, userId) {
   } catch (error) {
     console.error('获取计划详情失败:', error)
     return { code: 5002, message: '获取失败', error: error.message }
+  }
+}
+
+// 从推荐创建计划
+async function createPlan(event, userId) {
+  try {
+    const { planData } = event
+    const now = Date.now()
+
+    console.log('创建计划，用户ID:', userId, '计划数据:', planData)
+
+    // 验证必要字段
+    if (!planData.name || !planData.totalDays) {
+      return { code: 4001, message: '计划名称和天数不能为空' }
+    }
+
+    // 处理任务列表
+    let tasks = []
+    if (planData.tasks && Array.isArray(planData.tasks)) {
+      tasks = planData.tasks.map((task, index) => ({
+        day: task.day || (index + 1),
+        title: task.title || `第${task.day || (index + 1)}天任务`,
+        content: task.content || '',
+        duration: task.duration || planData.duration || 15,
+        completed: false
+      }))
+    } else {
+      // 如果没有提供任务，生成默认任务
+      for (let i = 1; i <= planData.totalDays; i++) {
+        tasks.push({
+          day: i,
+          title: `第${i}天：${planData.name}`,
+          content: planData.description || '继续你的疗愈之旅',
+          duration: planData.duration || 15,
+          completed: false
+        })
+      }
+    }
+
+    console.log('处理后的任务列表:', tasks)
+
+    // 创建用户计划
+    const result = await db.collection('user_plans').add({
+      data: {
+        userId: userId,
+        name: planData.name,
+        emoji: planData.emoji || '🌟',
+        bgColor: planData.bgColor || '#E8F8F5',
+        totalDays: planData.totalDays,
+        currentDay: 0,  // 还没开始第1天
+        tasks: tasks,
+        status: 'ongoing',
+        startDate: now,
+        lastCheckIn: null,
+        checkInDays: [],
+        createdAt: now,
+        source: planData.source || 'recommendation', // 记录来源
+        description: planData.description || '',
+        reason: planData.reason || '',
+        themes: planData.themes || [],
+        duration: planData.duration || 15
+      }
+    })
+
+    console.log('计划创建成功，ID:', result._id)
+
+    return {
+      code: 0,
+      message: '计划创建成功',
+      data: {
+        planId: result._id
+      }
+    }
+  } catch (error) {
+    console.error('创建计划失败:', error)
+    return { code: 5003, message: '创建计划失败', error: error.message }
   }
 }
 

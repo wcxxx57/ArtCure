@@ -1,7 +1,7 @@
 // user_login/index.js
-const ValidationService = require('../../utils/validation.js')
-const AuthService = require('../../utils/auth.js')
-const { ErrorCodes } = require('../../utils/errorCodes.js')
+const ValidationService = require('../../../utils/validation.js')
+const AuthService = require('../../../utils/auth.js')
+const { ErrorCodes } = require('../../../utils/errorCodes.js')
 
 Page({
   data: {
@@ -129,22 +129,11 @@ Page({
           icon: 'success'
         })
         
-        // 检查是否完成问卷
-        const userInfo = res.result.data.userInfo
-        const hasCompletedSurvey = userInfo.hasCompletedSurvey || false
-        
+        // 跳转到个人信息页
         setTimeout(() => {
-          if (!hasCompletedSurvey) {
-            // 首次登录，跳转到问卷页面
-            wx.redirectTo({
-              url: '/pages/onboarding-survey/index'
-            })
-          } else {
-            // 已完成问卷，跳转到首页
-            wx.switchTab({
-              url: '/pages/page1/index'
-            })
-          }
+          wx.switchTab({
+            url: '/pages/profile/index'
+          })
         }, 1500)
       } else {
         wx.showToast({
@@ -166,7 +155,7 @@ Page({
   // 跳转到注册页面
   navigateToRegister() {
     wx.navigateTo({
-      url: '/pages/user_register/index'
+      url: '/subpackages/auth/user_register/index'
     })
   }
 })

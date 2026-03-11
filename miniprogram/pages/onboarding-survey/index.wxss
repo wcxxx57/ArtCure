@@ -1,0 +1,362 @@
+/* pages/onboarding-survey/index.wxss */
+page {
+  background: #F5F7FA;
+  height: 100%;
+}
+
+.survey-container {
+  min-height: 100vh;
+  padding: 20rpx 0 220rpx 0;
+  background: #F5F7FA;
+}
+
+/* 进度指示器 */
+.progress-bar {
+  background: white;
+  margin: 20rpx 30rpx 30rpx 30rpx;
+  padding: 40rpx 30rpx;
+  border-radius: 24rpx;
+  box-shadow: 0 2rpx 16rpx rgba(0, 0, 0, 0.06);
+}
+
+.progress-steps {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.step-circle {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 50%;
+  background: #E8E8E8;
+  color: #999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: bold;
+  transition: all 0.3s;
+}
+
+.step.active .step-circle {
+  background: #6C63FF;
+  color: white;
+  box-shadow: 0 4rpx 12rpx rgba(108, 99, 255, 0.3);
+}
+
+.step-label {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: #999;
+  transition: all 0.3s;
+}
+
+.step.active .step-label {
+  color: #6C63FF;
+  font-weight: bold;
+}
+
+.step-line {
+  flex: 1;
+  height: 4rpx;
+  background: #E8E8E8;
+  margin: 0 15rpx;
+  transition: all 0.3s;
+}
+
+.step-line.active {
+  background: #6C63FF;
+}
+
+/* 步骤内容 */
+.step-content {
+  margin: 0 30rpx;
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(30rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.step-header {
+  background: white;
+  padding: 50rpx 40rpx;
+  border-radius: 24rpx;
+  margin-bottom: 30rpx;
+  box-shadow: 0 2rpx 16rpx rgba(0, 0, 0, 0.06);
+}
+
+.step-title {
+  font-size: 40rpx;
+  font-weight: bold;
+  color: #2C2C2C;
+  margin-bottom: 20rpx;
+  line-height: 1.4;
+}
+
+.step-subtitle {
+  font-size: 28rpx;
+  color: #888;
+  line-height: 1.6;
+}
+
+/* 选项网格（第一步、第二步） */
+.options-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20rpx;
+}
+
+.option-card {
+  background: white;
+  border-radius: 20rpx;
+  padding: 40rpx 20rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  transition: all 0.2s ease;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+  border: 3rpx solid white;
+  min-height: 240rpx;
+}
+
+.option-card.selected {
+  background: #6C63FF;
+  border-color: #6C63FF;
+  transform: translateY(-4rpx);
+  box-shadow: 0 8rpx 24rpx rgba(108, 99, 255, 0.35);
+}
+
+.option-emoji {
+  font-size: 70rpx;
+  margin-bottom: 20rpx;
+  transition: all 0.2s;
+}
+
+.option-card.selected .option-emoji {
+  transform: scale(1.1);
+}
+
+.option-name {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #2C2C2C;
+  margin-bottom: 12rpx;
+  transition: all 0.2s;
+}
+
+.option-card.selected .option-name {
+  color: rgb(255, 255, 255);
+}
+
+.option-desc {
+  font-size: 22rpx;
+  color: #999;
+  line-height: 1.5;
+  transition: all 0.2s;
+}
+
+.option-card.selected .option-desc {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.option-check {
+  position: absolute;
+  top: 15rpx;
+  right: 15rpx;
+  width: 50rpx;
+  height: 50rpx;
+  border-radius: 50%;
+  background: white;
+  color: #6C63FF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
+  font-weight: bold;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.15);
+}
+
+/* 选项列表（第三步） */
+.options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.option-card-large {
+  background: white;
+  border-radius: 20rpx;
+  padding: 35rpx 30rpx;
+  display: flex;
+  align-items: center;
+  position: relative;
+  transition: all 0.2s ease;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+  border: 3rpx solid white;
+}
+
+.option-card-large.selected {
+  background: #6C63FF;
+  border-color: #6C63FF;
+  transform: translateY(-4rpx);
+  box-shadow: 0 8rpx 24rpx rgba(108, 99, 255, 0.35);
+}
+
+.option-left {
+  margin-right: 25rpx;
+}
+
+.option-emoji-large {
+  font-size: 80rpx;
+  transition: all 0.2s;
+}
+
+.option-card-large.selected .option-emoji-large {
+  transform: scale(1.1);
+}
+
+.option-right {
+  flex: 1;
+}
+
+.option-name-large {
+  font-size: 34rpx;
+  font-weight: bold;
+  color: #2C2C2C;
+  margin-bottom: 12rpx;
+  transition: all 0.2s;
+}
+
+.option-card-large.selected .option-name-large {
+  color: white;
+}
+
+.option-desc-large {
+  font-size: 26rpx;
+  color: #888;
+  line-height: 1.6;
+  transition: all 0.2s;
+}
+
+.option-card-large.selected .option-desc-large {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.option-check-large {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 50%;
+  background: white;
+  color: #6C63FF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34rpx;
+  font-weight: bold;
+  margin-left: 20rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.15);
+}
+
+/* 底部按钮区域 */
+.bottom-actions {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  padding: 25rpx 30rpx 35rpx 30rpx;
+  box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.08);
+  z-index: 100;
+}
+
+.skip-button {
+  text-align: center;
+  margin-bottom: 20rpx;
+}
+
+.skip-text {
+  color: #999;
+  font-size: 28rpx;
+  padding: 8rpx 0;
+  display: inline-block;
+  position: relative;
+}
+
+.skip-text::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1rpx;
+  background: #999;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 20rpx;
+}
+
+.btn-secondary,
+.btn-primary {
+  flex: 1;
+  height: 90rpx;
+  border-radius: 45rpx;
+  font-size: 32rpx;
+  font-weight: bold;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-secondary {
+  background: #F5F5F5;
+  color: #666;
+}
+
+.btn-secondary:active {
+  background: #E8E8E8;
+}
+
+.btn-primary {
+  background: #6C63FF;
+  color: white;
+  box-shadow: 0 4rpx 16rpx rgba(108, 99, 255, 0.3);
+}
+
+.btn-primary:active {
+  background: #5A52E0;
+  transform: translateY(2rpx);
+}
+
+.btn-primary.btn-submit {
+  flex: 1;
+}
+
+.btn-primary::after {
+  border: none;
+}
+
+.btn-secondary::after {
+  border: none;
+}
