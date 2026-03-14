@@ -66,6 +66,8 @@
         class="task-item {{index < planInfo.currentDay ? 'completed' : index === planInfo.currentDay ? 'current' : 'upcoming'}}"
         wx:for="{{planInfo.tasks}}"
         wx:key="day"
+        data-index="{{index}}"
+        bindtap="onViewTaskDetail"
       >
         <view class="task-day-badge">
           <text class="day-number">{{item.day}}</text>
@@ -74,9 +76,13 @@
         </view>
         <view class="task-content">
           <text class="task-item-title">{{item.title}}</text>
-          <text class="task-item-desc">{{item.content}}</text>
-          <text class="task-item-duration">{{item.duration}}分钟</text>
+          <text class="task-item-desc">{{item.description || item.content}}</text>
+          <view class="task-meta">
+            <text class="task-item-type" wx:if="{{item.typeIcon}}">{{item.typeIcon}} {{item.typeName}}</text>
+            <text class="task-item-duration">{{item.duration}}分钟</text>
+          </view>
         </view>
+        <view class="task-arrow">›</view>
       </view>
     </view>
   </view>
@@ -132,5 +138,45 @@
       <text class="adjust-icon">⚙️</text>
       <text class="adjust-text">调整计划</text>
     </button>
+  </view>
+
+  <!-- 任务详情弹窗 -->
+  <view class="task-detail-modal" wx:if="{{showTaskDetail}}" bindtap="onCloseTaskDetail">
+    <view class="modal-content" catchtap="stopPropagation">
+      <view class="modal-header">
+        <view class="modal-day-badge {{selectedTask.status}}">
+          <text class="modal-day-number">第{{selectedTask.day}}天</text>
+          <view class="modal-status-icon" wx:if="{{selectedTask.status === 'completed'}}">✓</view>
+          <view class="modal-status-icon current" wx:elif="{{selectedTask.status === 'current'}}">●</view>
+        </view>
+        <view class="modal-close" bindtap="onCloseTaskDetail">✕</view>
+      </view>
+      
+      <view class="modal-body">
+        <text class="modal-title">{{selectedTask.title}}</text>
+        
+        <view class="modal-type" wx:if="{{selectedTask.typeIcon}}">
+          <text class="modal-type-icon">{{selectedTask.typeIcon}}</text>
+          <text class="modal-type-name">{{selectedTask.typeName}}</text>
+          <text class="modal-duration">{{selectedTask.duration}}分钟</text>
+        </view>
+        
+        <view class="modal-description-section">
+          <text class="modal-section-title">任务描述</text>
+          <text class="modal-description">{{selectedTask.description || selectedTask.content || '暂无描述'}}</text>
+        </view>
+        
+        <view class="modal-status-section">
+          <text class="modal-status-label">状态：</text>
+          <text class="modal-status-text completed" wx:if="{{selectedTask.status === 'completed'}}">✓ 已完成</text>
+          <text class="modal-status-text current" wx:elif="{{selectedTask.status === 'current'}}">● 进行中</text>
+          <text class="modal-status-text upcoming" wx:else>待完成</text>
+        </view>
+      </view>
+      
+      <view class="modal-footer">
+        <button class="modal-btn" bindtap="onCloseTaskDetail">关闭</button>
+      </view>
+    </view>
   </view>
 </view>

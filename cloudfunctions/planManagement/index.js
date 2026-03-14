@@ -209,8 +209,10 @@ async function createPlan(event, userId) {
       tasks = planData.tasks.map((task, index) => ({
         day: task.day || (index + 1),
         title: task.title || `第${task.day || (index + 1)}天任务`,
-        content: task.content || '',
+        typeIcon: task.typeIcon || '🧘',
+        typeName: task.typeName || '疗愈活动',
         duration: task.duration || planData.duration || 15,
+        description: task.description || task.content || '',
         completed: false
       }))
     } else {
@@ -219,8 +221,10 @@ async function createPlan(event, userId) {
         tasks.push({
           day: i,
           title: `第${i}天：${planData.name}`,
-          content: planData.description || '继续你的疗愈之旅',
+          typeIcon: '🧘',
+          typeName: '疗愈活动',
           duration: planData.duration || 15,
+          description: planData.description || '继续你的疗愈之旅',
           completed: false
         })
       }

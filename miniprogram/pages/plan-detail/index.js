@@ -21,7 +21,11 @@ Page({
     },
     weekdays: ['日', '一', '二', '三', '四', '五', '六'],
     currentMonth: '',
-    calendarDays: []
+    calendarDays: [],
+    
+    // 任务详情弹窗
+    showTaskDetail: false,
+    selectedTask: {}
   },
 
   onLoad(options) {
@@ -228,5 +232,31 @@ Page({
     wx.navigateTo({
       url: `/pages/plan-edit/index?planId=${this.data.planId}`
     })
-  }
+  },
+
+  // 查看任务详情
+  onViewTaskDetail(e) {
+    const index = e.currentTarget.dataset.index
+    const task = this.data.planInfo.tasks[index]
+    
+    this.setData({
+      showTaskDetail: true,
+      selectedTask: {
+        ...task,
+        status: index < this.data.planInfo.currentDay ? 'completed' : 
+                index === this.data.planInfo.currentDay ? 'current' : 'upcoming'
+      }
+    })
+  },
+
+  // 关闭任务详情弹窗
+  onCloseTaskDetail() {
+    this.setData({
+      showTaskDetail: false,
+      selectedTask: {}
+    })
+  },
+
+  // 阻止冒泡
+  stopPropagation() {}
 })

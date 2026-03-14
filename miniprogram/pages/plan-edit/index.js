@@ -354,25 +354,35 @@ Page({
     
     // 判断是创建新计划还是更新现有计划
     const action = planId ? 'updatePlan' : 'createPlan'
-    const requestData = {
-      action: action,
-      userId: userInfo._id,
-      name: planInfo.name,
-      emoji: planInfo.emoji,
-      bgColor: planInfo.bgColor,
-      tasks: tasks,
-      totalDays: tasks.length
-    }
+    let requestData = {}
     
-    // 如果是更新，添加planId
     if (planId) {
-      requestData.planId = planId
-      requestData.updates = {
-        name: planInfo.name,
-        emoji: planInfo.emoji,
-        bgColor: planInfo.bgColor,
-        tasks: tasks,
-        totalDays: tasks.length
+      // 更新现有计划
+      requestData = {
+        action: action,
+        userId: userInfo._id,
+        planId: planId,
+        updates: {
+          name: planInfo.name,
+          emoji: planInfo.emoji,
+          bgColor: planInfo.bgColor,
+          tasks: tasks,
+          totalDays: tasks.length
+        }
+      }
+    } else {
+      // 创建新计划 - 使用 planData 包装数据
+      requestData = {
+        action: action,
+        userId: userInfo._id,
+        planData: {
+          name: planInfo.name,
+          emoji: planInfo.emoji,
+          bgColor: planInfo.bgColor,
+          tasks: tasks,
+          totalDays: tasks.length,
+          source: 'custom'  // 标记为自定义创建
+        }
       }
     }
     
