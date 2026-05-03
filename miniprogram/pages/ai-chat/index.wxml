@@ -17,8 +17,10 @@
         <text class="bot-status">{{currentModeName}}</text>
       </view>
       
-      <!-- 右侧：占位 -->
-      <view class="header-right"></view>
+      <!-- 右侧：播放最近引导 -->
+      <view class="header-right" bindtap="onPlayGuide">
+        <text class="guide-play-text">引导</text>
+      </view>
     </view>
 
     <!-- 模式选择栏 -->
@@ -48,6 +50,22 @@
         <text class="mode-name">日常陪伴</text>
       </view>
     </view>
+
+    <!-- 语音疗愈入口 -->
+    <view class="voice-strip">
+      <view class="voice-copy">
+        <text class="voice-title">语音疗愈</text>
+        <text class="voice-status">{{voiceStatus}}</text>
+      </view>
+      <view class="voice-actions">
+        <view class="voice-pill {{isRecording ? 'voice-recording' : ''}}" bindtap="onVoiceTap">
+          <text>{{isRecording ? '结束' : '说心情'}}</text>
+        </view>
+        <view class="voice-pill guide-pill" bindtap="onGuideTap">
+          <text>三分钟引导</text>
+        </view>
+      </view>
+    </view>
   </view>
 
   <!-- 消息列表区域 -->
@@ -62,7 +80,7 @@
         <!-- 机器人消息 -->
         <view wx:if="{{item.type === 'bot'}}" class="message-item bot-message" id="msg-{{item.id}}">
           <view class="message-avatar">
-            <image class="avatar-logo" src="https://picui.ogmua.cn/s1/2026/03/07/69ab9a20a82a5.webp" mode="aspectFit"></image>
+            <image class="avatar-logo" src="https://artcure-1369706839.cos.ap-shanghai.myqcloud.com/pic/main_page/ip.png" mode="aspectFit"></image>
           </view>
           <view class="message-bubble bot-bubble">
             <rich-text class="message-text" nodes="{{item.richText || item.text}}"></rich-text>
@@ -116,6 +134,9 @@
   <!-- 输入区域 -->
   <view class="input-area">
     <view class="input-wrapper">
+      <view class="voice-input-btn {{isRecording ? 'voice-input-recording' : ''}}" bindtap="onVoiceTap">
+        <text>{{isRecording ? '■' : '麦'}}</text>
+      </view>
       <input 
         class="message-input" 
         placeholder="在这里倾诉..." 

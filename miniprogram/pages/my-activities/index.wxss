@@ -1,0 +1,140 @@
+/* my-activities/index.wxss */
+page {
+  background: linear-gradient(180deg, #FFF5F0 0%, #FFE8E0 100%);
+  min-height: 100vh;
+}
+
+.page-header {
+  padding: 40rpx 40rpx 24rpx;
+  padding-top: calc(40rpx + env(safe-area-inset-top));
+}
+
+.header-back {
+  font-size: 48rpx;
+  color: #333;
+  margin-bottom: 16rpx;
+}
+
+.page-title {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: #4A3535;
+}
+
+.tabs {
+  display: flex;
+  padding: 0 32rpx 20rpx;
+  gap: 16rpx;
+}
+
+.tab-item {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  border-radius: 16rpx;
+  background: #FFF;
+  font-size: 26rpx;
+  color: #666;
+}
+
+.tab-active {
+  background: linear-gradient(135deg, #FF9A8B 0%, #FECFEF 100%);
+  color: #FFF;
+  font-weight: 600;
+}
+
+.bookings-list {
+  padding: 0 24rpx 120rpx;
+}
+
+.booking-card {
+  background: #FFF;
+  border-radius: 20rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.06);
+}
+
+.booking-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.activity-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.status-badge {
+  padding: 6rpx 16rpx;
+  border-radius: 20rpx;
+  font-size: 22rpx;
+}
+
+.status-pending {
+  background: #FFF3E0;
+  color: #E65100;
+}
+
+.status-paid {
+  background: #E8F5E9;
+  color: #2E7D32;
+}
+
+.status-completed {
+  background: #E3F2FD;
+  color: #1565C0;
+}
+
+.booking-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  margin-bottom: 16rpx;
+}
+
+.info-text {
+  font-size: 24rpx;
+  color: #666;
+}
+
+.booking-actions {
+  display: flex;
+  gap: 16rpx;
+}
+
+.action-btn {
+  flex: 1;
+  padding: 16rpx;
+  border-radius: 32rpx;
+  text-align: center;
+  font-size: 26rpx;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #FF9A8B 0%, #FECFEF 100%);
+  color: #FFF;
+}
+
+.btn-secondary {
+  background: #F5F5F5;
+  color: #666;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 120rpx 0;
+}
+
+.empty-emoji {
+  font-size: 80rpx;
+  margin-bottom: 20rpx;
+}
+
+.empty-text {
+  font-size: 28rpx;
+  color: #999;
+}

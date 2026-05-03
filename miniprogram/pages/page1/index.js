@@ -30,27 +30,21 @@ Page({
       '今天的你，已经做得很好了。',
       '每一次呼吸，都是新的开始。'
     ],
-    
-    // 快捷功能
-    quickFeatures: [
-      { id: 1, name: '呼吸练习', emoji: '🌬️', bgColor: '#E3F2FD', page: '/pages/breathing/index' },
-      { id: 2, name: '冥想音乐', emoji: '🎵', bgColor: '#FEE5E6', page: '/pages/meditation/index' },
-      { id: 3, name: '曼陀罗', emoji: '🎨', bgColor: '#FFF8DC', page: '/pages/mandala/index' },
-      { id: 4, name: '心情日记', emoji: '📝', bgColor: '#E8F8F5', page: '/pages/diary/index' }
-    ]
+
+    createAnalysisEntry: {
+      title: '创造分析',
+      subtitle: '画一画或上传作品，让艺哟做非诊断式艺术疗愈观察',
+      tag: '图片理解 / OCR'
+    }
   },
 
   onLoad(options) {
     this.setGreeting()
     this.setRandomQuote()
-    this.checkLoginStatus()
-    this.loadTodayMood()
-    this.loadMoodStreak()
   },
   
   onShow() {
     this.checkLoginStatus()
-    this.loadTodayMood()
   },
 
   // 设置问候语
@@ -176,9 +170,10 @@ Page({
       }
     }).then(res => {
       wx.hideLoading()
+      const result = (res && res.result) || {}
       
-      if (res.result.success) {
-        const message = res.result.isUpdate ? '心情更新成功' : '心情记录成功'
+      if (result.success) {
+        const message = result.isUpdate ? '心情更新成功' : '心情记录成功'
         wx.showToast({
           title: message,
           icon: 'success',
@@ -192,7 +187,7 @@ Page({
         this.triggerAIRecommendation(userId, mood)
       } else {
         wx.showToast({
-          title: res.result.message || '记录失败',
+          title: result.message || '记录失败',
           icon: 'none'
         })
       }
@@ -227,9 +222,10 @@ Page({
         userId: userId
       }
     }).then(res => {
-      if (res.result.success && res.result.hasMood) {
+      const result = (res && res.result) || {}
+      if (result.success && result.hasMood && result.mood) {
         this.setData({
-          selectedMood: res.result.mood.moodValue
+          selectedMood: result.mood.moodValue
         })
       }
     }).catch(err => {
@@ -259,9 +255,10 @@ Page({
         userId: userId
       }
     }).then(res => {
-      if (res.result.success) {
+      const result = (res && res.result) || {}
+      if (result.success) {
         this.setData({
-          moodStreak: res.result.streak
+          moodStreak: result.streak || 0
         })
       }
     }).catch(err => {
@@ -269,14 +266,13 @@ Page({
     })
   },
   
-  // 快捷功能点击
-  onQuickTap(e) {
-    const feature = e.currentTarget.dataset.feature
+  // 创造分析入口
+  onCreateAnalysisTap() {
     wx.navigateTo({
-      url: feature.page,
+      url: '/pages/create-analysis/index',
       fail: () => {
         wx.showToast({
-          title: '功能开发中',
+          title: '创造分析暂不可用',
           icon: 'none'
         })
       }

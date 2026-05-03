@@ -1,92 +1,65 @@
 <!--index.wxml-->
 <view class="page-container">
-  <!-- 背景图层 -->
   <view class="bg-wrapper">
-    <image class="page-bg" src="https://picui.ogmua.cn/s1/2026/03/07/69ab9a239315c.webp" mode="aspectFill"></image>
-    <image class="page-symbols" src="https://picui.ogmua.cn/s1/2026/03/07/69ab9a20d1edc.webp" mode="aspectFill"></image>
+    <image class="bg-image" src="/images/index/bg.jpg" mode="aspectFill" fade-in="{{false}}"></image>
+    <view class="bg-soften"></view>
   </view>
   
-  <!-- 顶部问候区域 -->
-  <view class="header-section">
-    <view class="greeting-area">
-      <view class="greeting-text">
-        <text class="greeting-title">{{greeting}}，旅人</text>
-        <text class="greeting-subtitle">今天也要好好爱自己 ✨</text>
+  <view class="home-content">
+
+    <view class="hero-section">
+      <view class="hero-copy">
+        <text class="hero-title">你好呀，欢迎来到</text>
+        <text class="hero-title">AI艺术疗愈小屋</text>
+        <text class="hero-subtitle">让我们一起在艺术疗愈的体验与陪伴中，遇见更好的自己</text>
       </view>
-      <view class="header-avatar" bindtap="onUserAvatarTap">
-        <image class="avatar-img" src="{{userAvatar}}" mode="aspectFill"></image>
-        <!-- 未登录时显示默认图标 -->
-        <view class="avatar-placeholder" wx:if="{{!isLoggedIn}}">
-          <text class="avatar-icon">👤</text>
+      <view class="ip-stage" bindtap="onAvatarTap">
+        <image class="ip-image" src="/images/index/ip.png" mode="aspectFit" fade-in="{{false}}"></image>
+        <view class="ai-dialog">
+          <text class="ai-dialog-title">今天怎么样？来和我说说吧！</text>
+          <text class="ai-dialog-desc">点击和“艺呦”一起体验专业的陪伴式艺术疗愈指导</text>
+          <view class="ai-dialog-tail"></view>
+        </view>
+      </view>
+      <view class="create-hero-card" bindtap="onCreateAnalysisTap">
+        <view class="create-hero-copy">
+          <text class="create-entry-tag">{{createAnalysisEntry.tag}}</text>
+          <text class="create-hero-title">{{createAnalysisEntry.title}}</text>
+          <text class="create-hero-subtitle">{{createAnalysisEntry.subtitle}}</text>
+        </view>
+        <view class="create-hero-action">
+          <text>开始创作</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="secondary-section">
+      <view class="mood-section">
+        <view class="mood-header">
+          <text class="mood-title">今日心情打卡</text>
+          <text class="mood-streak">已连续 {{moodStreak}} 天</text>
+        </view>
+        <view class="mood-list">
+          <view
+            class="mood-item {{selectedMood === item.value ? 'mood-selected' : ''}}"
+            wx:for="{{moodList}}"
+            wx:key="value"
+            bindtap="onMoodSelect"
+            data-mood="{{item}}"
+          >
+            <text class="mood-emoji">{{item.emoji}}</text>
+            <text class="mood-label">{{item.label}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="quote-card">
+        <view class="quote-icon">🪶</view>
+        <view class="quote-content">
+          <text class="quote-tag">每日心理能量</text>
+          <text class="quote-text">"{{dailyQuote}}"</text>
         </view>
       </view>
     </view>
   </view>
-
-  <!-- 虚拟形象区域 -->
-  <view class="avatar-section">
-    <view class="avatar-blob blob-1"></view>
-    <view class="avatar-blob blob-2"></view>
-    <view class="virtual-avatar" bindtap="onAvatarTap">
-      <view class="avatar-character">
-        <image class="back-logo" src="https://picui.ogmua.cn/s1/2026/03/07/69ab9a20a82a5.webp" mode="aspectFit"></image>
-      </view>
-      <view class="chat-hint">
-        <text>点我聊天 ✨</text>
-      </view>
-    </view>
-  </view>
-
-  <!-- 每日心情打卡 -->
-  <view class="mood-section">
-    <view class="mood-header">
-      <text class="mood-title">今日心情打卡</text>
-      <text class="mood-streak">已连续 {{moodStreak}} 天</text>
-    </view>
-    <view class="mood-list">
-      <view 
-        class="mood-item {{selectedMood === item.value ? 'mood-selected' : ''}}" 
-        wx:for="{{moodList}}" 
-        wx:key="value"
-        bindtap="onMoodSelect"
-        data-mood="{{item}}"
-      >
-        <text class="mood-emoji">{{item.emoji}}</text>
-        <text class="mood-label">{{item.label}}</text>
-      </view>
-    </view>
-  </view>
-
-  <!-- 每日心理能量卡片 -->
-  <view class="quote-section">
-    <view class="quote-card">
-      <view class="quote-icon">🪶</view>
-      <view class="quote-content">
-        <text class="quote-tag">每日心理能量</text>
-        <text class="quote-text">"{{dailyQuote}}"</text>
-      </view>
-    </view>
-  </view>
-
-  <!-- 快捷功能入口 -->
-  <view class="quick-section">
-    <text class="section-title">快速开始</text>
-    <view class="quick-grid">
-      <view 
-        class="quick-item" 
-        wx:for="{{quickFeatures}}" 
-        wx:key="id" 
-        bindtap="onQuickTap"
-        data-feature="{{item}}"
-      >
-        <view class="quick-icon" style="background-color: {{item.bgColor}}">
-          <text class="quick-emoji">{{item.emoji}}</text>
-        </view>
-        <text class="quick-name">{{item.name}}</text>
-      </view>
-    </view>
-  </view>
-
-  <!-- 底部占位 -->
-  <view class="bottom-space"></view>
 </view>

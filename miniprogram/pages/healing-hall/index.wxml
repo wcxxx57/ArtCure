@@ -23,6 +23,44 @@
     </view>
   </view>
 
+  <!-- POI 附近疗愈探索 -->
+  <view class="poi-discovery-section">
+    <view class="poi-discovery-card">
+      <view class="poi-head">
+        <view>
+          <text class="poi-title">附近疗愈探索</text>
+          <text class="poi-subtitle">像逛疗愈版大众点评一样筛选线下资源</text>
+        </view>
+        <view class="poi-location-btn" bindtap="onUseLocation">定位</view>
+      </view>
+
+      <view class="poi-search-row">
+        <input class="poi-city-input" value="{{poiCity}}" bindinput="onPoiCityInput" placeholder="城市" />
+        <input class="poi-keyword-input" value="{{poiKeyword}}" bindinput="onPoiKeywordInput" bindconfirm="searchPoiResources" confirm-type="search" placeholder="疗愈方式/预算/区域" />
+        <view class="poi-search-btn" bindtap="searchPoiResources">{{poiLoading ? '...' : '搜'}}</view>
+      </view>
+
+      <scroll-view class="poi-chip-scroll" scroll-x enable-flex>
+        <view
+          wx:for="{{poiQuickKeywords}}"
+          wx:key="*this"
+          class="poi-chip {{poiKeyword === item ? 'poi-chip-active' : ''}}"
+          bindtap="onPoiKeywordTap"
+          data-keyword="{{item}}"
+        >{{item}}</view>
+      </scroll-view>
+
+      <text class="poi-status">{{poiStatus}}</text>
+
+      <view wx:if="{{poiResults.length}}" class="poi-result-strip">
+        <view wx:for="{{poiResults}}" wx:key="nid" class="poi-result-card">
+          <text class="poi-result-name">{{item.name}}</text>
+          <text class="poi-result-address">{{item.district}} {{item.address}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
   <!-- 分类标签 -->
   <scroll-view class="category-scroll" scroll-x enable-flex>
     <view
@@ -170,9 +208,19 @@
     </view>
   </view>
 
+  <!-- 内容类型切换 -->
+  <view class="content-type-tabs">
+    <view class="type-tab {{contentType === 'resources' ? 'type-tab-active' : ''}}" bindtap="onContentTypeChange" data-type="resources">
+      <text>疗愈机构</text>
+    </view>
+    <view class="type-tab {{contentType === 'activities' ? 'type-tab-active' : ''}}" bindtap="onContentTypeChange" data-type="activities">
+      <text>疗愈活动</text>
+    </view>
+  </view>
+
   <!-- 结果统计 -->
   <view class="result-header">
-    <text class="result-count">共 {{totalCount}} 个疗愈资源</text>
+    <text class="result-count">共 {{totalCount}} 个{{contentType === 'resources' ? '疗愈资源' : '疗愈活动'}}</text>
   </view>
 
   <!-- 加载中 -->
@@ -191,7 +239,7 @@
   </view>
 
   <!-- 资源列表 -->
-  <view class="shops-list" wx:if="{{displayShops.length > 0}}">
+  <view class="shops-list" wx:if="{{contentType === 'resources' && displayShops.length > 0}}">
     <view
       class="shop-card"
       wx:for="{{displayShops}}"
@@ -247,11 +295,31 @@
         <view class="shop-address" wx:if="{{item.displayAddress}}">
           <text class="address-icon">📍</text>
           <text class="address-text">{{item.displayAddress}}</text>
+          <text class="distance-text">{{item.distanceText}}</text>
         </view>
 
         <!-- 特色标签 -->
         <view class="feature-strip" wx:if="{{item.feature_tags && item.feature_tags.length > 0}}">
           <text class="feature-chip" wx:for="{{item.feature_tags}}" wx:for-item="ft" wx:key="*this" wx:if="{{index < 4}}">{{ft}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 活动列表 -->
+  <view class="activities-list" wx:if="{{contentType === 'activities' && displayActivities.length > 0}}">
+    <view class="activity-card-item" wx:for="{{displayActivities}}" wx:key="_id" bindtap="onActivityTap" data-id="{{item._id}}">
+      <image class="activity-cover" src="{{item.coverImage}}" mode="aspectFill" />
+      <view class="activity-info">
+        <text class="activity-title">{{item.title}}</text>
+        <view class="activity-meta">
+          <text class="meta-text">📅 {{item.timeText}}</text>
+          <text class="meta-text">📍 {{item.location}}</text>
+          <text class="meta-text">👥 {{item.currentParticipants}}/{{item.maxParticipants}}人</text>
+        </view>
+        <view class="activity-footer">
+          <text class="activity-price">¥{{item.price}}</text>
+          <view class="activity-book-btn">立即预约</view>
         </view>
       </view>
     </view>

@@ -1,0 +1,38 @@
+<!--my-activities/index.wxml-->
+<view class="page-container">
+  <view class="page-header">
+    <view class="header-back" bindtap="onBack">‹</view>
+    <text class="page-title">我的活动</text>
+  </view>
+
+  <view class="tabs">
+    <view class="tab-item {{activeTab === 'all' ? 'tab-active' : ''}}" bindtap="onTabChange" data-tab="all">全部</view>
+    <view class="tab-item {{activeTab === 'pending' ? 'tab-active' : ''}}" bindtap="onTabChange" data-tab="pending">待支付</view>
+    <view class="tab-item {{activeTab === 'paid' ? 'tab-active' : ''}}" bindtap="onTabChange" data-tab="paid">已支付</view>
+    <view class="tab-item {{activeTab === 'completed' ? 'tab-active' : ''}}" bindtap="onTabChange" data-tab="completed">已完成</view>
+  </view>
+
+  <view class="bookings-list" wx:if="{{bookings.length > 0}}">
+    <view class="booking-card" wx:for="{{bookings}}" wx:key="_id">
+      <view class="booking-header">
+        <text class="activity-name">{{item.activityTitle}}</text>
+        <text class="status-badge status-{{item.status}}">{{item.statusText}}</text>
+      </view>
+      <view class="booking-info">
+        <text class="info-text">📅 {{item.timeText}}</text>
+        <text class="info-text">👥 {{item.participants}}人</text>
+        <text class="info-text">💰 ¥{{item.totalPrice}}</text>
+      </view>
+      <view class="booking-actions">
+        <view class="action-btn btn-secondary" wx:if="{{item.status === 'paid'}}" bindtap="onConsult" data-id="{{item.activityId}}">咨询</view>
+        <view class="action-btn btn-primary" wx:if="{{item.status === 'pending'}}" bindtap="onPay" data-id="{{item._id}}">去支付</view>
+        <view class="action-btn btn-primary" wx:if="{{item.status === 'completed'}}" bindtap="onFeedback" data-id="{{item._id}}">评价</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:else>
+    <text class="empty-emoji">📅</text>
+    <text class="empty-text">暂无活动记录</text>
+  </view>
+</view>

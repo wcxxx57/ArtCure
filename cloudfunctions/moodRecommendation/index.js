@@ -15,7 +15,7 @@ const AI_CONFIG = {
 // 缓存有效期（2天）
 const CACHE_EXPIRE_DAYS = 2
 
-exports.main = async (event, context) => {
+exports.main = async (event = {}, context) => {
   const { action } = event
 
   try {
@@ -369,7 +369,7 @@ async function shouldGenerateNewRecommendation(userId, moodData) {
       const todayAIUsage = await db.collection('mood_recommendations')
         .where({
           userId: userId,
-          generateTime: _.gte(today).and(_.lt(todayEnd)),
+          generateTime: _.and([_.gte(today), _.lt(todayEnd)]),
           tokenUsed: true
         })
         .count()
@@ -938,7 +938,7 @@ async function batchGenerateRecommendations(event) {
       const todayAIGenerated = await db.collection('mood_recommendations')
         .where({
           userId: userId,
-          generateTime: _.gte(today).and(_.lt(todayEnd)),
+          generateTime: _.and([_.gte(today), _.lt(todayEnd)]),
           tokenUsed: true
         })
         .count()

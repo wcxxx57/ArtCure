@@ -1,0 +1,120 @@
+<!-- 创造分析：在线白板画画或上传图片让 AI 分析 -->
+<view class="create-page">
+  <view class="create-header">
+    <view class="back-btn" bindtap="onClose">‹</view>
+    <view class="header-copy">
+      <text class="header-title">创造分析</text>
+      <text class="header-subtitle">在线白板 · 图片上传 · AI 艺术疗愈观察</text>
+    </view>
+  </view>
+
+  <scroll-view class="create-scroll" scroll-y="true">
+    <view class="intro-panel">
+      <text class="intro-kicker">vivo 图片理解 / OCR 接入位</text>
+      <text class="intro-title">画一点，AI 帮你看见一点</text>
+      <text class="intro-desc">这里的分析只用于自我觉察和艺术疗愈练习，不做心理诊断。你可以直接画，也可以上传手账、涂鸦或绘画照片。</text>
+    </view>
+
+    <view class="board-panel">
+      <view class="panel-head">
+        <text class="panel-title">在线白板</text>
+        <view class="clear-btn" bindtap="resetCanvas">清空</view>
+      </view>
+
+      <canvas
+        class="healing-canvas"
+        canvas-id="healingCanvas"
+        style="width: {{canvasWidth}}px; height: {{canvasHeight}}px;"
+        disable-scroll="true"
+        bindtouchstart="onCanvasStart"
+        bindtouchmove="onCanvasMove"
+        bindtouchend="onCanvasEnd"
+      ></canvas>
+
+      <view class="tool-row">
+        <view class="color-list">
+          <view
+            wx:for="{{colorOptions}}"
+            wx:key="*this"
+            class="color-dot {{brushColor === item ? 'color-active' : ''}}"
+            style="background: {{item}};"
+            bindtap="onColorTap"
+            data-color="{{item}}"
+          ></view>
+        </view>
+
+        <view class="size-list">
+          <view
+            wx:for="{{sizeOptions}}"
+            wx:key="*this"
+            class="size-dot {{brushSize === item ? 'size-active' : ''}}"
+            bindtap="onSizeTap"
+            data-size="{{item}}"
+          >
+            <view style="width: {{item * 2}}rpx; height: {{item * 2}}rpx;"></view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="upload-panel">
+      <view class="panel-head">
+        <text class="panel-title">上传作品</text>
+        <view wx:if="{{uploadedImage}}" class="clear-btn" bindtap="clearUploadedImage">移除</view>
+      </view>
+
+      <view wx:if="{{!uploadedImage}}" class="upload-empty" bindtap="chooseImage">
+        <text class="upload-title">选择图片或拍照</text>
+        <text class="upload-desc">支持手账、涂鸦、绘画作品、情绪便签</text>
+      </view>
+
+      <image wx:else class="uploaded-image" src="{{uploadedImage}}" mode="aspectFit"></image>
+    </view>
+
+    <view class="note-panel">
+      <text class="panel-title">给 AI 的补充</text>
+      <textarea
+        class="note-input"
+        value="{{userNote}}"
+        placeholder="例如：这是我今天压力最大的时候画的"
+        placeholder-class="input-placeholder"
+        bindinput="onNoteInput"
+      ></textarea>
+
+      <view class="prompt-row">
+        <view
+          wx:for="{{exercisePrompts}}"
+          wx:key="*this"
+          class="prompt-chip"
+          bindtap="onPromptTap"
+          data-prompt="{{item}}"
+        >{{item}}</view>
+      </view>
+    </view>
+
+    <view class="analyze-btn {{isAnalyzing ? 'analyzing' : ''}}" bindtap="analyzeCurrentWork">
+      <text>{{isAnalyzing ? 'AI 正在观察...' : '开始创造分析'}}</text>
+    </view>
+
+    <view wx:if="{{analysis}}" class="analysis-panel">
+      <text class="analysis-title">AI 观察结果</text>
+      <text class="analysis-summary">{{analysis.summary}}</text>
+
+      <view class="analysis-block">
+        <text class="block-title">画面观察</text>
+        <text class="block-text">{{analysis.observation}}</text>
+      </view>
+
+      <view class="analysis-block">
+        <text class="block-title">下一步创作建议</text>
+        <view wx:for="{{analysis.suggestions}}" wx:key="*this" class="suggestion-item">
+          <text>{{item}}</text>
+        </view>
+      </view>
+
+      <text class="safety-note">{{analysis.safetyNote}}</text>
+    </view>
+
+    <view class="bottom-space"></view>
+  </scroll-view>
+</view>

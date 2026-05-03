@@ -39,6 +39,9 @@ kiro日志
 
 # 开发过程ai辅助生成的文档
 docs_ai/
+AGENTS.md
+CLAUDE.md
+change_logs.md
 
 # 其他本地文件
 personal-curer

@@ -120,17 +120,8 @@ Page({
   onChatConsult() {
     const res = this.data.resource
     if (res.is_exclusive_partner) {
-      // 跳转到AI聊天或商家聊天页面
-      wx.showModal({
-        title: '在线咨询',
-        content: '该功能即将上线，您可以先通过微信/电话联系商家预约。',
-        confirmText: '复制微信',
-        cancelText: '稍后再说',
-        success: (result) => {
-          if (result.confirm && res.contact_info && res.contact_info.wechat) {
-            this.onCopyWeChat()
-          }
-        }
+      wx.navigateTo({
+        url: `/pages/therapist-chat/index?resourceId=${res._id}&resourceName=${encodeURIComponent(res.name)}`
       })
     }
   },

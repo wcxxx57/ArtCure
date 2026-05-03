@@ -7,7 +7,7 @@ cloud.init({
 const db = cloud.database()
 const _ = db.command
 
-exports.main = async (event, context) => {
+exports.main = async (event = {}, context) => {
   const { action, userId } = event
 
   try {
@@ -54,7 +54,7 @@ async function saveMood(event) {
     const existingRecord = await db.collection('mood_records')
       .where({
         userId: userId,
-        createTime: _.gte(today).and(_.lt(todayEnd))
+        createTime: _.and([_.gte(today), _.lt(todayEnd)])
       })
       .get()
 
@@ -122,7 +122,7 @@ async function getTodayMood(userId) {
     const result = await db.collection('mood_records')
       .where({
         userId: userId,
-        createTime: _.gte(today).and(_.lt(todayEnd))
+        createTime: _.and([_.gte(today), _.lt(todayEnd)])
       })
       .orderBy('createTime', 'desc')
       .limit(1)
@@ -288,7 +288,7 @@ async function shouldTriggerAIGeneration(userId, moodData) {
     const todayGenerated = await db.collection('mood_recommendations')
       .where({
         userId: userId,
-        generateTime: _.gte(today).and(_.lt(todayEnd)),
+        generateTime: _.and([_.gte(today), _.lt(todayEnd)]),
         tokenUsed: true // 只检查使用了AI token的记录
       })
       .count()

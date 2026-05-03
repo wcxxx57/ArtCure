@@ -1,5 +1,6 @@
 // healing-hall/index.js
 const { sampleResources, FILTER_CONFIG } = require('../../utils/sampleResources.js')
+const { sampleActivities } = require('../../utils/sampleActivities.js')
 
 // 类别对应的背景色和emoji
 const CATEGORY_STYLE = {
@@ -31,6 +32,16 @@ Page({
   data: {
     searchKeyword: '',
     loading: false,
+    poiLoading: false,
+    poiCity: '上海市',
+    poiKeyword: '艺术疗愈',
+    poiStatus: '可按城市和疗愈方式搜索，也可授权定位后优先看附近资源',
+    userLocation: null,
+    poiResults: [],
+    poiQuickKeywords: ['绘画疗愈', '颂钵音疗', '冥想正念', '舞动疗愈', '200元以内'],
+
+    // 内容类型切换
+    contentType: 'resources', // 'resources' 或 'activities'
 
     // 分类（横向滚动）
     categories: FILTER_CONFIG.categories,
@@ -57,12 +68,17 @@ Page({
     filteredShops: [],
     displayShops: [], // 处理后用于展示
 
+    // 活动数据
+    allActivities: [],
+    displayActivities: [],
+
     // 筛选结果计数
     totalCount: 0,
   },
 
   onLoad() {
     this.initData()
+    this.loadActivities()
   },
 
   onPullDownRefresh() {
@@ -106,6 +122,7 @@ Page({
         displayRating: shop.ratingNum > 0 ? String(shop.ratingNum) : '',
         displayFormats: shop.formats || [],
         displayAddress: shop.address_text || '',
+        distanceText: this.data.userLocation ? '附近可达' : (shop.district || '同城资源'),
       }
     })
   },
@@ -239,6 +256,87 @@ Page({
     this.applyFilters()
   },
 
+  onPoiCityInput(e) {
+    this.setData({ poiCity: e.detail.value })
+  },
+
+  onPoiKeywordInput(e) {
+    this.setData({ poiKeyword: e.detail.value })
+  },
+
+  onPoiKeywordTap(e) {
+    const keyword = e.currentTarget.dataset.keyword
+    this.setData({ poiKeyword: keyword }, () => {
+      this.searchPoiResources()
+    })
+  },
+
+  onUseLocation() {
+    wx.getLocation({
+      type: 'gcj02',
+      success: (res) => {
+        this.setData({
+          userLocation: {
+            latitude: res.latitude,
+            longitude: res.longitude
+          },
+          poiStatus: '已获取当前位置，将优先作为附近疗愈资源推荐依据'
+        })
+        this.loadLocalData()
+        this.searchPoiResources()
+      },
+      fail: () => {
+        this.setData({
+          poiStatus: '定位未开启，当前按城市和关键词推荐'
+        })
+        wx.showToast({
+          title: '可手动输入城市搜索',
+          icon: 'none'
+        })
+      }
+    })
+  },
+
+  async searchPoiResources() {
+    const keyword = (this.data.poiKeyword || '艺术疗愈').trim()
+    const city = (this.data.poiCity || '上海市').trim()
+
+    this.setData({
+      poiLoading: true,
+      searchKeyword: keyword,
+      poiStatus: `正在搜索「${city} ${keyword}」相关疗愈地点`
+    })
+    this.applyFilters()
+
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'vivoAigcGateway',
+        data: {
+          action: 'resource.recommend',
+          data: {
+            city,
+            keyword,
+            location: this.data.userLocation
+          }
+        }
+      })
+
+      const result = res.result || {}
+      this.setData({
+        poiLoading: false,
+        poiResults: result.pois || [],
+        poiStatus: result.reply || `已按「${keyword}」更新本地疗愈资源推荐`
+      })
+    } catch (err) {
+      console.error('POI 推荐失败:', err)
+      this.setData({
+        poiLoading: false,
+        poiResults: [],
+        poiStatus: 'POI 暂不可用，已使用本地疗愈资源库完成推荐'
+      })
+    }
+  },
+
   // 分类点击
   onCategoryTap(e) {
     const category = e.currentTarget.dataset.category
@@ -307,6 +405,30 @@ Page({
   // AI资源顾问入口
   onAIAdvisorTap() {
     wx.navigateTo({ url: '/pages/healing-hall-ai-advisor/index' })
+  },
+
+  // 内容类型切换
+  onContentTypeChange(e) {
+    this.setData({ contentType: e.currentTarget.dataset.type })
+  },
+
+  // 加载活动数据
+  async loadActivities() {
+    const activities = sampleActivities.map(a => ({
+      ...a,
+      timeText: this.formatActivityTime(a.startTime)
+    }))
+    this.setData({ allActivities: activities, displayActivities: activities })
+  },
+
+  formatActivityTime(timestamp) {
+    const date = new Date(timestamp)
+    return `${date.getMonth() + 1}月${date.getDate()}日 ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`
+  },
+
+  // 活动卡片点击
+  onActivityTap(e) {
+    wx.navigateTo({ url: `/pages/activity-detail/index?id=${e.currentTarget.dataset.id}` })
   },
 
   // 店铺卡片点击 -> 跳转详情页

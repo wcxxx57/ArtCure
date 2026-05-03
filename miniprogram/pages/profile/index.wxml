@@ -176,6 +176,22 @@
         <text class="menu-arrow">›</text>
       </view>
 
+      <view class="menu-item" bindtap="onMenuTap" data-page="/pages/my-consultations/index">
+        <view class="menu-left">
+          <text class="menu-icon">💬</text>
+          <text class="menu-title">我的咨询</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+
+      <view class="menu-item" bindtap="onMenuTap" data-page="/pages/my-activities/index">
+        <view class="menu-left">
+          <text class="menu-icon">🎉</text>
+          <text class="menu-title">我的活动</text>
+        </view>
+        <text class="menu-arrow">›</text>
+      </view>
+
       <view class="menu-item" bindtap="onMenuTap" data-page="/pages/coin-detail/index">
         <view class="menu-left">
           <text class="menu-icon">🪙</text>

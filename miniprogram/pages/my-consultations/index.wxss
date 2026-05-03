@@ -1,0 +1,103 @@
+/* my-consultations/index.wxss */
+page {
+  background: linear-gradient(180deg, #FFF5F0 0%, #FFE8E0 100%);
+  min-height: 100vh;
+}
+
+.page-container {
+  padding-bottom: 120rpx;
+}
+
+.page-header {
+  padding: 40rpx 40rpx 24rpx;
+  padding-top: calc(40rpx + env(safe-area-inset-top));
+}
+
+.header-back {
+  font-size: 48rpx;
+  color: #333;
+  margin-bottom: 16rpx;
+}
+
+.page-title {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: #4A3535;
+}
+
+.conversations-list {
+  padding: 0 24rpx;
+}
+
+.conversation-card {
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.06);
+  display: flex;
+  align-items: center;
+}
+
+.conv-avatar {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #FF9A8B 0%, #FECFEF 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40rpx;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+
+.conv-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.conv-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.conv-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.conv-time {
+  font-size: 22rpx;
+  color: #CCC;
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+
+.conv-last-msg {
+  font-size: 24rpx;
+  color: #999;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 120rpx 0;
+}
+
+.empty-emoji {
+  font-size: 80rpx;
+  margin-bottom: 20rpx;
+}
+
+.empty-text {
+  font-size: 28rpx;
+  color: #999;
+}

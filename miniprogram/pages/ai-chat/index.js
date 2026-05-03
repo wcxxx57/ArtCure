@@ -50,6 +50,11 @@ Page({
     
     // 输入框内容
     inputText: '',
+
+    // 语音疗愈
+    isRecording: false,
+    voiceStatus: '点麦克风说心情',
+    currentGuideText: '',
     
     // 滚动到的消息ID
     scrollToMessage: '',
@@ -149,6 +154,8 @@ Page({
   },
 
   onLoad(options) {
+    this.setupRecorder()
+
     // 初始化当前模式的消息和快捷问题
     const messages = this.data.modeMessages[this.data.currentMode]
     // 解析第一条欢迎消息的格式
@@ -163,6 +170,43 @@ Page({
 
   onShow() {
     // 页面显示
+  },
+
+  onUnload() {
+    if (this.data.isRecording && this.recorderManager) {
+      this.recorderManager.stop()
+    }
+  },
+
+  setupRecorder() {
+    this.recorderManager = wx.getRecorderManager()
+
+    this.recorderManager.onStart(() => {
+      this.setData({
+        isRecording: true,
+        voiceStatus: '正在听你说'
+      })
+    })
+
+    this.recorderManager.onStop((res) => {
+      this.setData({
+        isRecording: false,
+        voiceStatus: '语音已记录，正在整理'
+      })
+      this.handleVoiceStop(res)
+    })
+
+    this.recorderManager.onError((err) => {
+      console.error('[AI Chat] 录音失败:', err)
+      this.setData({
+        isRecording: false,
+        voiceStatus: '录音失败，可改用文字'
+      })
+      wx.showToast({
+        title: '录音失败',
+        icon: 'none'
+      })
+    })
   },
 
   // 切换模式
@@ -210,6 +254,101 @@ Page({
   onInputChange(e) {
     this.setData({
       inputText: e.detail.value
+    })
+  },
+
+  onVoiceTap() {
+    if (this.data.isRecording) {
+      this.recorderManager.stop()
+      return
+    }
+
+    wx.authorize({
+      scope: 'scope.record',
+      success: () => this.startRecord(),
+      fail: () => {
+        wx.showModal({
+          title: '需要麦克风权限',
+          content: '开启麦克风后，艺呦可以听你说心情。也可以继续使用文字输入。',
+          confirmText: '去设置',
+          success: (res) => {
+            if (res.confirm) {
+              wx.openSetting()
+            }
+          }
+        })
+      }
+    })
+  },
+
+  startRecord() {
+    this.recorderManager.start({
+      duration: 60000,
+      sampleRate: 16000,
+      numberOfChannels: 1,
+      encodeBitRate: 48000,
+      format: 'mp3'
+    })
+  },
+
+  async handleVoiceStop(res) {
+    const fallbackText = '我刚录了一段心情语音，想先被听见，也想做一个简单的艺术疗愈练习。'
+
+    try {
+      const transcribeRes = await wx.cloud.callFunction({
+        name: 'vivoAigcGateway',
+        data: {
+          action: 'voice.asrShort',
+          data: {
+            tempFilePath: res.tempFilePath,
+            fallbackText
+          }
+        }
+      })
+
+      const text = transcribeRes.result && transcribeRes.result.text
+        ? transcribeRes.result.text
+        : fallbackText
+      this.setData({ voiceStatus: '已转成文字并发送' })
+      this.sendMessage(text)
+    } catch (err) {
+      console.error('[AI Chat] 语音转写失败:', err)
+      this.setData({ voiceStatus: '转写失败，已使用演示文本' })
+      this.sendMessage(fallbackText)
+    }
+  },
+
+  onGuideTap() {
+    this.sendMessage('请带我做一次三分钟的艺术疗愈语音引导，步骤要简单，可以边听边画。')
+  },
+
+  async onPlayGuide() {
+    const text = this.data.currentGuideText || '先慢慢吸气，再把注意力放到手里的画笔上。'
+
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'vivoAigcGateway',
+        data: {
+          action: 'voice.tts',
+          data: { text }
+        }
+      })
+
+      const audioUrl = res.result && res.result.audioUrl
+      if (audioUrl) {
+        const audio = wx.createInnerAudioContext()
+        audio.src = audioUrl
+        audio.play()
+        return
+      }
+    } catch (err) {
+      console.log('[AI Chat] TTS 播放失败，显示文稿:', err)
+    }
+
+    wx.showModal({
+      title: '语音引导文稿',
+      content: text,
+      showCancel: false
     })
   },
 
@@ -379,6 +518,7 @@ Page({
       updateData.messages = newMessages
       updateData.isTyping = false
       updateData.scrollToMessage = `msg-${messageId}`
+      updateData.currentGuideText = replyText
     }
     
     this.setData(updateData)

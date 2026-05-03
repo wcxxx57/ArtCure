@@ -1,0 +1,29 @@
+<!--my-consultations/index.wxml-->
+<view class="page-container">
+  <view class="page-header">
+    <view class="header-back" bindtap="onBack">
+      <text>‹</text>
+    </view>
+    <text class="page-title">我的咨询</text>
+  </view>
+
+  <view class="conversations-list" wx:if="{{conversations.length > 0}}">
+    <view class="conversation-card" wx:for="{{conversations}}" wx:key="_id" bindtap="onConversationTap" data-conv="{{item}}">
+      <view class="conv-avatar">
+        <text>{{item.avatarEmoji}}</text>
+      </view>
+      <view class="conv-content">
+        <view class="conv-top">
+          <text class="conv-name">{{item.resourceName || '疗愈师'}}</text>
+          <text class="conv-time">{{item.timeText}}</text>
+        </view>
+        <text class="conv-last-msg">{{item.lastMessage}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:else>
+    <text class="empty-emoji">💬</text>
+    <text class="empty-text">暂无咨询记录</text>
+  </view>
+</view>

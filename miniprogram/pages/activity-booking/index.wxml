@@ -1,0 +1,33 @@
+<!--activity-booking/index.wxml-->
+<view class="page-container">
+  <view class="page-header">
+    <view class="header-back" bindtap="onBack">‹</view>
+    <text class="page-title">预约活动</text>
+  </view>
+
+  <view class="booking-card">
+    <text class="activity-name">{{activity.title}}</text>
+
+    <view class="form-item">
+      <text class="form-label">参与人数</text>
+      <input class="form-input" type="number" value="{{participants}}" bindinput="onParticipantsChange" placeholder="请输入人数" />
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">联系电话</text>
+      <input class="form-input" type="number" value="{{phone}}" bindinput="onPhoneChange" placeholder="请输入手机号" />
+    </view>
+
+    <view class="form-item">
+      <text class="form-label">备注</text>
+      <textarea class="form-input" value="{{note}}" bindinput="onNoteChange" placeholder="有什么想告诉疗愈师的吗？" />
+    </view>
+
+    <view class="price-row">
+      <text class="price-label">总计</text>
+      <text class="price-value">¥{{totalPrice}}</text>
+    </view>
+
+    <view class="submit-btn" bindtap="onSubmit">确认预约并支付</view>
+  </view>
+</view>

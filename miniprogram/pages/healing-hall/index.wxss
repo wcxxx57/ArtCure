@@ -65,6 +65,157 @@ page {
   padding: 8rpx 16rpx;
 }
 
+/* ==================== POI附近疗愈探索 ==================== */
+.poi-discovery-section {
+  padding: 0 32rpx 18rpx;
+}
+
+.poi-discovery-card {
+  padding: 24rpx;
+  border-radius: 24rpx;
+  background: #FFFFFF;
+  box-shadow: 0 4rpx 18rpx rgba(0, 0, 0, 0.05);
+  border: 1rpx solid rgba(255, 154, 139, 0.16);
+}
+
+.poi-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+}
+
+.poi-title {
+  display: block;
+  font-size: 31rpx;
+  font-weight: 800;
+  color: #4A3535;
+}
+
+.poi-subtitle {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: #999999;
+}
+
+.poi-location-btn {
+  height: 62rpx;
+  padding: 0 24rpx;
+  border-radius: 999rpx;
+  background: #E8F8F5;
+  color: #2D7D68;
+  font-size: 24rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.poi-search-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-top: 18rpx;
+}
+
+.poi-city-input,
+.poi-keyword-input {
+  height: 70rpx;
+  border-radius: 18rpx;
+  background: #F8F8F8;
+  color: #333333;
+  font-size: 25rpx;
+  padding: 0 18rpx;
+}
+
+.poi-city-input {
+  width: 150rpx;
+  flex-shrink: 0;
+}
+
+.poi-keyword-input {
+  flex: 1;
+}
+
+.poi-search-btn {
+  width: 72rpx;
+  height: 70rpx;
+  border-radius: 18rpx;
+  background: linear-gradient(135deg, #FF9A8B 0%, #FECFEF 100%);
+  color: #FFFFFF;
+  font-size: 25rpx;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.poi-chip-scroll {
+  margin-top: 16rpx;
+  white-space: nowrap;
+}
+
+.poi-chip {
+  display: inline-flex;
+  margin-right: 12rpx;
+  padding: 10rpx 18rpx;
+  border-radius: 999rpx;
+  background: #FFF5F0;
+  color: #E07B5F;
+  font-size: 22rpx;
+}
+
+.poi-chip-active {
+  color: #FFFFFF;
+  background: #E07B5F;
+}
+
+.poi-status {
+  display: block;
+  margin-top: 14rpx;
+  font-size: 23rpx;
+  line-height: 1.5;
+  color: #777777;
+}
+
+.poi-result-strip {
+  display: flex;
+  gap: 12rpx;
+  margin-top: 16rpx;
+  overflow: hidden;
+}
+
+.poi-result-card {
+  width: 230rpx;
+  padding: 16rpx;
+  border-radius: 16rpx;
+  background: #F9FBFC;
+  flex-shrink: 0;
+}
+
+.poi-result-name {
+  display: block;
+  color: #333333;
+  font-size: 24rpx;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.poi-result-address {
+  display: block;
+  margin-top: 6rpx;
+  color: #999999;
+  font-size: 21rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ==================== 分类标签 ==================== */
 .category-scroll {
   padding: 0 32rpx 16rpx;
@@ -237,6 +388,30 @@ page {
   border-radius: 20rpx;
   padding: 24rpx 28rpx;
   box-shadow: 0 6rpx 24rpx rgba(102, 126, 234, 0.3);
+}
+
+/* ==================== 内容类型切换 ==================== */
+.content-type-tabs {
+  display: flex;
+  gap: 16rpx;
+  padding: 0 32rpx 20rpx;
+}
+
+.type-tab {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  border-radius: 16rpx;
+  background: #FFF;
+  font-size: 28rpx;
+  color: #666;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+}
+
+.type-tab-active {
+  background: linear-gradient(135deg, #FF9A8B 0%, #FECFEF 100%);
+  color: #FFF;
+  font-weight: 600;
 }
 
 .ai-advisor-icon {
@@ -497,11 +672,21 @@ page {
 .address-icon { font-size: 22rpx; }
 
 .address-text {
+  flex: 1;
   font-size: 24rpx;
   color: #999;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.distance-text {
+  flex-shrink: 0;
+  padding: 4rpx 10rpx;
+  border-radius: 999rpx;
+  background: #E8F8F5;
+  color: #2D7D68;
+  font-size: 20rpx;
 }
 
 /* 特色标签 */
@@ -523,4 +708,67 @@ page {
 /* ==================== 底部 ==================== */
 .bottom-space {
   height: 40rpx;
+}
+
+/* ==================== 活动列表 ==================== */
+.activities-list {
+  padding: 0 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.activity-card-item {
+  background: #FFF;
+  border-radius: 20rpx;
+  overflow: hidden;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.06);
+}
+
+.activity-cover {
+  width: 100%;
+  height: 320rpx;
+}
+
+.activity-info {
+  padding: 24rpx;
+}
+
+.activity-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 12rpx;
+}
+
+.activity-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  margin-bottom: 16rpx;
+}
+
+.meta-text {
+  font-size: 24rpx;
+  color: #666;
+}
+
+.activity-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.activity-price {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #FF6B6B;
+}
+
+.activity-book-btn {
+  padding: 12rpx 32rpx;
+  border-radius: 32rpx;
+  background: linear-gradient(135deg, #FF9A8B 0%, #FECFEF 100%);
+  color: #FFF;
+  font-size: 26rpx;
 }

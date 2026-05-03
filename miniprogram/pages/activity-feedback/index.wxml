@@ -1,0 +1,23 @@
+<!--activity-feedback/index.wxml-->
+<view class="page-container">
+  <view class="page-header">
+    <view class="header-back" bindtap="onBack">‹</view>
+    <text class="page-title">活动反馈</text>
+  </view>
+
+  <view class="feedback-card">
+    <view class="rating-section">
+      <text class="section-title">活动评分</text>
+      <view class="stars">
+        <text class="star" wx:for="{{[1,2,3,4,5]}}" wx:key="*this" bindtap="onRatingTap" data-rating="{{item}}">{{rating >= item ? '⭐' : '☆'}}</text>
+      </view>
+    </view>
+
+    <view class="rating-section">
+      <text class="section-title">活动反馈</text>
+      <textarea class="feedback-input" value="{{feedback}}" bindinput="onFeedbackInput" placeholder="分享你的活动体验..." />
+    </view>
+
+    <view class="submit-btn" bindtap="onSubmit">提交反馈</view>
+  </view>
+</view>

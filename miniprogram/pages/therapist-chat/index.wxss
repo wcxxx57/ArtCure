@@ -1,0 +1,154 @@
+/* therapist-chat/index.wxss */
+page {
+  background: linear-gradient(180deg, #FFF5F0 0%, #FFE8E0 100%);
+  height: 100vh;
+}
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  background: #FFFBF0;
+  padding: 20rpx 32rpx;
+  padding-top: calc(20rpx + env(safe-area-inset-top));
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.04);
+}
+
+.header-back {
+  font-size: 48rpx;
+  color: #333;
+  padding-right: 20rpx;
+}
+
+.header-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.header-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.header-subtitle {
+  font-size: 22rpx;
+  color: #999;
+}
+
+.message-list {
+  flex: 1;
+  padding: 24rpx;
+}
+
+.message-item {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 24rpx;
+  padding: 0 8rpx;
+}
+
+.message-user {
+  align-items: flex-end;
+}
+
+.message-therapist {
+  align-items: flex-start;
+}
+
+.message-bubble {
+  max-width: 480rpx;
+  padding: 20rpx 24rpx;
+  border-radius: 16rpx;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+.message-user .message-bubble {
+  background: linear-gradient(135deg, #FF9A8B 0%, #FECFEF 100%);
+  box-shadow: 0 4rpx 12rpx rgba(255,154,139,0.25);
+}
+
+.message-therapist .message-bubble {
+  background: #FFFFFF;
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.08);
+}
+
+.message-text {
+  font-size: 28rpx;
+  line-height: 1.5;
+}
+
+.message-user .message-text {
+  color: #FFFFFF;
+}
+
+.message-therapist .message-text {
+  color: #333;
+}
+
+.message-image {
+  max-width: 400rpx;
+  border-radius: 12rpx;
+}
+
+.message-time {
+  font-size: 20rpx;
+  color: #999;
+  margin-top: 8rpx;
+}
+
+.empty-hint {
+  text-align: center;
+  padding: 80rpx 0;
+  font-size: 26rpx;
+  color: #999;
+}
+
+.input-bar {
+  display: flex;
+  align-items: center;
+  background: #FFFBF0;
+  padding: 16rpx 24rpx;
+  padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
+  box-shadow: 0 -2rpx 12rpx rgba(0,0,0,0.04);
+}
+
+.input-actions {
+  display: flex;
+  margin-right: 16rpx;
+}
+
+.action-btn {
+  font-size: 40rpx;
+  padding: 8rpx;
+}
+
+.input-field {
+  flex: 1;
+  background: #F5F5F5;
+  border-radius: 24rpx;
+  padding: 16rpx 24rpx;
+  font-size: 28rpx;
+}
+
+.send-btn {
+  margin-left: 16rpx;
+  padding: 16rpx 32rpx;
+  border-radius: 24rpx;
+  background: #E5E5E5;
+  color: #999;
+  font-size: 26rpx;
+}
+
+.send-active {
+  background: linear-gradient(135deg, #FF9A8B 0%, #FECFEF 100%);
+  color: #FFFFFF;
+  box-shadow: 0 4rpx 12rpx rgba(255,154,139,0.3);
+}

@@ -237,12 +237,13 @@ Page({
         period: period
       }
     }).then(res => {
-      if (res.result.success) {
+      const result = (res && res.result) || {}
+      if (result.success) {
         this.setData({
-          moodData: res.result.records
+          moodData: result.records || []
         })
-        this.generateChartPoints(res.result.records, period)
-        this.generateMoodAnalysis(res.result.records)
+        this.generateChartPoints(result.records || [], period)
+        this.generateMoodAnalysis(result.records || [])
       }
     }).catch(err => {
       console.error('获取心情数据失败:', err)

@@ -1,0 +1,87 @@
+<!-- 位置资源推荐：POI + 本地疗愈资源 -->
+<view class="location-page">
+  <view class="location-header">
+    <view class="back-btn" bindtap="onClose">‹</view>
+    <view class="header-copy">
+      <text class="header-title">位置资源推荐</text>
+      <text class="header-subtitle">POI 搜索 · 附近疗愈 · 线下预约</text>
+    </view>
+  </view>
+
+  <scroll-view class="location-scroll" scroll-y="true">
+    <view class="search-panel">
+      <view class="search-kicker">vivo 地理编码 / POI 搜索接入位</view>
+      <text class="search-title">找到附近能真正去到的疗愈资源</text>
+      <text class="search-desc">{{locationStatus}}</text>
+
+      <view class="form-row">
+        <input class="form-input city-input" value="{{city}}" bindinput="onCityInput" placeholder="城市" />
+        <view class="location-btn" bindtap="useLocation">定位</view>
+      </view>
+
+      <view class="form-row">
+        <input class="form-input" value="{{keyword}}" bindinput="onKeywordInput" placeholder="想找什么疗愈资源" bindconfirm="searchResources" confirm-type="search" />
+        <view class="search-btn" bindtap="searchResources">搜索</view>
+      </view>
+
+      <view class="category-row">
+        <view
+          wx:for="{{categoryOptions}}"
+          wx:key="*this"
+          class="category-chip {{keyword === item ? 'category-active' : ''}}"
+          bindtap="onCategoryTap"
+          data-keyword="{{item}}"
+        >{{item}}</view>
+      </view>
+    </view>
+
+    <view class="ai-panel">
+      <text class="ai-title">AI 推荐说明</text>
+      <text class="ai-text">{{aiReply}}</text>
+      <text wx:if="{{loading}}" class="loading-text">正在更新推荐...</text>
+    </view>
+
+    <view wx:if="{{pois.length}}" class="poi-panel">
+      <text class="section-title">vivo POI 地点线索</text>
+      <view wx:for="{{pois}}" wx:key="nid" class="poi-card">
+        <text class="poi-name">{{item.name}}</text>
+        <text class="poi-address">{{item.city}} {{item.district}} {{item.address}}</text>
+        <text wx:if="{{item.phone}}" class="poi-phone">{{item.phone}}</text>
+      </view>
+    </view>
+
+    <view class="resource-panel">
+      <text class="section-title">疗愈资源推荐</text>
+
+      <view wx:for="{{resources}}" wx:key="_id" class="resource-card">
+        <view class="resource-top">
+          <view>
+            <text class="resource-title">{{item.name}}</text>
+            <view class="meta-row">
+              <text class="meta-chip">{{item.mainCategory}}</text>
+              <text class="meta-chip price">{{item.price_text}}</text>
+              <text class="meta-chip">{{item.distanceText}}</text>
+            </view>
+          </view>
+          <view class="score-pill">{{item.ratingNum || '4.8'}}</view>
+        </view>
+
+        <text class="resource-desc">{{item.description}}</text>
+        <text class="resource-address">{{item.address_text}}</text>
+
+        <view class="tag-row">
+          <text wx:for="{{item.feature_tags}}" wx:key="*this" class="tag-chip">{{item}}</text>
+        </view>
+
+        <view class="action-row">
+          <view class="action-btn primary" bindtap="onOpenResource" data-id="{{item._id}}">详情</view>
+          <view class="action-btn" bindtap="onCopyAddress" data-address="{{item.address_text}}">复制地址</view>
+          <view wx:if="{{item.contact_info && item.contact_info.wechat}}" class="action-btn" bindtap="onCopyWechat" data-wechat="{{item.contact_info.wechat}}">微信</view>
+          <view wx:if="{{item.contact_info && item.contact_info.phone}}" class="action-btn" bindtap="onCallPhone" data-phone="{{item.contact_info.phone}}">电话</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="bottom-space"></view>
+  </scroll-view>
+</view>

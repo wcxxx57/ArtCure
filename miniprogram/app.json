@@ -3,8 +3,16 @@
     "pages/page1/index",
     "pages/onboarding-survey/index",
     "pages/ai-chat/index",
+    "pages/create-analysis/index",
     "pages/healing-hall-ai-advisor/index",
     "pages/resource-detail/index",
+    "pages/therapist-chat/index",
+    "pages/my-consultations/index",
+    "pages/healing-activities/index",
+    "pages/activity-detail/index",
+    "pages/activity-booking/index",
+    "pages/my-activities/index",
+    "pages/activity-feedback/index",
     "pages/user_login/index",
     "pages/user_register/index",
     "pages/user-info/index",
@@ -59,6 +67,5 @@
     ]
   },
   "sitemapLocation": "sitemap.json",
-  "style": "v2",
-  "lazyCodeLoading": "requiredComponents"
+  "style": "v2"
 }

@@ -1,0 +1,37 @@
+<!--therapist-chat/index.wxml-->
+<view class="chat-container">
+  <view class="chat-header">
+    <view class="header-back" bindtap="onBack">
+      <text>‹</text>
+    </view>
+    <view class="header-info">
+      <text class="header-title">{{resourceName}}</text>
+      <text class="header-subtitle">在线咨询</text>
+    </view>
+  </view>
+
+  <scroll-view scroll-y class="message-list" scroll-into-view="{{scrollToView}}" scroll-with-animation>
+    <view wx:for="{{messages}}" wx:key="_id" id="msg-{{index}}" class="message-item {{item.senderType === 'user' ? 'message-user' : 'message-therapist'}}">
+      <view class="message-bubble">
+        <text wx:if="{{item.messageType === 'text'}}" class="message-text">{{item.content}}</text>
+        <image wx:if="{{item.messageType === 'image'}}" class="message-image" src="{{item.imageUrl}}" mode="widthFix" bindtap="onPreviewImage" data-url="{{item.imageUrl}}" />
+      </view>
+      <text class="message-time">{{item.timeText}}</text>
+    </view>
+    <view wx:if="{{messages.length === 0}}" class="empty-hint">
+      <text>开始与疗愈师对话吧</text>
+    </view>
+  </scroll-view>
+
+  <view class="input-bar">
+    <view class="input-actions">
+      <view class="action-btn" bindtap="onChooseImage">
+        <text>🖼️</text>
+      </view>
+    </view>
+    <input class="input-field" placeholder="输入消息..." value="{{inputText}}" bindinput="onInput" confirm-type="send" bindconfirm="onSend" />
+    <view class="send-btn {{inputText ? 'send-active' : ''}}" bindtap="onSend">
+      <text>发送</text>
+    </view>
+  </view>
+</view>
