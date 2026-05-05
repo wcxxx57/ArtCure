@@ -1,15 +1,20 @@
 // vivo AIGC 能力统一网关
-// 说明：有 VIVO_APP_KEY 时调用 vivo 云端 API；没有密钥时返回可演示的本地降级结果。
+// 说明：优先读取云函数环境变量；本地/上传演示可使用同目录 config.local.js。
 
 const cloud = require('wx-server-sdk')
 const https = require('https')
+const localConfig = loadLocalConfig()
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
 })
 
-const VIVO_BASE_URL = 'https://api-ai.vivo.com.cn'
-const DEFAULT_CHAT_MODEL = process.env.VIVO_CHAT_MODEL || 'Doubao-Seed-2.0-mini'
+const JIUWEN_BASE_URL = (getConfigValue('JIUWEN_BASE_URL') || 'https://jiuwen.vivo.com.cn/v1').replace(/\/$/, '')
+const JIUWEN_CHAT_MESSAGES_PATH = getConfigValue('JIUWEN_CHAT_MESSAGES_PATH') || '/chat-messages'
+const JIUWEN_MEDIA_UPLOAD_PATH = getConfigValue('JIUWEN_MEDIA_UPLOAD_PATH') || '/files/media-upload'
+const VIVO_POI_BASE_URL = 'https://api-ai.vivo.com.cn'
+const DEFAULT_CHAT_MODEL = getConfigValue('JIUWEN_MODEL') || getConfigValue('VIVO_CHAT_MODEL') || 'Volc-DeepSeek-V3.2'
+const DEFAULT_VISION_MODEL = getConfigValue('JIUWEN_VISION_MODEL') || getConfigValue('JIUWEN_MODEL') || getConfigValue('VIVO_VISION_MODEL') || DEFAULT_CHAT_MODEL
 
 exports.main = async (event = {}, context) => {
   const { action, data = {} } = event
@@ -46,7 +51,7 @@ exports.main = async (event = {}, context) => {
 async function completeChat(data) {
   const { scene = 'companion', messages = [], prompt = '' } = data
 
-  if (!hasVivoKey()) {
+  if (!hasJiuwenKey()) {
     return {
       success: true,
       source: 'mock',
@@ -75,57 +80,48 @@ async function completeChat(data) {
 }
 
 async function analyzeArtwork(data) {
-  const { fileID, imageUrl, prompt = '' } = data
-  const resolvedImageUrl = imageUrl || await getCloudFileUrl(fileID)
+  const { fileID, imageUrl, prompt = '', sourceType = 'canvas' } = data
 
-  if (!hasVivoKey() || !resolvedImageUrl) {
-    return {
-      success: true,
-      source: 'mock',
-      result: buildMockArtworkAnalysis(prompt),
-      rawText: buildMockArtworkAnalysis(prompt).summary
-    }
+  console.log('[artwork.analyze] start', {
+    hasFileID: Boolean(fileID),
+    hasImageUrl: Boolean(imageUrl),
+    sourceType,
+    promptLength: String(prompt || '').length
+  })
+
+  if (!hasJiuwenKey()) {
+    throw new Error('缺少 JIUWEN_API_KEY：请在 vivoAigcGateway/config.local.js 或微信云函数环境变量中配置九问 API Key')
   }
 
-  const messages = [
-    {
-      role: 'system',
-      content: '你是艺术疗愈观察助手。只做非诊断式观察，避免心理疾病判断，输出温和、具体、可执行的创作建议。'
-    },
-    {
-      role: 'user',
-      content: [
-        {
-          type: 'text',
-          text: `请分析这张用户绘画/手账图片。用户补充：${prompt || '无'}。输出结构：画面观察、可能的情绪线索、下一步创作建议、安全提示。`
-        },
-        {
-          type: 'image_url',
-          image_url: { url: resolvedImageUrl }
-        }
-      ]
-    }
-  ]
+  const resolvedImageUrl = imageUrl || await uploadCloudFileToJiuwen(fileID)
+  console.log('[artwork.analyze] image ready for chat-messages', {
+    imageUrl: maskUrl(resolvedImageUrl)
+  })
 
-  const rawText = await callVivoChat(messages, {
-    model: process.env.VIVO_VISION_MODEL || DEFAULT_CHAT_MODEL,
-    temperature: 0.35,
-    max_tokens: 1600
+  if (!resolvedImageUrl) {
+    throw new Error(`没有可分析的图片：fileID=${fileID || '空'}，imageUrl=${imageUrl ? '已传入' : '空'}`)
+  }
+
+  const rawText = await callJiuwenChatMessages({
+    imageUrl: resolvedImageUrl,
+    prompt,
+    sourceType
+  })
+  const result = normalizeArtworkResult(rawText)
+  if (!Array.isArray(result) || result.length < 2) {
+    throw new Error(`九问返回内容无法解析为两个元素数组：${rawText || '空响应'}`)
+  }
+
+  console.log('[artwork.analyze] success', {
+    source: 'jiuwen',
+    rawTextLength: String(rawText || '').length,
+    resultCount: result.length
   })
 
   return {
     success: true,
-    source: 'vivo',
-    result: {
-      summary: rawText,
-      observation: rawText,
-      suggestions: [
-        '给画面加一个让你觉得安全的颜色。',
-        '在空白处写一句此刻想对自己说的话。',
-        '用线条画出压力从哪里来、往哪里去。'
-      ],
-      safetyNote: '本分析仅用于自我觉察与艺术疗愈练习，不构成心理诊断。'
-    },
+    source: 'jiuwen',
+    result,
     rawText
   }
 }
@@ -133,7 +129,7 @@ async function analyzeArtwork(data) {
 async function recommendResources(data) {
   const { city = '上海市', keyword = '艺术疗愈' } = data
 
-  if (!hasVivoKey()) {
+  if (!hasVivoPoiKey()) {
     return {
       success: true,
       source: 'mock',
@@ -169,8 +165,28 @@ function mockTts(data) {
   }
 }
 
-function hasVivoKey() {
-  return Boolean(process.env.VIVO_APP_KEY)
+function hasJiuwenKey() {
+  return Boolean(getJiuwenApiKey())
+}
+
+function hasVivoPoiKey() {
+  return Boolean(getConfigValue('VIVO_APP_KEY'))
+}
+
+function getJiuwenApiKey() {
+  return getConfigValue('JIUWEN_API_KEY') || getConfigValue('VIVO_APP_KEY') || ''
+}
+
+function getConfigValue(key) {
+  return process.env[key] || localConfig[key] || ''
+}
+
+function loadLocalConfig() {
+  try {
+    return require('./config.local.js')
+  } catch (error) {
+    return {}
+  }
 }
 
 function buildSystemPrompt(scene) {
@@ -221,28 +237,222 @@ function buildGuideText(scene, seed) {
   return '把注意力放到呼吸上。吸气时，想象你在纸上留下一点颜色；呼气时，把不需要立刻解决的事情先放到画面之外。现在给自己三分钟，只负责画，不负责解释。'
 }
 
-function buildMockArtworkAnalysis(prompt) {
+function normalizeArtworkResult(rawText) {
+  const parsed = parseArtworkJson(rawText)
+  if (parsed.length >= 2) {
+    return parsed.slice(0, 2)
+  }
+
+  return []
+}
+
+function parseArtworkJson(rawText) {
+  const text = String(rawText || '').trim()
+  if (!text) return []
+
+  const candidates = [
+    text,
+    text.replace(/^```json\s*/i, '').replace(/```$/i, '').trim(),
+    extractJsonArray(text)
+  ].filter(Boolean)
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate)
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map(item => {
+            if (typeof item === 'string') return item.trim()
+            if (item && typeof item === 'object') {
+              return String(item.text || item.mood_observation || item.practice_suggestions || '').trim()
+            }
+            return ''
+          })
+          .filter(Boolean)
+      }
+    } catch (error) {
+      // Try the next candidate.
+    }
+  }
+
+  const quotedItems = extractQuotedArrayItems(text)
+  if (quotedItems.length >= 2) {
+    return quotedItems
+  }
+
+  return []
+}
+
+function extractJsonArray(text) {
+  const start = text.indexOf('[')
+  const end = text.lastIndexOf(']')
+  if (start === -1 || end === -1 || end <= start) return ''
+  return text.slice(start, end + 1)
+}
+
+function extractQuotedArrayItems(text) {
+  const arrayText = extractJsonArray(text)
+  if (!arrayText) return []
+
+  const items = []
+  const pattern = /(['"])((?:\\.|(?!\1)[\s\S])*)\1/g
+  let match
+  while ((match = pattern.exec(arrayText)) !== null) {
+    const value = match[2]
+      .replace(/\\'/g, "'")
+      .replace(/\\"/g, '"')
+      .replace(/\\n/g, '\n')
+      .trim()
+    if (value) items.push(value)
+  }
+  return items
+}
+
+async function uploadCloudFileToJiuwen(fileID) {
+  console.log('[artwork.analyze] preparing media upload', {
+    fileID
+  })
+
+  const file = await getCloudFileBuffer(fileID)
+  console.log('[artwork.analyze] cloud file downloaded', {
+    fileID,
+    filename: file.filename,
+    contentType: file.contentType,
+    size: file.buffer.length
+  })
+
+  const uploadRes = await uploadJiuwenMedia(file)
+  const mediaUrl = uploadRes.work_url || uploadRes.idc_url || uploadRes.url
+
+  console.log('[artwork.analyze] jiuwen media-upload response', {
+    success: uploadRes.success,
+    contentType: uploadRes.content_type,
+    hasWorkUrl: Boolean(uploadRes.work_url),
+    hasIdcUrl: Boolean(uploadRes.idc_url),
+    workUrl: maskUrl(uploadRes.work_url),
+    idcUrl: maskUrl(uploadRes.idc_url),
+    selectedUrl: maskUrl(mediaUrl)
+  })
+
+  if (!uploadRes.success || !mediaUrl) {
+    throw new Error(`九问媒体上传失败：${JSON.stringify(uploadRes).slice(0, 1000)}`)
+  }
+
+  return mediaUrl
+}
+
+async function getCloudFileBuffer(fileID) {
+  if (!fileID) return ''
+
+  const result = await cloud.downloadFile({ fileID })
+  const buffer = result.fileContent
+  if (!buffer || !buffer.length) {
+    throw new Error(`云存储图片下载失败：fileID=${fileID}`)
+  }
+
+  const contentType = detectImageMime(buffer)
   return {
-    summary: `我会把这幅作品当作一次自我表达来看，而不是心理诊断。${prompt ? `你补充到「${prompt}」，这会成为理解作品的重要线索。` : ''}`,
-    observation: '可以先观察画面里最显眼的颜色、线条方向和留白。如果线条很多，可能说明此刻有不少想表达的内容；如果留白很多，也可能是在给自己保留空间。',
-    suggestions: [
-      '选一个最想靠近的区域，给它加一种更安全的颜色。',
-      '在画面边缘写一句“我现在需要……”开头的话。',
-      '用圆形或柔软线条给画面加一个临时的保护边界。'
-    ],
-    safetyNote: '这只是艺术疗愈视角的观察，不构成心理诊断。若持续强烈痛苦，请及时寻求专业支持。'
+    buffer,
+    contentType,
+    filename: `artwork.${contentType.split('/')[1] || 'jpg'}`
   }
 }
 
-async function getCloudFileUrl(fileID) {
-  if (!fileID) return ''
+function detectImageMime(buffer) {
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
+    return 'image/png'
+  }
+  if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) {
+    return 'image/webp'
+  }
+  return 'image/jpeg'
+}
 
-  const result = await cloud.getTempFileURL({
-    fileList: [fileID]
+async function uploadJiuwenMedia(file) {
+  return await requestMultipart({
+    method: 'POST',
+    url: `${JIUWEN_BASE_URL}${JIUWEN_MEDIA_UPLOAD_PATH}`,
+    headers: {
+      Authorization: `Bearer ${getJiuwenApiKey()}`
+    },
+    fields: {
+      user: 'wechat-miniprogram-user'
+    },
+    file: {
+      fieldName: 'file',
+      filename: file.filename,
+      contentType: file.contentType,
+      buffer: file.buffer
+    }
+  })
+}
+
+async function callJiuwenChatMessages({ imageUrl, prompt, sourceType }) {
+  const query = [
+    '请分析这张用户绘画/手账/涂鸦图片。',
+    `输入来源：${sourceType === 'upload' ? '用户上传图片' : '用户在线画板创作'}。`,
+    `用户补充：${prompt || '无'}。`,
+    '请只返回一个两个元素的数组，不要 Markdown，不要解释。',
+    '第一个元素是一段 mood_observation：描述你观察到的颜色、线条、构图、元素和整体氛围。',
+    '第二个元素是一段 practice_suggestions：给出一个 5 分钟以内、具体可执行的感官锚定或艺术疗愈练习。',
+    '输出示例：["我观察到……", "你可以……"]'
+  ].join('\n')
+
+  console.log('[artwork.analyze] call chat-messages', {
+    imageUrl: maskUrl(imageUrl),
+    queryLength: query.length,
+    sourceType
   })
 
-  const file = result.fileList && result.fileList[0]
-  return file && file.tempFileURL ? file.tempFileURL : ''
+  const response = await requestJson({
+    method: 'POST',
+    url: `${JIUWEN_BASE_URL}${JIUWEN_CHAT_MESSAGES_PATH}`,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      Authorization: `Bearer ${getJiuwenApiKey()}`
+    },
+    body: {
+      inputs: {},
+      query,
+      user: 'wechat-miniprogram-user',
+      response_mode: 'blocking',
+      upload_mediums: [
+        {
+          url: imageUrl,
+          type: 'image'
+        }
+      ]
+    }
+  })
+
+  const answer = extractJiuwenAnswer(response)
+  console.log('[artwork.analyze] chat-messages response', {
+    responseKeys: response && typeof response === 'object' ? Object.keys(response) : [],
+    hasAnswer: Boolean(answer),
+    answerLength: String(answer || '').length
+  })
+
+  if (!answer) {
+    throw new Error(`九问 chat-messages 返回中没有 answer 字段：${JSON.stringify(response).slice(0, 1000)}`)
+  }
+  return answer
+}
+
+function extractJiuwenAnswer(response) {
+  return response?.answer ||
+    response?.data?.answer ||
+    response?.data?.outputs?.answer ||
+    response?.data?.outputs?.text ||
+    response?.outputs?.answer ||
+    response?.outputs?.text ||
+    ''
+}
+
+function maskUrl(url) {
+  if (!url) return ''
+  const text = String(url)
+  if (text.length <= 120) return text
+  return `${text.slice(0, 80)}...${text.slice(-32)}`
 }
 
 async function callVivoChat(messages, options = {}) {
@@ -258,10 +468,10 @@ async function callVivoChat(messages, options = {}) {
 
   const response = await requestJson({
     method: 'POST',
-    url: `${VIVO_BASE_URL}/v1/chat/completions?request_id=${encodeURIComponent(requestId)}`,
+    url: `${JIUWEN_BASE_URL}/chat/completions?request_id=${encodeURIComponent(requestId)}`,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
-      Authorization: `Bearer ${process.env.VIVO_APP_KEY}`
+      Authorization: `Bearer ${getJiuwenApiKey()}`
     },
     body: payload
   })
@@ -281,7 +491,7 @@ async function callVivoPoi({ city, keywords }) {
 
   const response = await requestJson({
     method: 'GET',
-    url: `${VIVO_BASE_URL}/search/geo?${query.toString()}`,
+    url: `${VIVO_POI_BASE_URL}/search/geo?${query.toString()}`,
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${process.env.VIVO_APP_KEY}`
@@ -312,7 +522,7 @@ function requestJson({ method, url, headers = {}, body }) {
       })
       res.on('end', () => {
         if (res.statusCode < 200 || res.statusCode >= 300) {
-          reject(new Error(`vivo API HTTP ${res.statusCode}: ${raw}`))
+          reject(new Error(`HTTP ${res.statusCode}: ${raw}`))
           return
         }
 
@@ -332,6 +542,68 @@ function requestJson({ method, url, headers = {}, body }) {
     if (payload) {
       req.write(payload)
     }
+    req.end()
+  })
+}
+
+function requestMultipart({ method, url, headers = {}, fields = {}, file }) {
+  return new Promise((resolve, reject) => {
+    const target = new URL(url)
+    const boundary = `----ArtCure${Date.now()}${Math.random().toString(16).slice(2)}`
+    const parts = []
+
+    Object.keys(fields).forEach(key => {
+      parts.push(Buffer.from(
+        `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="${key}"\r\n\r\n` +
+        `${fields[key]}\r\n`
+      ))
+    })
+
+    parts.push(Buffer.from(
+      `--${boundary}\r\n` +
+      `Content-Disposition: form-data; name="${file.fieldName}"; filename="${file.filename}"\r\n` +
+      `Content-Type: ${file.contentType}\r\n\r\n`
+    ))
+    parts.push(file.buffer)
+    parts.push(Buffer.from(`\r\n--${boundary}--\r\n`))
+
+    const payload = Buffer.concat(parts)
+    const req = https.request({
+      method,
+      hostname: target.hostname,
+      path: `${target.pathname}${target.search}`,
+      headers: {
+        ...headers,
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': payload.length
+      },
+      timeout: 30000
+    }, (res) => {
+      let raw = ''
+      res.on('data', chunk => {
+        raw += chunk
+      })
+      res.on('end', () => {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          reject(new Error(`HTTP ${res.statusCode}: ${raw}`))
+          return
+        }
+
+        try {
+          resolve(raw ? JSON.parse(raw) : {})
+        } catch (error) {
+          reject(new Error(`multipart 响应 JSON 解析失败: ${error.message}; raw=${raw.slice(0, 1000)}`))
+        }
+      })
+    })
+
+    req.on('error', reject)
+    req.on('timeout', () => {
+      req.destroy(new Error('multipart 请求超时'))
+    })
+
+    req.write(payload)
     req.end()
   })
 }

@@ -1,23 +1,39 @@
-<!-- 创造分析：在线白板画画或上传图片让 AI 分析 -->
+<!-- 创造分析：画板或图片上传，返回两段式 AI 观察 -->
 <view class="create-page">
   <view class="create-header">
     <view class="back-btn" bindtap="onClose">‹</view>
     <view class="header-copy">
       <text class="header-title">创造分析</text>
-      <text class="header-subtitle">在线白板 · 图片上传 · AI 艺术疗愈观察</text>
+      <text class="header-subtitle">画面观察 · 情绪觉察 · 练习建议</text>
     </view>
   </view>
 
   <scroll-view class="create-scroll" scroll-y="true">
-    <view class="intro-panel">
-      <text class="intro-kicker">vivo 图片理解 / OCR 接入位</text>
-      <text class="intro-title">画一点，AI 帮你看见一点</text>
-      <text class="intro-desc">这里的分析只用于自我觉察和艺术疗愈练习，不做心理诊断。你可以直接画，也可以上传手账、涂鸦或绘画照片。</text>
+    <view class="hero-panel">
+      <text class="hero-kicker">AI 图像疗愈观察</text>
+      <text class="hero-title">把你的画面交给艺呦看看</text>
+      <text class="hero-desc">选择一种输入方式，补充一句当下感受，AI 会返回“情绪观察”和“练习建议”两段内容。</text>
     </view>
 
-    <view class="board-panel">
+    <view class="mode-switch">
+      <view
+        wx:for="{{inputModes}}"
+        wx:key="id"
+        class="mode-option {{inputMode === item.id ? 'mode-active' : ''}}"
+        bindtap="switchInputMode"
+        data-mode="{{item.id}}"
+      >
+        <text class="mode-label">{{item.label}}</text>
+        <text class="mode-desc">{{item.desc}}</text>
+      </view>
+    </view>
+
+    <view class="input-panel {{inputMode === 'canvas' ? '' : 'panel-hidden'}}">
       <view class="panel-head">
-        <text class="panel-title">在线白板</text>
+        <view>
+          <text class="panel-title">画板创作</text>
+          <text class="panel-subtitle">不用画得像什么，只留下此刻的线条。</text>
+        </view>
         <view class="clear-btn" bindtap="resetCanvas">清空</view>
       </view>
 
@@ -57,22 +73,28 @@
       </view>
     </view>
 
-    <view class="upload-panel">
+    <view class="input-panel {{inputMode === 'upload' ? '' : 'panel-hidden'}}">
       <view class="panel-head">
-        <text class="panel-title">上传作品</text>
+        <view>
+          <text class="panel-title">上传图片</text>
+          <text class="panel-subtitle">可以是绘画、涂鸦、手账或情绪便签。</text>
+        </view>
         <view wx:if="{{uploadedImage}}" class="clear-btn" bindtap="clearUploadedImage">移除</view>
       </view>
 
       <view wx:if="{{!uploadedImage}}" class="upload-empty" bindtap="chooseImage">
         <text class="upload-title">选择图片或拍照</text>
-        <text class="upload-desc">支持手账、涂鸦、绘画作品、情绪便签</text>
+        <text class="upload-desc">上传后会先存入云开发存储，再交给 AI 分析。</text>
       </view>
 
-      <image wx:else class="uploaded-image" src="{{uploadedImage}}" mode="aspectFit"></image>
+      <view wx:else class="image-preview">
+        <image class="uploaded-image" src="{{uploadedImage}}" mode="aspectFit"></image>
+        <view class="change-image-btn" bindtap="chooseImage">重新选择</view>
+      </view>
     </view>
 
     <view class="note-panel">
-      <text class="panel-title">给 AI 的补充</text>
+      <text class="panel-title">补充一句感受</text>
       <textarea
         class="note-input"
         value="{{userNote}}"
@@ -93,26 +115,23 @@
     </view>
 
     <view class="analyze-btn {{isAnalyzing ? 'analyzing' : ''}}" bindtap="analyzeCurrentWork">
-      <text>{{isAnalyzing ? 'AI 正在观察...' : '开始创造分析'}}</text>
+      <text>{{isAnalyzing ? 'AI 正在观察...' : '开始分析'}}</text>
     </view>
 
-    <view wx:if="{{analysis}}" class="analysis-panel">
-      <text class="analysis-title">AI 观察结果</text>
-      <text class="analysis-summary">{{analysis.summary}}</text>
+    <view wx:if="{{analysisError}}" class="error-tip">{{analysisError}}</view>
 
-      <view class="analysis-block">
-        <text class="block-title">画面观察</text>
-        <text class="block-text">{{analysis.observation}}</text>
+    <view wx:if="{{analysisItems.length}}" class="analysis-panel">
+      <view class="analysis-head">
+        <text class="analysis-title">AI 观察结果</text>
+        <text wx:if="{{analysisSource}}" class="source-tag">{{analysisSource}}</text>
       </view>
 
-      <view class="analysis-block">
-        <text class="block-title">下一步创作建议</text>
-        <view wx:for="{{analysis.suggestions}}" wx:key="*this" class="suggestion-item">
-          <text>{{item}}</text>
-        </view>
+      <view wx:for="{{analysisItems}}" wx:key="key" class="analysis-block">
+        <text class="block-title">{{item.title}}</text>
+        <text class="block-text">{{item.text}}</text>
       </view>
 
-      <text class="safety-note">{{analysis.safetyNote}}</text>
+      <text class="safety-note">本分析只用于艺术疗愈和自我觉察，不构成心理诊断。</text>
     </view>
 
     <view class="bottom-space"></view>
