@@ -39,6 +39,18 @@
       <text class="ai-title">AI 推荐说明</text>
       <text class="ai-text">{{aiReply}}</text>
       <text wx:if="{{loading}}" class="loading-text">正在更新推荐...</text>
+      
+      <!-- 搜索参数和错误信息 -->
+      <view wx:if="{{searchError || searchParams}}" class="search-info-section">
+        <view wx:if="{{searchParams}}" class="search-params">
+          <text class="info-label">搜索条件：</text>
+          <text class="info-value">城市: {{searchParams.city}} | 关键词: {{searchParams.keyword}}</text>
+        </view>
+        <view wx:if="{{searchError}}" class="search-error">
+          <text class="error-icon">⚠️</text>
+          <text class="error-text">{{searchError}}</text>
+        </view>
+      </view>
     </view>
 
     <view wx:if="{{pois.length}}" class="poi-panel">

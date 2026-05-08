@@ -80,7 +80,9 @@ Page({
     this.setData({
       loading: true,
       resources: localResources,
-      aiReply: `先从本地疗愈资源库里筛选「${keyword}」，再预留 vivo POI 搜索做附近地点补充。`
+      aiReply: `先从本地疗愈资源库筛选「${keyword}」，再预留 vivo POI 搜索做附近地点补充。`,
+      searchError: null,
+      searchParams: null
     })
 
     try {
@@ -97,16 +99,35 @@ Page({
       })
 
       const result = res.result || {}
+      
+      // 保存搜索参数
       this.setData({
-        aiReply: result.reply || this.data.aiReply,
-        pois: result.pois || [],
-        loading: false
+        searchParams: result.searchParams
       })
+
+      if (result.success) {
+        this.setData({
+          aiReply: result.reply || this.data.aiReply,
+          pois: result.pois || [],
+          loading: false,
+          searchError: null
+        })
+      } else {
+        // 搜索失败
+        this.setData({
+          aiReply: result.reply || '搜索失败',
+          pois: [],
+          loading: false,
+          searchError: result.error
+        })
+      }
     } catch (err) {
       console.error('位置资源推荐失败:', err)
       this.setData({
         loading: false,
-        pois: []
+        pois: [],
+        searchError: err.errMsg || err.message || '未知错误',
+        searchParams: { city, keyword }
       })
     }
   },

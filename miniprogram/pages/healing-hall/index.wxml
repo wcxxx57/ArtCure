@@ -52,6 +52,51 @@
 
       <text class="poi-status">{{poiStatus}}</text>
 
+      <!-- 搜索参数和错误信息显示 -->
+      <view wx:if="{{poiError || poiSearchParams || poiDebugInfo}}" class="poi-info-section">
+        <view wx:if="{{poiSearchParams}}" class="poi-search-params">
+          <text class="poi-info-label">搜索条件：</text>
+          <text class="poi-info-value">城市: {{poiSearchParams.city}} | 关键词: {{poiSearchParams.keyword}}</text>
+        </view>
+        <view wx:if="{{poiError}}" class="poi-error">
+          <text class="poi-error-icon">⚠️</text>
+          <text class="poi-error-text">{{poiError}}</text>
+        </view>
+        
+        <!-- 详细调试信息 -->
+        <view wx:if="{{poiDebugInfo}}" class="poi-debug-section">
+          <view class="debug-header">
+            <text class="debug-title">🔧 调试信息</text>
+          </view>
+          <view class="debug-content">
+            <view class="debug-item" wx:if="{{poiDebugInfo.apiKeyConfigured !== undefined}}">
+              <text class="debug-label">API Key:</text>
+              <text class="debug-value">{{poiDebugInfo.apiKeyConfigured ? '✅ 已配置' : '❌ 未配置'}}</text>
+            </view>
+            <view class="debug-item" wx:if="{{poiDebugInfo.httpStatusCode}}">
+              <text class="debug-label">HTTP状态:</text>
+              <text class="debug-value">{{poiDebugInfo.httpStatusCode}}</text>
+            </view>
+            <view class="debug-item" wx:if="{{poiDebugInfo.apiUrl}}">
+              <text class="debug-label">请求URL:</text>
+              <text class="debug-value small">{{poiDebugInfo.apiUrl}}</text>
+            </view>
+            <view class="debug-item" wx:if="{{poiDebugInfo.timestamp}}">
+              <text class="debug-label">时间:</text>
+              <text class="debug-value">{{poiDebugInfo.timestamp}}</text>
+            </view>
+            <view class="debug-item" wx:if="{{poiDebugInfo.message}}">
+              <text class="debug-label">消息:</text>
+              <text class="debug-value">{{poiDebugInfo.message}}</text>
+            </view>
+            <view class="debug-item" wx:if="{{poiDebugInfo.error}}">
+              <text class="debug-label">错误:</text>
+              <text class="debug-value error">{{poiDebugInfo.error}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
       <view wx:if="{{poiResults.length}}" class="poi-result-strip">
         <view wx:for="{{poiResults}}" wx:key="nid" class="poi-result-card">
           <text class="poi-result-name">{{item.name}}</text>

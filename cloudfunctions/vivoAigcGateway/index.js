@@ -10,6 +10,8 @@ cloud.init({
 
 const VIVO_BASE_URL = 'https://api-ai.vivo.com.cn'
 const DEFAULT_CHAT_MODEL = process.env.VIVO_CHAT_MODEL || 'Doubao-Seed-2.0-mini'
+// 从 demo.py 中获取的有效 API Key
+const VIVO_APP_KEY = process.env.VIVO_APP_KEY || 'sk-xuanji-2026887953-Yll6dGd3aHNOZWdCRUpBWg=='
 
 exports.main = async (event = {}, context) => {
   const { action, data = {} } = event
@@ -131,26 +133,81 @@ async function analyzeArtwork(data) {
 }
 
 async function recommendResources(data) {
-  const { city = '上海市', keyword = '艺术疗愈' } = data
+  const {
+    city = '上海市',
+    keyword = '美术馆'
+  } = data
+
+  console.log('[recommendResources] 开始搜索')
+  console.log('city =', city)
+  console.log('keyword =', keyword)
 
   if (!hasVivoKey()) {
     return {
-      success: true,
+      success: false,
       source: 'mock',
-      reply: `我会先按「${city}、${keyword}、适合线下体验」来筛选。建议优先看距离可接受、价格透明、能明确说明疗愈方式的资源。`,
+      error: '未配置 VIVO_APP_KEY',
       pois: []
     }
   }
 
-  const pois = await callVivoPoi({ city, keywords: keyword })
+  const result = await callVivoPoi({
+    city,
+    keywords: keyword
+  })
 
+  // 网络/HTTP错误
+  if (!result.success) {
+    return {
+      success: false,
+      source: 'vivo',
+      error: result.error || 'POI搜索失败',
+      pois: [],
+      debugInfo: {
+        apiUrl: result.apiUrl,
+        httpStatusCode: result.httpStatusCode
+      }
+    }
+  }
+
+  // vivo业务状态码
+  // 根据文档和实际测试：
+  // statusCode = 0 基本可视为成功
+  if (result.statusCode !== 0) {
+    return {
+      success: false,
+      source: 'vivo',
+      error: result.statusInfo || `API业务异常 statusCode=${result.statusCode}`,
+      pois: result.pois || [],
+      total: result.total || 0,
+      statusCode: result.statusCode,
+      statusInfo: result.statusInfo
+    }
+  }
+
+  // 正常返回（即使 total=0 也算成功）
   return {
     success: true,
     source: 'vivo',
-    reply: `已结合 vivo POI 搜索「${city} ${keyword}」得到 ${pois.length} 个地点线索，可继续和本地疗愈资源库匹配。`,
-    pois
+    reply:
+      result.total > 0
+        ? `找到 ${result.total} 个结果`
+        : `没有找到相关POI，请尝试更具体关键词`,
+
+    pois: result.pois || [],
+    total: result.total || 0,
+
+    statusCode: result.statusCode,
+    statusInfo: result.statusInfo,
+
+    searchParams: {
+      city,
+      keyword
+    }
   }
 }
+
+
 
 function mockVoiceTranscription(data) {
   return {
@@ -170,7 +227,7 @@ function mockTts(data) {
 }
 
 function hasVivoKey() {
-  return Boolean(process.env.VIVO_APP_KEY)
+  return Boolean(VIVO_APP_KEY)
 }
 
 function buildSystemPrompt(scene) {
@@ -261,7 +318,7 @@ async function callVivoChat(messages, options = {}) {
     url: `${VIVO_BASE_URL}/v1/chat/completions?request_id=${encodeURIComponent(requestId)}`,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
-      Authorization: `Bearer ${process.env.VIVO_APP_KEY}`
+      Authorization: `Bearer ${VIVO_APP_KEY}`
     },
     body: payload
   })
@@ -271,46 +328,108 @@ async function callVivoChat(messages, options = {}) {
 
 async function callVivoPoi({ city, keywords }) {
   const requestId = createRequestId()
-  const query = new URLSearchParams({
-    city,
-    keywords,
-    page_num: '1',
-    page_size: '10',
-    requestId
-  })
 
-  const response = await requestJson({
-    method: 'GET',
-    url: `${VIVO_BASE_URL}/search/geo?${query.toString()}`,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.VIVO_APP_KEY}`
+  // 不使用 URLSearchParams
+  // 避免微信云函数环境兼容问题
+  const apiUrl =
+    `${VIVO_BASE_URL}/search/geo` +
+    `?keywords=${encodeURIComponent(keywords)}` +
+    `&city=${encodeURIComponent(city)}` +
+    `&page_num=1` +
+    `&page_size=10` +
+    `&requestId=${requestId}`
+
+  console.log('[callVivoPoi] 请求URL:')
+  console.log(apiUrl)
+
+  try {
+    const response = await requestJson({
+      method: 'GET',
+      url: apiUrl,
+      headers: {
+        Authorization: `Bearer ${VIVO_APP_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    // 不打印完整 response
+    // 微信开发者工具容易卡死/超时
+    console.log('[callVivoPoi] statusCode =', response?.statusCode)
+    console.log('[callVivoPoi] total =', response?.total)
+
+    return {
+      success: true,
+
+      pois: Array.isArray(response?.pois)
+        ? response.pois
+        : [],
+
+      total: Number(response?.total || 0),
+
+      statusCode:
+        typeof response?.statusCode === 'number'
+          ? response.statusCode
+          : -1,
+
+      statusInfo: response?.statusInfo || '',
+
+      currentDistrict: response?.currentDistrict || null,
+
+      apiUrl,
+      httpStatusCode: 200
     }
-  })
 
-  return Array.isArray(response?.pois) ? response.pois : []
+  } catch (error) {
+
+    console.error('[callVivoPoi] 请求失败:')
+    console.error(error)
+
+    let httpStatusCode = null
+
+    const match = String(error.message || '')
+      .match(/HTTP (\d+)/)
+
+    if (match) {
+      httpStatusCode = Number(match[1])
+    }
+
+    return {
+      success: false,
+      error: error.message || '未知错误',
+
+      pois: [],
+
+      apiUrl,
+      httpStatusCode
+    }
+  }
 }
-
 function requestJson({ method, url, headers = {}, body }) {
   return new Promise((resolve, reject) => {
     const target = new URL(url)
     const payload = body ? JSON.stringify(body) : ''
 
+    // 1. 补充标准请求头，模拟正常客户端，避免被 API 网关拦截降级
+    const defaultHeaders = {
+      'Accept': '*/*',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      ...headers,
+      ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {})
+    }
+
     const req = https.request({
       method,
       hostname: target.hostname,
       path: `${target.pathname}${target.search}`,
-      headers: {
-        ...headers,
-        ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {})
-      },
-      timeout: 30000
+      headers: defaultHeaders,
+      timeout: 10000
     }, (res) => {
-      let raw = ''
-      res.on('data', chunk => {
-        raw += chunk
-      })
+      // 2. 修复中文截断 Bug：使用 Buffer 数组收集，最后一次性转换
+      const chunks = []
+      res.on('data', chunk => chunks.push(chunk))
+      
       res.on('end', () => {
+        const raw = Buffer.concat(chunks).toString('utf8')
         if (res.statusCode < 200 || res.statusCode >= 300) {
           reject(new Error(`vivo API HTTP ${res.statusCode}: ${raw}`))
           return

@@ -304,7 +304,9 @@ Page({
     this.setData({
       poiLoading: true,
       searchKeyword: keyword,
-      poiStatus: `正在搜索「${city} ${keyword}」相关疗愈地点`
+      poiStatus: `正在搜索「${city} ${keyword}」相关疗愈地点`,
+      poiError: null,
+      poiSearchParams: null
     })
     this.applyFilters()
 
@@ -322,17 +324,57 @@ Page({
       })
 
       const result = res.result || {}
+
+      console.log('[searchPoiResources] 云函数返回结果:', JSON.stringify(result, null, 2))
+
+      // 保存搜索参数和调试信息
       this.setData({
-        poiLoading: false,
-        poiResults: result.pois || [],
-        poiStatus: result.reply || `已按「${keyword}」更新本地疗愈资源推荐`
+        poiSearchParams: result.searchParams,
+        poiDebugInfo: result.debugInfo
       })
+
+      if (result.success) {
+        let statusText = ''
+        let errorText = null
+
+        // 分析返回状态
+        if (result.statusCode === 0 || result.statusCode === null || result.statusCode === undefined) {
+          statusText = `搜索「${city} ${keyword}」API返回异常状态码`
+          errorText = `状态码: ${result.statusCode} | 建议：①使用具体地点名称（如"卓悦汇"）②检查城市名称是否正确 ③尝试热门地标`
+        } else if (result.total === 0) {
+          statusText = `搜索「${city} ${keyword}」未找到匹配地点`
+          errorText = `搜索结果为0 | 建议：①使用具体地点名称（如"星巴克"、"静安寺"）②尝试更常见的关键词 ③检查城市拼写`
+        } else {
+          statusText = result.reply || `已按「${keyword}」更新本地疗愈资源推荐`
+        }
+
+        this.setData({
+          poiLoading: false,
+          poiResults: result.pois || [],
+          poiStatus: statusText,
+          poiError: errorText
+        })
+      } else {
+        // 搜索失败，显示错误信息和搜索参数
+        this.setData({
+          poiLoading: false,
+          poiResults: [],
+          poiStatus: result.reply || '搜索失败',
+          poiError: result.error
+        })
+      }
     } catch (err) {
       console.error('POI 推荐失败:', err)
       this.setData({
         poiLoading: false,
         poiResults: [],
-        poiStatus: 'POI 暂不可用，已使用本地疗愈资源库完成推荐'
+        poiStatus: 'POI 搜索出错',
+        poiError: err.errMsg || err.message || '未知错误',
+        poiSearchParams: { city, keyword },
+        poiDebugInfo: {
+          message: '云函数调用异常',
+          error: err.errMsg || err.message
+        }
       })
     }
   },
