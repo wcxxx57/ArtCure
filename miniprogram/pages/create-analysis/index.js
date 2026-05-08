@@ -1,7 +1,17 @@
-// 创造分析：在线白板绘画或上传图片，让 AI 做非诊断式艺术疗愈分析
+// 创造分析：用户可选择画板创作或上传图片，由 AI 返回两段式疗愈观察。
+
+const ANALYSIS_TITLES = {
+  mood_observation: '情绪观察',
+  practice_suggestions: '练习建议'
+}
 
 Page({
   data: {
+    inputMode: 'canvas',
+    inputModes: [
+      { id: 'canvas', label: '画板创作', desc: '直接涂画' },
+      { id: 'upload', label: '上传图片', desc: '相册或拍照' }
+    ],
     canvasWidth: 320,
     canvasHeight: 240,
     brushColor: '#4A90E2',
@@ -11,14 +21,16 @@ Page({
     imageFileID: '',
     userNote: '',
     isAnalyzing: false,
-    analysis: null,
+    analysisItems: [],
+    analysisSource: '',
+    analysisError: '',
     colorOptions: ['#4A90E2', '#F28C8C', '#7BC6A4', '#F2C94C', '#7E57C2', '#263238'],
     sizeOptions: [4, 6, 10, 14],
     exercisePrompts: [
       '我画的是今天的压力',
       '我想表达一种说不出的难过',
       '这是一幅随手涂鸦',
-      '我想让 AI 给我下一笔建议'
+      '请给我一个5分钟练习'
     ]
   },
 
@@ -41,6 +53,18 @@ Page({
     })
   },
 
+  switchInputMode(e) {
+    const mode = e.currentTarget.dataset.mode
+    if (!mode || mode === this.data.inputMode || this.data.isAnalyzing) return
+
+    this.setData({
+      inputMode: mode,
+      analysisItems: [],
+      analysisError: '',
+      analysisSource: ''
+    })
+  },
+
   resetCanvas() {
     const ctx = wx.createCanvasContext('healingCanvas', this)
     ctx.setFillStyle('#fffdf8')
@@ -48,12 +72,17 @@ Page({
     ctx.draw()
     this.canvasContext = ctx
     this.lastPoint = null
-    this.setData({ hasDrawing: false })
+    this.setData({
+      hasDrawing: false,
+      analysisItems: [],
+      analysisError: '',
+      analysisSource: ''
+    })
   },
 
   onCanvasStart(e) {
     const point = e.touches && e.touches[0]
-    if (!point) return
+    if (!point || this.data.inputMode !== 'canvas') return
 
     const ctx = this.canvasContext || wx.createCanvasContext('healingCanvas', this)
     ctx.setStrokeStyle(this.data.brushColor)
@@ -68,14 +97,14 @@ Page({
 
   onCanvasMove(e) {
     const point = e.touches && e.touches[0]
-    if (!point || !this.canvasContext || !this.lastPoint) return
+    if (!point || !this.canvasContext || !this.lastPoint || this.data.inputMode !== 'canvas') return
 
     this.canvasContext.lineTo(point.x, point.y)
     this.canvasContext.stroke()
     this.canvasContext.draw(true)
     this.lastPoint = { x: point.x, y: point.y }
     if (!this.data.hasDrawing) {
-      this.setData({ hasDrawing: true })
+      this.setData({ hasDrawing: true, analysisItems: [], analysisError: '' })
     }
   },
 
@@ -100,6 +129,8 @@ Page({
   },
 
   chooseImage() {
+    if (this.data.isAnalyzing) return
+
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
@@ -111,64 +142,104 @@ Page({
         this.setData({
           uploadedImage: file.tempFilePath,
           imageFileID: '',
-          analysis: null
+          analysisItems: [],
+          analysisError: '',
+          analysisSource: ''
         })
       }
     })
   },
 
   clearUploadedImage() {
+    if (this.data.isAnalyzing) return
+
     this.setData({
       uploadedImage: '',
-      imageFileID: ''
+      imageFileID: '',
+      analysisItems: [],
+      analysisError: '',
+      analysisSource: ''
     })
   },
 
   analyzeCurrentWork() {
-    if (this.data.uploadedImage) {
-      this.uploadAndAnalyze(this.data.uploadedImage)
+    if (this.data.isAnalyzing) return
+
+    if (this.data.inputMode === 'upload') {
+      if (!this.data.uploadedImage) {
+        this.showInputToast('请先选择一张图片')
+        return
+      }
+      this.uploadAndAnalyze(this.data.uploadedImage, 'upload')
       return
     }
 
     if (!this.data.hasDrawing) {
-      wx.showToast({
-        title: '先画几笔或上传图片',
-        icon: 'none'
-      })
+      this.showInputToast('请先在画板上画几笔')
       return
     }
 
+    this.setData({ isAnalyzing: true, analysisError: '', analysisItems: [] })
     wx.canvasToTempFilePath({
       canvasId: 'healingCanvas',
+      fileType: 'jpg',
+      quality: 0.92,
       success: (res) => {
-        this.uploadAndAnalyze(res.tempFilePath)
+        this.uploadAndAnalyze(res.tempFilePath, 'canvas')
       },
       fail: (err) => {
         console.error('画布导出失败:', err)
-        this.callAnalyzeGateway('')
+        this.setData({
+          isAnalyzing: false,
+          analysisError: '画板图片生成失败，请重试。'
+        })
       }
     }, this)
   },
 
-  async uploadAndAnalyze(filePath) {
-    this.setData({ isAnalyzing: true })
+  showInputToast(title) {
+    wx.showToast({
+      title,
+      icon: 'none'
+    })
+  },
+
+  async uploadAndAnalyze(filePath, sourceType) {
+    this.setData({
+      isAnalyzing: true,
+      analysisItems: [],
+      analysisError: '',
+      analysisSource: ''
+    })
 
     try {
-      const cloudPath = `artwork-analysis/${Date.now()}-${Math.floor(Math.random() * 1000)}.jpg`
+      const ext = this.inferFileExt(filePath)
+      const cloudPath = `artwork-analysis/${Date.now()}-${Math.floor(Math.random() * 1000)}.${ext}`
       const uploadRes = await wx.cloud.uploadFile({
         cloudPath,
         filePath
       })
 
       this.setData({ imageFileID: uploadRes.fileID })
-      await this.callAnalyzeGateway(uploadRes.fileID)
+      await this.callAnalyzeGateway(uploadRes.fileID, sourceType)
     } catch (err) {
-      console.error('图片上传失败，使用本地演示分析:', err)
-      await this.callAnalyzeGateway('')
+      console.error('图片上传或分析失败:', err)
+      this.setData({
+        isAnalyzing: false,
+        analysisItems: [],
+        analysisSource: '',
+        analysisError: this.formatErrorMessage('图片上传或 AI 分析失败', err)
+      })
     }
   },
 
-  async callAnalyzeGateway(fileID) {
+  inferFileExt(filePath) {
+    const match = String(filePath || '').match(/\.([a-zA-Z0-9]+)(\?|$)/)
+    const ext = match ? match[1].toLowerCase() : 'jpg'
+    return ['jpg', 'jpeg', 'png', 'webp'].includes(ext) ? ext : 'jpg'
+  },
+
+  async callAnalyzeGateway(fileID, sourceType) {
     try {
       const res = await wx.cloud.callFunction({
         name: 'vivoAigcGateway',
@@ -176,38 +247,76 @@ Page({
           action: 'artwork.analyze',
           data: {
             fileID,
-            prompt: this.data.userNote
+            prompt: this.data.userNote,
+            sourceType,
+            expectedSchema: 'mood_practice_array_v1'
           }
         }
       })
 
-      const result = res.result && res.result.result
-        ? res.result.result
-        : this.getFallbackAnalysis()
+      const result = res.result || {}
+      if (result.success === false) {
+        throw new Error(result.message || result.code || '云函数返回失败')
+      }
+
+      const analysisItems = this.normalizeAnalysisResult(result.result)
+
+      if (!analysisItems.length) {
+        throw new Error(result.rawText ? `AI 未返回有效数组：${result.rawText}` : 'AI 未返回有效分析')
+      }
 
       this.setData({
-        analysis: result,
+        analysisItems,
+        analysisSource: result.source || '',
+        analysisError: '',
         isAnalyzing: false
       })
     } catch (err) {
       console.error('AI 创作分析失败:', err)
       this.setData({
-        analysis: this.getFallbackAnalysis(),
+        analysisItems: [],
+        analysisSource: '',
+        analysisError: this.formatErrorMessage('真实 AI 分析失败', err),
         isAnalyzing: false
       })
     }
   },
 
-  getFallbackAnalysis() {
-    return {
-      summary: '我会把这幅作品看作一次表达，而不是诊断。可以先从颜色、线条、留白和你画的时候身体感受开始观察。',
-      observation: '如果画面中有重复线条，可以把它理解为“有东西想被反复说出来”；如果有大块留白，也可能是在给自己保留呼吸空间。',
-      suggestions: [
-        '给画面里最紧张的位置加一种让你安心的颜色。',
-        '在画面边缘写一句“我现在允许自己……”开头的话。',
-        '用圆形或波浪线给这幅画加一个临时保护边界。'
-      ],
-      safetyNote: '本分析仅用于艺术疗愈和自我觉察，不构成心理诊断。'
-    }
+  formatErrorMessage(prefix, err) {
+    const message = err && (err.message || err.errMsg || err.toString && err.toString())
+      ? (err.message || err.errMsg || err.toString())
+      : '未知错误'
+    return `${prefix}：${message}`
+  },
+
+  normalizeAnalysisResult(result) {
+    const rawItems = Array.isArray(result) ? result : []
+    const keys = ['mood_observation', 'practice_suggestions']
+
+    return rawItems
+      .map((item, index) => {
+        if (typeof item === 'string') {
+          const key = keys[index] || `item_${index}`
+          return {
+            key,
+            title: ANALYSIS_TITLES[key] || 'AI 反馈',
+            text: item.trim()
+          }
+        }
+
+        if (item && typeof item === 'object') {
+          const key = item.key || keys[index] || `item_${index}`
+          const text = item.text || item[key] || ''
+          return {
+            key,
+            title: item.title || ANALYSIS_TITLES[key] || 'AI 反馈',
+            text: String(text).trim()
+          }
+        }
+
+        return null
+      })
+      .filter(item => item && item.text)
+      .slice(0, 2)
   }
 })

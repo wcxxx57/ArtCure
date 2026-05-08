@@ -8,6 +8,7 @@ venv/
 vector_index/
 # .env
 .project
+cloudfunctions/**/config.local.js
 
 # 编辑器文件
 .vscode/
