@@ -1,0 +1,75 @@
+<view class="page-container">
+  <view class="page-header">
+    <view class="header-back" bindtap="onGoBack">
+      <text class="back-icon">‹</text>
+    </view>
+    <view class="header-title-wrap">
+      <text class="page-title">搜索结果</text>
+      <text class="page-subtitle">{{searchCity}} · {{searchKeyword}}</text>
+    </view>
+    <view class="header-placeholder"></view>
+  </view>
+
+  <view class="status-section" wx:if="{{statusText}}">
+    <text class="status-text">{{statusText}}</text>
+    <text class="result-count" wx:if="{{total > 0}}">共找到 {{total}} 个相关地点</text>
+  </view>
+
+  <view class="error-section" wx:if="{{errorText}}">
+    <text class="error-icon">⚠️</text>
+    <text class="error-text">{{errorText}}</text>
+  </view>
+
+  <scroll-view class="results-scroll" scroll-y>
+    <view class="results-list" wx:if="{{poiResults.length > 0}}">
+      <view class="poi-card" wx:for="{{poiResults}}" wx:key="nid">
+        <view class="card-header">
+          <view class="card-title-wrap">
+            <text class="poi-name">{{item.name}}</text>
+            <text class="poi-tag" wx:if="{{item.tag}}">{{item.tag}}</text>
+          </view>
+          <text class="poi-distance" wx:if="{{item.distance > 0}}">{{item.distance}}m</text>
+        </view>
+
+        <view class="card-body">
+          <view class="poi-address" bindtap="onCopyAddress" data-address="{{item.address}}">
+            <text class="address-icon">📍</text>
+            <text class="address-text">{{item.address}}</text>
+          </view>
+
+          <view class="poi-info-row" wx:if="{{item.typeName || item.city}}">
+            <text class="info-tag" wx:if="{{item.typeName}}">{{item.typeName}}</text>
+            <text class="info-tag" wx:if="{{item.city}}">{{item.city}}</text>
+          </view>
+
+          <view class="poi-info-row" wx:if="{{item.district || item.road}}">
+            <text class="info-text" wx:if="{{item.district}}">{{item.district}}</text>
+            <text class="info-text" wx:if="{{item.road}}">{{item.road}}</text>
+          </view>
+        </view>
+
+        <view class="card-footer">
+          <view class="footer-btn" bindtap="onNavigateToLocation" data-item="{{item}}">
+            <text class="btn-icon">🗺️</text>
+            <text class="btn-text">导航</text>
+          </view>
+          <view class="footer-btn" bindtap="onCopyAddress" data-address="{{item.address}}">
+            <text class="btn-icon">📋</text>
+            <text class="btn-text">复制地址</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="empty-state" wx:if="{{poiResults.length === 0}}">
+      <text class="empty-emoji">🔍</text>
+      <text class="empty-title">暂无搜索结果</text>
+      <text class="empty-desc">试试其他关键词或调整搜索条件</text>
+      <view class="empty-btn" bindtap="onGoBack">
+        <text>返回重新搜索</text>
+      </view>
+    </view>
+
+    <view class="bottom-space"></view>
+  </scroll-view>
+</view>

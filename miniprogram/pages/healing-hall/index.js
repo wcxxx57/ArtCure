@@ -306,7 +306,8 @@ Page({
       searchKeyword: keyword,
       poiStatus: `正在搜索「${city} ${keyword}」相关疗愈地点`,
       poiError: null,
-      poiSearchParams: null
+      poiSearchParams: null,
+      poiDebugInfo: null
     })
     this.applyFilters()
 
@@ -327,42 +328,34 @@ Page({
 
       console.log('[searchPoiResources] 云函数返回结果:', JSON.stringify(result, null, 2))
 
-      // 保存搜索参数和调试信息
-      this.setData({
-        poiSearchParams: result.searchParams,
-        poiDebugInfo: result.debugInfo
-      })
+      const hasPois = Array.isArray(result.pois) && result.pois.length > 0
+      let statusText = ''
+      let errorText = null
 
-      if (result.success) {
-        let statusText = ''
-        let errorText = null
-
-        // 分析返回状态
-        if (result.statusCode === 0 || result.statusCode === null || result.statusCode === undefined) {
-          statusText = `搜索「${city} ${keyword}」API返回异常状态码`
-          errorText = `状态码: ${result.statusCode} | 建议：①使用具体地点名称（如"卓悦汇"）②检查城市名称是否正确 ③尝试热门地标`
-        } else if (result.total === 0) {
+      if (result.success || hasPois) {
+        if (!hasPois) {
           statusText = `搜索「${city} ${keyword}」未找到匹配地点`
           errorText = `搜索结果为0 | 建议：①使用具体地点名称（如"星巴克"、"静安寺"）②尝试更常见的关键词 ③检查城市拼写`
         } else {
-          statusText = result.reply || `已按「${keyword}」更新本地疗愈资源推荐`
+          statusText = result.reply || `已找到 ${result.total || result.pois.length} 个「${keyword}」相关地点`
         }
-
-        this.setData({
-          poiLoading: false,
-          poiResults: result.pois || [],
-          poiStatus: statusText,
-          poiError: errorText
-        })
       } else {
-        // 搜索失败，显示错误信息和搜索参数
-        this.setData({
-          poiLoading: false,
-          poiResults: [],
-          poiStatus: result.reply || '搜索失败',
-          poiError: result.error
-        })
+        statusText = result.reply || '搜索失败'
+        errorText = result.error || result.statusInfo
       }
+
+      this.setData({
+        poiLoading: false,
+        poiResults: result.pois || [],
+        poiStatus: statusText,
+        poiError: errorText,
+        poiSearchParams: result.searchParams || null,
+        poiDebugInfo: result.debugInfo && Object.keys(result.debugInfo).length > 0 ? result.debugInfo : null
+      })
+
+      wx.navigateTo({
+        url: `/pages/poi-search-results/index?city=${encodeURIComponent(city)}&keyword=${encodeURIComponent(keyword)}&results=${encodeURIComponent(JSON.stringify(result.pois || []))}&total=${result.total || 0}&statusText=${encodeURIComponent(statusText)}&errorText=${encodeURIComponent(errorText || '')}`
+      })
     } catch (err) {
       console.error('POI 推荐失败:', err)
       this.setData({

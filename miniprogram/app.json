@@ -17,6 +17,7 @@
     "pages/user_register/index",
     "pages/user-info/index",
     "pages/healing-hall/index",
+    "pages/poi-search-results/index",
     "pages/healing-plan/index",
     "pages/my-plans/index",
     "pages/plan-detail/index",
