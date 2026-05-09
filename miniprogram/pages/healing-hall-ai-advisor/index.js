@@ -444,16 +444,18 @@ Page({
   // 调用 AI 服务
   async callAIService(userText) {
     try {
-      console.log('[AI Advisor] 调用云函数 askAI')
+      console.log('[AI Advisor] 调用云函数 vivoAigcGateway')
       
       const res = await wx.cloud.callFunction({
-        name: 'askAI',
+        name: 'vivoAigcGateway',
         data: {
-          query: userText,
-          mode: 'resource_advisor',
-          chatHistory: this.data.chatHistory.slice(-6)
-        },
-        timeout: 15000
+          action: 'chat.complete',
+          data: {
+            scene: 'resource_location',
+            prompt: userText,
+            messages: this.data.chatHistory.slice(-6)
+          }
+        }
       })
       
       console.log('[AI Advisor] 云函数响应:', res)

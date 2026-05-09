@@ -42,7 +42,8 @@
     "useCompilerPlugins": false,
     "condition": false,
     "swc": false,
-    "disableSWC": true
+    "disableSWC": true,
+    "ignoreDevUnusedFiles": true
   },
   "appid": "wx84121e923348e4b1",
   "projectname": "quickstart-wx-cloud",
@@ -68,7 +69,64 @@
   "compileType": "miniprogram",
   "srcMiniprogramRoot": "miniprogram/",
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      {
+        "value": "ai-server/venv",
+        "type": "folder"
+      },
+      {
+        "value": "ai-server/vector_index",
+        "type": "folder"
+      },
+      {
+        "value": "ai-server/resource_vector_index",
+        "type": "folder"
+      },
+      {
+        "value": "cloudfunctions/vivoAigcGateway/node_modules",
+        "type": "folder"
+      },
+      {
+        "value": "docs_ai",
+        "type": "folder"
+      },
+      {
+        "value": "web-prototype",
+        "type": "folder"
+      },
+      {
+        "value": "data_collection",
+        "type": "folder"
+      },
+      {
+        "value": "personal-curer",
+        "type": "folder"
+      },
+      {
+        "value": "Readme_image",
+        "type": "folder"
+      },
+      {
+        "value": "同声传译demo",
+        "type": "folder"
+      },
+      {
+        "value": "实时短语音识别demo",
+        "type": "folder"
+      },
+      {
+        "value": "方言自由说demo",
+        "type": "folder"
+      },
+      {
+        "value": "长语言转写调用demo",
+        "type": "folder"
+      },
+      {
+        "value": "长语音听写调用demo",
+        "type": "folder"
+      }
+    ],
     "include": []
   },
   "editorSetting": {

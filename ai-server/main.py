@@ -10,11 +10,13 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 from pathlib import Path
 from typing import Optional, List, Dict
+from urllib import parse, request as url_request, error as url_error
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import json
+import uuid
 from datetime import datetime
 
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -32,12 +34,20 @@ load_dotenv()
 # API 配置
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_API_BASE = os.getenv("DEEPSEEK_API_BASE", "https://api.deepseek.com")
+VIVO_APP_KEY = os.getenv("VIVO_APP_KEY", "")
+VIVO_API_BASE = os.getenv("VIVO_API_BASE", "https://api-ai.vivo.com.cn").rstrip("/")
+VIVO_RERANK_MODEL = os.getenv("VIVO_RERANK_MODEL", "bge-reranker-large")
+VIVO_RERANK_TIMEOUT = float(os.getenv("VIVO_RERANK_TIMEOUT", "8"))
 
 # 模型配置
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-zh-v1.5")
 LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-chat")
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "1024"))
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7"))
+RAG_CANDIDATE_K = int(os.getenv("RAG_CANDIDATE_K", "8"))
+RAG_CONTEXT_TOP_K = int(os.getenv("RAG_CONTEXT_TOP_K", "3"))
+RAG_RESOURCE_CANDIDATE_K = int(os.getenv("RAG_RESOURCE_CANDIDATE_K", "12"))
+RAG_RESOURCE_CONTEXT_TOP_K = int(os.getenv("RAG_RESOURCE_CONTEXT_TOP_K", "5"))
 
 # 路径配置
 INDEX_DIR = Path(__file__).parent / "vector_index"
@@ -314,7 +324,67 @@ def format_docs(docs):
     """格式化检索到的文档"""
     return "\n\n".join([d.page_content for d in docs])
 
-def build_rag_chain(mode: str, retriever, llm):
+def compact_text(text: str, max_len: int) -> str:
+    """压缩文本，避免超过 vivo rerank 的 500 字限制。"""
+    return " ".join((text or "").split())[:max_len]
+
+def call_vivo_rerank(query: str, docs: List) -> Optional[List[float]]:
+    """调用 vivo 文本相似度接口，对 FAISS 召回片段进行二次排序。"""
+    if not VIVO_APP_KEY or not docs:
+        return None
+
+    compact_query = compact_text(query, 220)
+    sentence_max_len = max(80, 500 - len(compact_query) - 20)
+    sentences = [
+        compact_text(doc.page_content, sentence_max_len)
+        for doc in docs
+    ]
+
+    payload = json.dumps({
+        "model_name": VIVO_RERANK_MODEL,
+        "query": compact_query,
+        "sentences": sentences
+    }, ensure_ascii=False).encode("utf-8")
+
+    request_id = str(uuid.uuid4())
+    url = f"{VIVO_API_BASE}/rerank?{parse.urlencode({'requestId': request_id})}"
+    req = url_request.Request(
+        url,
+        data=payload,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {VIVO_APP_KEY}"
+        }
+    )
+
+    try:
+        with url_request.urlopen(req, timeout=VIVO_RERANK_TIMEOUT) as response:
+            response_data = json.loads(response.read().decode("utf-8"))
+    except (url_error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        print(f"vivo 文本相似度重排失败，使用本地 FAISS 顺序: {exc}")
+        return None
+
+    scores = response_data.get("data")
+    if not isinstance(scores, list) or len(scores) != len(docs):
+        print(f"vivo 文本相似度返回格式异常，使用本地 FAISS 顺序: {response_data}")
+        return None
+
+    return [float(score) for score in scores]
+
+def select_rag_docs(query: str, docs: List, top_k: int):
+    """优先使用 vivo rerank 排序候选片段，失败时使用 FAISS 原顺序。"""
+    if not docs:
+        return [], "empty"
+
+    scores = call_vivo_rerank(query, docs)
+    if scores:
+        ranked = sorted(zip(scores, docs), key=lambda item: item[0], reverse=True)
+        return [doc for _, doc in ranked[:top_k]], "vivo-rerank"
+
+    return docs[:top_k], "local-faiss"
+
+def build_rag_chain(mode: str, retriever, llm, context_top_k: int):
     """构建指定模式的 RAG 链，支持上下文记忆"""
     template = PROMPT_TEMPLATES.get(mode, PROMPT_TEMPLATES["therapist"])
     prompt = ChatPromptTemplate.from_template(template)
@@ -337,15 +407,16 @@ def build_rag_chain(mode: str, retriever, llm):
         # 智能增强检索查询：结合上下文提高检索准确性
         enhanced_query = enhance_query_with_context(question, all_history)
         
-        # 用增强后的查询检索相关文档
-        docs = retriever.invoke(enhanced_query)
+        # 用增强后的查询检索候选文档，再用 vivo 文本相似度重排
+        candidate_docs = retriever.invoke(enhanced_query)
+        docs, ranker = select_rag_docs(enhanced_query, candidate_docs, context_top_k)
         context = format_docs(docs)
         
         # 调试信息：打印检索结果
         print(f"\n========== [{mode}模式] RAG 检索信息 ==========")
         print(f"原始问题: {question}")
         print(f"增强查询: {enhanced_query[:100]}...")
-        print(f"检索到: {len(docs)} 个文档片段")
+        print(f"候选片段: {len(candidate_docs)} 个，入选片段: {len(docs)} 个，排序器: {ranker}")
         print(f"知识库内容长度: {len(context)} 字符")
         if context:
             print(f"知识库预览: {context[:200]}...")
@@ -398,17 +469,17 @@ async def startup_event():
             print("   提示：运行 python build_resource_index.py 构建资源索引")
             resource_vector_store = vector_store
         
-        # 创建检索器
-        retriever = vector_store.as_retriever(search_kwargs={"k": 3})
+        # 创建候选召回器；最终上下文片段会经过 vivo 文本相似度重排后截取
+        retriever = vector_store.as_retriever(search_kwargs={"k": RAG_CANDIDATE_K})
         
         # 为每种模式构建 RAG 链
         for mode in ["comfort", "therapist", "companion", "resource_advisor"]:
             # resource_advisor 模式使用资源向量库和更多的检索结果
             if mode == "resource_advisor":
-                resource_retriever = resource_vector_store.as_retriever(search_kwargs={"k": 5})
-                rag_chains[mode] = build_rag_chain(mode, resource_retriever, llm)
+                resource_retriever = resource_vector_store.as_retriever(search_kwargs={"k": RAG_RESOURCE_CANDIDATE_K})
+                rag_chains[mode] = build_rag_chain(mode, resource_retriever, llm, RAG_RESOURCE_CONTEXT_TOP_K)
             else:
-                rag_chains[mode] = build_rag_chain(mode, retriever, llm)
+                rag_chains[mode] = build_rag_chain(mode, retriever, llm, RAG_CONTEXT_TOP_K)
             print(f"✅ {mode} 模式 RAG 链已就绪")
         
         print("=" * 50)
@@ -432,7 +503,8 @@ async def health_check():
     return {
         "status": "healthy",
         "vector_store": vector_store is not None,
-        "rag_chains": list(rag_chains.keys())
+        "rag_chains": list(rag_chains.keys()),
+        "vivo_rerank": bool(VIVO_APP_KEY)
     }
 
 @app.post("/chat", response_model=ChatResponse)
@@ -479,8 +551,15 @@ async def chat(request: ChatRequest):
             # 使用相同的增强查询来获取文档来源
             session_history = get_user_session(request.user_id, request.mode)
             enhanced_query = enhance_query_with_context(request.query, session_history)
-            docs = vector_store.similarity_search(enhanced_query, k=3)
-            sources = [f"知识库片段{i+1}" for i, _ in enumerate(docs)]
+            source_store = resource_vector_store if request.mode == "resource_advisor" else vector_store
+            candidate_k = RAG_RESOURCE_CANDIDATE_K if request.mode == "resource_advisor" else RAG_CANDIDATE_K
+            top_k = RAG_RESOURCE_CONTEXT_TOP_K if request.mode == "resource_advisor" else RAG_CONTEXT_TOP_K
+            candidate_docs = source_store.similarity_search(enhanced_query, k=candidate_k)
+            docs, _ = select_rag_docs(enhanced_query, candidate_docs, top_k)
+            sources = [
+                doc.metadata.get("source") or f"知识库片段{i+1}"
+                for i, doc in enumerate(docs)
+            ]
         except:
             pass
         
@@ -501,14 +580,16 @@ async def chat(request: ChatRequest):
 @app.post("/search")
 async def search(query: str, top_k: int = 3):
     """
-    知识库搜索接口（调试用）
+    知识库搜索接口（调试用），会对 FAISS 候选结果执行 vivo 文本相似度重排
     """
     if not vector_store:
         raise HTTPException(status_code=500, detail="向量数据库未初始化")
     
-    results = vector_store.similarity_search(query, k=top_k)
+    candidate_docs = vector_store.similarity_search(query, k=max(top_k, RAG_CANDIDATE_K))
+    results, ranker = select_rag_docs(query, candidate_docs, top_k)
     return {
         "query": query,
+        "ranker": ranker,
         "results": [
             {
                 "content": doc.page_content,

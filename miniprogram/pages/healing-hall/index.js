@@ -328,7 +328,8 @@ Page({
 
       console.log('[searchPoiResources] 云函数返回结果:', JSON.stringify(result, null, 2))
 
-      const hasPois = Array.isArray(result.pois) && result.pois.length > 0
+      const pois = this.normalizePoiResults(result.pois || [])
+      const hasPois = pois.length > 0
       let statusText = ''
       let errorText = null
 
@@ -337,7 +338,7 @@ Page({
           statusText = `搜索「${city} ${keyword}」未找到匹配地点`
           errorText = `搜索结果为0 | 建议：①使用具体地点名称（如"星巴克"、"静安寺"）②尝试更常见的关键词 ③检查城市拼写`
         } else {
-          statusText = result.reply || `已找到 ${result.total || result.pois.length} 个「${keyword}」相关地点`
+          statusText = result.reply || `已找到 ${result.total || pois.length} 个「${keyword}」相关地点`
         }
       } else {
         statusText = result.reply || '搜索失败'
@@ -346,15 +347,24 @@ Page({
 
       this.setData({
         poiLoading: false,
-        poiResults: result.pois || [],
+        poiResults: pois,
         poiStatus: statusText,
         poiError: errorText,
         poiSearchParams: result.searchParams || null,
         poiDebugInfo: result.debugInfo && Object.keys(result.debugInfo).length > 0 ? result.debugInfo : null
       })
 
+      wx.setStorageSync('poiSearchResultsPayload', {
+        city,
+        keyword,
+        results: pois,
+        total: result.total || 0,
+        statusText,
+        errorText: errorText || ''
+      })
+
       wx.navigateTo({
-        url: `/pages/poi-search-results/index?city=${encodeURIComponent(city)}&keyword=${encodeURIComponent(keyword)}&results=${encodeURIComponent(JSON.stringify(result.pois || []))}&total=${result.total || 0}&statusText=${encodeURIComponent(statusText)}&errorText=${encodeURIComponent(errorText || '')}`
+        url: `/pages/poi-search-results/index?city=${encodeURIComponent(city)}&keyword=${encodeURIComponent(keyword)}`
       })
     } catch (err) {
       console.error('POI 推荐失败:', err)
@@ -370,6 +380,22 @@ Page({
         }
       })
     }
+  },
+
+  normalizePoiResults(pois) {
+    return (Array.isArray(pois) ? pois : []).map(item => ({
+      ...item,
+      displayAddress: this.formatPoiAddress(item)
+    }))
+  },
+
+  formatPoiAddress(item = {}) {
+    const parts = []
+    if (item.province) parts.push(item.province)
+    if (item.city && item.city !== item.province) parts.push(item.city)
+    if (item.district && item.district !== item.city) parts.push(item.district)
+    if (item.address) parts.push(item.address)
+    return parts.join(' ')
   },
 
   // 分类点击

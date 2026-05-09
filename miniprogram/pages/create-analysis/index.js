@@ -183,7 +183,7 @@ Page({
     wx.canvasToTempFilePath({
       canvasId: 'healingCanvas',
       fileType: 'jpg',
-      quality: 0.92,
+      quality: 0.76,
       success: (res) => {
         this.uploadAndAnalyze(res.tempFilePath, 'canvas')
       },
@@ -213,11 +213,12 @@ Page({
     })
 
     try {
-      const ext = this.inferFileExt(filePath)
+      const analysisFilePath = await this.compressImageForAnalysis(filePath)
+      const ext = this.inferFileExt(analysisFilePath)
       const cloudPath = `artwork-analysis/${Date.now()}-${Math.floor(Math.random() * 1000)}.${ext}`
       const uploadRes = await wx.cloud.uploadFile({
         cloudPath,
-        filePath
+        filePath: analysisFilePath
       })
 
       this.setData({ imageFileID: uploadRes.fileID })
@@ -237,6 +238,17 @@ Page({
     const match = String(filePath || '').match(/\.([a-zA-Z0-9]+)(\?|$)/)
     const ext = match ? match[1].toLowerCase() : 'jpg'
     return ['jpg', 'jpeg', 'png', 'webp'].includes(ext) ? ext : 'jpg'
+  },
+
+  compressImageForAnalysis(filePath) {
+    return new Promise((resolve) => {
+      wx.compressImage({
+        src: filePath,
+        quality: 72,
+        success: (res) => resolve(res.tempFilePath || filePath),
+        fail: () => resolve(filePath)
+      })
+    })
   },
 
   async callAnalyzeGateway(fileID, sourceType) {

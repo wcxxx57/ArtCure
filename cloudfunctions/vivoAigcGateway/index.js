@@ -1,8 +1,10 @@
 // vivo AIGC 能力统一网关
-// 说明：优先读取云函数环境变量；本地/上传演示可使用同目录 config.local.js。
+// 说明：优先读取云函数环境变量；本地/上传演示可使用同目录 config.local.js；语音识别调用 vivo ASR。
 
 const cloud = require('wx-server-sdk')
 const https = require('https')
+const WebSocket = require('ws')
+const crypto = require('crypto')
 const localConfig = loadLocalConfig()
 
 cloud.init({
@@ -12,9 +14,15 @@ cloud.init({
 const JIUWEN_BASE_URL = (getConfigValue('JIUWEN_BASE_URL') || 'https://jiuwen.vivo.com.cn/v1').replace(/\/$/, '')
 const JIUWEN_CHAT_MESSAGES_PATH = getConfigValue('JIUWEN_CHAT_MESSAGES_PATH') || '/chat-messages'
 const JIUWEN_MEDIA_UPLOAD_PATH = getConfigValue('JIUWEN_MEDIA_UPLOAD_PATH') || '/files/media-upload'
-const VIVO_POI_BASE_URL = 'https://api-ai.vivo.com.cn'
+const VIVO_BASE_URL = (getConfigValue('VIVO_API_URL') || getConfigValue('VIVO_API_BASE') || 'https://api-ai.vivo.com.cn').replace(/\/$/, '')
+const VIVO_POI_BASE_URL = getConfigValue('VIVO_POI_BASE_URL') || VIVO_BASE_URL
+const VIVO_WS_HOST = getConfigValue('VIVO_WS_HOST') || 'api-ai.vivo.com.cn'
 const DEFAULT_CHAT_MODEL = getConfigValue('JIUWEN_MODEL') || getConfigValue('VIVO_CHAT_MODEL') || 'Volc-DeepSeek-V3.2'
 const DEFAULT_VISION_MODEL = getConfigValue('JIUWEN_VISION_MODEL') || getConfigValue('JIUWEN_MODEL') || getConfigValue('VIVO_VISION_MODEL') || DEFAULT_CHAT_MODEL
+const DEFAULT_EMBEDDING_MODEL = getConfigValue('VIVO_EMBEDDING_MODEL') || 'bge-base-zh-v1.5'
+const DEFAULT_RERANK_MODEL = getConfigValue('VIVO_RERANK_MODEL') || 'bge-reranker-large'
+const ASR_CHUNK_SIZE = 1280
+const ASR_CHUNK_INTERVAL_MS = 40
 
 exports.main = async (event = {}, context) => {
   const { action, data = {} } = event
@@ -28,7 +36,11 @@ exports.main = async (event = {}, context) => {
       case 'resource.recommend':
         return await recommendResources(data)
       case 'voice.asrShort':
-        return mockVoiceTranscription(data)
+        return await transcribeShortVoice(data)
+      case 'text.embedding':
+        return await embedTexts(data)
+      case 'text.rerank':
+        return await rerankTexts(data)
       case 'voice.tts':
         return mockTts(data)
       default:
@@ -164,16 +176,18 @@ async function recommendResources(data) {
     }
   }
 
-  // vivo业务状态码
-  // 根据文档和实际测试：
-  // statusCode = 0 基本可视为成功
-  if (result.statusCode !== 0) {
+  const filteredPois = filterPoisByCity(result.pois || [], city)
+  const hasPois = filteredPois.length > 0
+
+  // vivo POI 文档示例会在返回有效 pois 时同时给出 statusCode=4/statusInfo="cookie is null"。
+  // 因此不能只按 statusCode 判失败；有同城 pois 就按可用结果处理。
+  if (result.statusCode !== 0 && !hasPois) {
     return {
       success: false,
       source: 'vivo',
       error: result.statusInfo || `API业务异常 statusCode=${result.statusCode}`,
-      pois: result.pois || [],
-      total: result.total || 0,
+      pois: [],
+      total: 0,
       statusCode: result.statusCode,
       statusInfo: result.statusInfo
     }
@@ -184,12 +198,12 @@ async function recommendResources(data) {
     success: true,
     source: 'vivo',
     reply:
-      result.total > 0
-        ? `找到 ${result.total} 个结果`
+      hasPois
+        ? `找到 ${filteredPois.length} 个结果`
         : `没有找到相关POI，请尝试更具体关键词`,
 
-    pois: result.pois || [],
-    total: result.total || 0,
+    pois: filteredPois,
+    total: filteredPois.length,
 
     statusCode: result.statusCode,
     statusInfo: result.statusInfo,
@@ -201,14 +215,313 @@ async function recommendResources(data) {
   }
 }
 
+async function transcribeShortVoice(data = {}) {
+  if (!hasVivoKey()) {
+    return {
+      success: false,
+      code: 'VIVO_KEY_MISSING',
+      message: '未配置 VIVO_APP_KEY，无法调用 vivo 实时短语音识别'
+    }
+  }
 
+  const audioType = data.audioType || data.format || 'pcm'
+  if (String(audioType).toLowerCase() !== 'pcm') {
+    return {
+      success: false,
+      code: 'ASR_AUDIO_FORMAT_UNSUPPORTED',
+      message: 'vivo 实时短语音识别要求 16k/16bit 单声道 PCM 音频'
+    }
+  }
 
-function mockVoiceTranscription(data) {
+  const audioBuffer = await resolveAudioBuffer(data)
+  if (!audioBuffer || audioBuffer.length === 0) {
+    return {
+      success: false,
+      code: 'ASR_AUDIO_EMPTY',
+      message: '未获取到可识别的语音数据'
+    }
+  }
+
+  const requestId = createRequestId()
+  const userId = normalizeAsrUserId(data.userId || data.openid || 'artcure_user')
+  const result = await callVivoShortAsr(audioBuffer, {
+    requestId,
+    userId,
+    packageName: data.packageName || getConfigValue('VIVO_ASR_PACKAGE') || 'artcure.miniprogram'
+  })
+
   return {
     success: true,
-    source: 'mock',
-    text: data.fallbackText || '我刚录了一段心情语音，想先被听见，也想做一个简单的艺术疗愈练习。'
+    source: 'vivo',
+    requestId,
+    sid: result.sid,
+    text: result.text,
+    raw: result.raw
   }
+}
+
+async function resolveAudioBuffer(data) {
+  if (data.fileID) {
+    const downloadRes = await cloud.downloadFile({
+      fileID: data.fileID
+    })
+    return downloadRes.fileContent
+  }
+
+  if (data.audioBase64) {
+    return Buffer.from(data.audioBase64, 'base64')
+  }
+
+  throw new Error('voice.asrShort 需要 fileID 或 audioBase64')
+}
+
+function callVivoShortAsr(audioBuffer, options) {
+  return new Promise((resolve, reject) => {
+    const { requestId, userId, packageName } = options
+    const query = new URLSearchParams({
+      client_version: '1.0.0',
+      product: 'artcure',
+      package: packageName,
+      sdk_version: 'unknown',
+      user_id: userId,
+      android_version: 'unknown',
+      system_time: String(Date.now()),
+      net_type: '1',
+      engineid: getConfigValue('VIVO_ASR_ENGINE_ID') || 'shortasrinput',
+      requestId
+    })
+
+    const ws = new WebSocket(`ws://${VIVO_WS_HOST}/asr/v2?${query.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${getConfigValue('VIVO_APP_KEY')}`
+      }
+    })
+
+    let finished = false
+    let sid = ''
+    let finalText = ''
+    let lastResult = null
+    const timer = setTimeout(() => {
+      finish(new Error('vivo 实时短语音识别超时'))
+    }, Number(getConfigValue('VIVO_ASR_TIMEOUT_MS') || 70000))
+
+    function finish(error, payload) {
+      if (finished) return
+      finished = true
+      clearTimeout(timer)
+
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(Buffer.from('--close--'))
+        ws.close()
+      }
+
+      if (error) {
+        reject(error)
+        return
+      }
+
+      resolve(payload)
+    }
+
+    ws.on('open', async () => {
+      try {
+        ws.send(JSON.stringify({
+          type: 'started',
+          request_id: requestId,
+          asr_info: {
+            front_vad_time: 6000,
+            end_vad_time: 2000,
+            audio_type: 'pcm',
+            chinese2digital: 1,
+            punctuation: 2
+          },
+          business_info: JSON.stringify({
+            scenes_pkg: packageName,
+            scene: 'artcure_voice_healing'
+          })
+        }))
+
+        await sendPcmFrames(ws, audioBuffer)
+      } catch (error) {
+        finish(error)
+      }
+    })
+
+    ws.on('message', raw => {
+      let message
+      try {
+        message = JSON.parse(raw.toString())
+      } catch (error) {
+        finish(new Error(`vivo ASR 返回非 JSON 数据: ${raw.toString()}`))
+        return
+      }
+
+      if (message.sid) sid = message.sid
+
+      if (message.action === 'error') {
+        finish(new Error(`vivo ASR ${message.code}: ${message.desc || '识别失败'}`))
+        return
+      }
+
+      if (message.action === 'result' && message.type === 'asr') {
+        lastResult = message
+        const text = message.data && message.data.text ? message.data.text.trim() : ''
+        if (text) finalText = text
+
+        if ((message.data && message.data.is_last) || message.is_finish) {
+          finish(null, {
+            sid,
+            text: finalText,
+            raw: lastResult
+          })
+        }
+      }
+    })
+
+    ws.on('error', error => {
+      finish(error)
+    })
+
+    ws.on('close', () => {
+      if (!finished && finalText) {
+        finish(null, {
+          sid,
+          text: finalText,
+          raw: lastResult
+        })
+      } else if (!finished) {
+        finish(new Error('vivo ASR 连接已关闭，但没有返回识别文本'))
+      }
+    })
+  })
+}
+
+async function sendPcmFrames(ws, audioBuffer) {
+  for (let offset = 0; offset < audioBuffer.length; offset += ASR_CHUNK_SIZE) {
+    if (ws.readyState !== WebSocket.OPEN) {
+      throw new Error('vivo ASR 连接已断开')
+    }
+
+    const chunk = audioBuffer.subarray(offset, Math.min(offset + ASR_CHUNK_SIZE, audioBuffer.length))
+    ws.send(chunk)
+    await sleep(ASR_CHUNK_INTERVAL_MS)
+  }
+
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(Buffer.from('--end--'))
+  }
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function normalizeAsrUserId(value) {
+  return crypto.createHash('md5').update(String(value)).digest('hex')
+}
+
+async function embedTexts(data = {}) {
+  if (!hasVivoKey()) {
+    return {
+      success: false,
+      code: 'VIVO_KEY_MISSING',
+      message: '未配置 VIVO_APP_KEY，无法调用 vivo 文本向量接口'
+    }
+  }
+
+  const sentences = normalizeTextArray(data.sentences || data.texts || data.text)
+  if (sentences.length === 0) {
+    return {
+      success: false,
+      code: 'TEXT_EMPTY',
+      message: 'text.embedding 需要提供 text、texts 或 sentences'
+    }
+  }
+
+  const requestId = createRequestId()
+  const response = await requestJson({
+    method: 'POST',
+    url: `${VIVO_BASE_URL}/embedding-model-api/predict/batch?requestId=${encodeURIComponent(requestId)}`,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${getConfigValue('VIVO_APP_KEY')}`
+    },
+    body: {
+      model_name: data.modelName || data.model_name || DEFAULT_EMBEDDING_MODEL,
+      sentences: sentences.map(text => compactText(text, 500))
+    }
+  })
+
+  return {
+    success: true,
+    source: 'vivo',
+    requestId,
+    modelName: data.modelName || data.model_name || DEFAULT_EMBEDDING_MODEL,
+    embeddings: response.data || []
+  }
+}
+
+async function rerankTexts(data = {}) {
+  if (!hasVivoKey()) {
+    return {
+      success: false,
+      code: 'VIVO_KEY_MISSING',
+      message: '未配置 VIVO_APP_KEY，无法调用 vivo 文本相似度接口'
+    }
+  }
+
+  const query = String(data.query || '').trim()
+  const sentences = normalizeTextArray(data.sentences || data.texts)
+
+  if (!query || sentences.length === 0) {
+    return {
+      success: false,
+      code: 'RERANK_INPUT_INVALID',
+      message: 'text.rerank 需要提供 query 和 sentences'
+    }
+  }
+
+  const compactQuery = compactText(query, 220)
+  const sentenceMaxLen = Math.max(80, 500 - compactQuery.length - 20)
+  const requestId = createRequestId()
+  const response = await requestJson({
+    method: 'POST',
+    url: `${VIVO_BASE_URL}/rerank?requestId=${encodeURIComponent(requestId)}`,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${getConfigValue('VIVO_APP_KEY')}`
+    },
+    body: {
+      model_name: data.modelName || data.model_name || DEFAULT_RERANK_MODEL,
+      query: compactQuery,
+      sentences: sentences.map(text => compactText(text, sentenceMaxLen))
+    }
+  })
+
+  const scores = Array.isArray(response.data) ? response.data : []
+
+  return {
+    success: true,
+    source: 'vivo',
+    requestId,
+    modelName: data.modelName || data.model_name || DEFAULT_RERANK_MODEL,
+    scores,
+    results: sentences.map((text, index) => ({
+      text,
+      score: scores[index]
+    })).sort((a, b) => Number(b.score) - Number(a.score))
+  }
+}
+
+function normalizeTextArray(value) {
+  const list = Array.isArray(value) ? value : [value]
+  return list
+    .map(item => String(item || '').trim())
+    .filter(Boolean)
+}
+
+function compactText(text, maxLen) {
+  return String(text || '').replace(/\s+/g, ' ').trim().slice(0, maxLen)
 }
 
 function mockTts(data) {
@@ -220,12 +533,16 @@ function mockTts(data) {
   }
 }
 
+function hasVivoKey() {
+  return Boolean(getConfigValue('VIVO_APP_KEY'))
+}
+
 function hasJiuwenKey() {
   return Boolean(getJiuwenApiKey())
 }
 
 function hasVivoPoiKey() {
-  return Boolean(getConfigValue('VIVO_APP_KEY'))
+  return hasVivoKey()
 }
 
 function getJiuwenApiKey() {
@@ -257,16 +574,27 @@ function buildSystemPrompt(scene) {
 }
 
 function normalizeMessages(messages, prompt) {
+  const promptText = String(prompt || '').trim()
+
   if (Array.isArray(messages) && messages.length > 0) {
-    return messages
+    const normalized = messages
       .filter(item => item && item.content)
       .map(item => ({
         role: item.role === 'assistant' ? 'assistant' : 'user',
         content: String(item.content)
       }))
+
+    if (promptText) {
+      const last = normalized[normalized.length - 1]
+      if (!last || last.role !== 'user' || last.content !== promptText) {
+        normalized.push({ role: 'user', content: promptText })
+      }
+    }
+
+    return normalized
   }
 
-  return [{ role: 'user', content: prompt || '我想做一次艺术疗愈练习。' }]
+  return [{ role: 'user', content: promptText || '我想做一次艺术疗愈练习。' }]
 }
 
 function lastUserMessage(messages) {
@@ -438,7 +766,8 @@ async function uploadJiuwenMedia(file) {
       filename: file.filename,
       contentType: file.contentType,
       buffer: file.buffer
-    }
+    },
+    timeout: 45000
   })
 }
 
@@ -477,7 +806,8 @@ async function callJiuwenChatMessages({ imageUrl, prompt, sourceType }) {
           type: 'image'
         }
       ]
-    }
+    },
+    timeout: 55000
   })
 
   const answer = extractJiuwenAnswer(response)
@@ -528,7 +858,8 @@ async function callVivoChat(messages, options = {}) {
       'Content-Type': 'application/json; charset=utf-8',
       Authorization: `Bearer ${getJiuwenApiKey()}`
     },
-    body: payload
+    body: payload,
+    timeout: 45000
   })
 
   return response?.choices?.[0]?.message?.content || '我已经收到你的信息，但暂时没有生成有效回复。'
@@ -612,7 +943,35 @@ async function callVivoPoi({ city, keywords }) {
     }
   }
 }
-function requestJson({ method, url, headers = {}, body }) {
+
+function filterPoisByCity(pois, requestedCity) {
+  if (!Array.isArray(pois)) return []
+
+  const expected = normalizeRegionName(requestedCity)
+  if (!expected) return pois
+
+  return pois.filter(poi => {
+    const city = normalizeRegionName(poi.city)
+    const province = normalizeRegionName(poi.province)
+    const district = normalizeRegionName(poi.district)
+    const matches = region => region && (
+      region === expected ||
+      expected.includes(region) ||
+      region.includes(expected)
+    )
+    return matches(city) || matches(province) || matches(district)
+  })
+}
+
+function normalizeRegionName(value) {
+  const text = String(value || '').trim()
+  if (!text || /^\d+$/.test(text)) return ''
+  return text
+    .replace(/(特别行政区|维吾尔自治区|壮族自治区|回族自治区|自治区|省|市|地区|盟|州|县|区)$/g, '')
+    .replace(/\s+/g, '')
+}
+
+function requestJson({ method, url, headers = {}, body, timeout = 30000 }) {
   return new Promise((resolve, reject) => {
     const target = new URL(url)
     const payload = body ? JSON.stringify(body) : ''
@@ -630,7 +989,7 @@ function requestJson({ method, url, headers = {}, body }) {
       hostname: target.hostname,
       path: `${target.pathname}${target.search}`,
       headers: defaultHeaders,
-      timeout: 30000
+      timeout
     }, (res) => {
       // 2. 修复中文截断 Bug：使用 Buffer 数组收集，最后一次性转换
       const chunks = []
@@ -663,7 +1022,7 @@ function requestJson({ method, url, headers = {}, body }) {
   })
 }
 
-function requestMultipart({ method, url, headers = {}, fields = {}, file }) {
+function requestMultipart({ method, url, headers = {}, fields = {}, file, timeout = 30000 }) {
   return new Promise((resolve, reject) => {
     const target = new URL(url)
     const boundary = `----ArtCure${Date.now()}${Math.random().toString(16).slice(2)}`
@@ -695,7 +1054,7 @@ function requestMultipart({ method, url, headers = {}, fields = {}, file }) {
         'Content-Type': `multipart/form-data; boundary=${boundary}`,
         'Content-Length': payload.length
       },
-      timeout: 30000
+      timeout
     }, (res) => {
       let raw = ''
       res.on('data', chunk => {

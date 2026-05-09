@@ -34,7 +34,7 @@
         <view class="card-body">
           <view class="poi-address" bindtap="onCopyAddress" data-address="{{item.address}}">
             <text class="address-icon">📍</text>
-            <text class="address-text">{{item.address}}</text>
+            <text class="address-text">{{item.displayAddress || item.address}}</text>
           </view>
 
           <view class="poi-info-row" wx:if="{{item.typeName || item.city}}">

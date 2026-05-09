@@ -67,7 +67,7 @@
       <view wx:if="{{poiResults.length}}" class="poi-result-strip">
         <view wx:for="{{poiResults}}" wx:key="nid" class="poi-result-card">
           <text class="poi-result-name">{{item.name}}</text>
-          <text class="poi-result-address">{{item.district}} {{item.address}}</text>
+          <text class="poi-result-address">{{item.displayAddress || item.address}}</text>
         </view>
       </view>
     </view>

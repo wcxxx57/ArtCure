@@ -4,6 +4,7 @@
   "description": "vivo AIGC API gateway for ArtCure mini program",
   "main": "index.js",
   "dependencies": {
-    "wx-server-sdk": "~2.6.3"
+    "wx-server-sdk": "~2.6.3",
+    "ws": "^8.16.0"
   }
 }

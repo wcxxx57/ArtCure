@@ -286,35 +286,74 @@ Page({
       duration: 60000,
       sampleRate: 16000,
       numberOfChannels: 1,
-      encodeBitRate: 48000,
-      format: 'mp3'
+      format: 'pcm',
+      frameSize: 4
     })
   },
 
   async handleVoiceStop(res) {
-    const fallbackText = '我刚录了一段心情语音，想先被听见，也想做一个简单的艺术疗愈练习。'
+    if (!res || !res.tempFilePath) {
+      this.setData({ voiceStatus: '没有录到声音，可再试一次' })
+      wx.showToast({
+        title: '没有录到声音',
+        icon: 'none'
+      })
+      return
+    }
+
+    let uploadedFileID = ''
 
     try {
+      this.setData({ voiceStatus: '正在上传语音' })
+      const cloudPath = `voice-healing/${Date.now()}-${Math.random().toString(36).slice(2)}.pcm`
+      const uploadRes = await wx.cloud.uploadFile({
+        cloudPath,
+        filePath: res.tempFilePath
+      })
+
+      uploadedFileID = uploadRes.fileID
+      this.setData({ voiceStatus: '正在识别你说的话' })
+
       const transcribeRes = await wx.cloud.callFunction({
         name: 'vivoAigcGateway',
         data: {
           action: 'voice.asrShort',
           data: {
-            tempFilePath: res.tempFilePath,
-            fallbackText
+            fileID: uploadedFileID,
+            audioType: 'pcm',
+            sampleRate: 16000,
+            userId: wx.getStorageSync('userId') || 'miniprogram_user'
           }
         }
       })
 
-      const text = transcribeRes.result && transcribeRes.result.text
-        ? transcribeRes.result.text
-        : fallbackText
+      const result = transcribeRes.result || {}
+      if (!result.success) {
+        throw new Error(result.message || '语音识别失败')
+      }
+
+      const text = result.text ? result.text.trim() : ''
+      if (!text) {
+        throw new Error('没有识别出有效文字')
+      }
+
       this.setData({ voiceStatus: '已转成文字并发送' })
       this.sendMessage(text)
     } catch (err) {
       console.error('[AI Chat] 语音转写失败:', err)
-      this.setData({ voiceStatus: '转写失败，已使用演示文本' })
-      this.sendMessage(fallbackText)
+      this.setData({ voiceStatus: '转写失败，可改用文字' })
+      wx.showToast({
+        title: err.message || '语音识别失败',
+        icon: 'none'
+      })
+    } finally {
+      if (uploadedFileID) {
+        wx.cloud.deleteFile({
+          fileList: [uploadedFileID]
+        }).catch(deleteErr => {
+          console.log('[AI Chat] 临时语音文件删除失败:', deleteErr)
+        })
+      }
     }
   },
 
@@ -417,53 +456,42 @@ Page({
   async callRAGService(userText, requestMode) {
     // 使用请求时的模式，而不是当前显示的模式
     const mode = requestMode || this.data.currentMode
-    
-    // AI 服务器地址 - 本地测试用，部署时改为公网地址
-    const AI_SERVER_URL = 'http://127.0.0.1:8000'
-    
+
     try {
-      // 获取用户ID（从用户登录信息获取）
-      const userId = wx.getStorageSync('userId') || 'miniprogram_user'
-      
-      console.log('[AI Chat] 调用 RAG 服务器:', AI_SERVER_URL)
+      console.log('[AI Chat] 调用 vivoAigcGateway 云函数')
       console.log('[AI Chat] 请求模式:', mode)
-      
-      // 调用 AI 服务器
-      const res = await new Promise((resolve, reject) => {
-        wx.request({
-          url: `${AI_SERVER_URL}/chat`,
-          method: 'POST',
-          header: {
-            'Content-Type': 'application/json'
-          },
+
+      const sceneMap = {
+        comfort: 'voice_companion',
+        therapist: 'voice_companion',
+        companion: 'voice_companion'
+      }
+
+      const res = await wx.cloud.callFunction({
+        name: 'vivoAigcGateway',
+        data: {
+          action: 'chat.complete',
           data: {
-            user_id: userId,
-            query: userText,
-            mode: mode,
-            user_profile: '微信小程序用户'
-          },
-          timeout: 90000,  // 增加到90秒，DeepSeek有时响应较慢
-          success: (response) => {
-            console.log('[AI Chat] RAG 服务器响应:', response)
-            resolve(response)
-          },
-          fail: (error) => {
-            console.error('[AI Chat] RAG 请求失败:', error)
-            reject(error)
+            scene: sceneMap[mode] || 'voice_companion',
+            prompt: userText,
+            messages: this.buildChatHistory(mode, userText)
           }
-        })
+        }
       })
-      
-      if (res.statusCode === 200 && res.data && res.data.success) {
+
+      const result = res.result || {}
+      console.log('[AI Chat] vivoAigcGateway 响应:', result)
+
+      if (result.reply) {
         // 回复添加到请求时的模式，而不是当前显示的模式
-        this.addBotMessage(res.data.reply, mode)
+        this.addBotMessage(result.reply, mode)
         
         // 可选：显示检索来源（调试用）
-        if (res.data.sources && res.data.sources.length > 0) {
-          console.log('[AI Chat] 知识来源:', res.data.sources)
+        if (result.sources && result.sources.length > 0) {
+          console.log('[AI Chat] 知识来源:', result.sources)
         }
       } else {
-        console.error('[AI Chat] RAG 返回错误:', res.data)
+        console.error('[AI Chat] vivoAigcGateway 返回错误:', result)
         this.addBotMessage('抱歉，我现在有点忙，请稍后再试。如果你需要帮助，也可以切换到其他模式聊聊。', mode)
       }
       
@@ -472,6 +500,24 @@ Page({
       // 降级到本地回复 - 传入请求时的模式
       this.generateLocalReply(userText, mode)
     }
+  },
+
+  buildChatHistory(mode, latestUserText) {
+    const messages = this.data.modeMessages[mode] || []
+    let historyMessages = messages
+
+    const lastMessage = messages[messages.length - 1]
+    if (lastMessage && lastMessage.type === 'user' && lastMessage.text === latestUserText) {
+      historyMessages = messages.slice(0, -1)
+    }
+
+    return historyMessages
+      .filter(item => item && item.text)
+      .slice(-8)
+      .map(item => ({
+        role: item.type === 'bot' ? 'assistant' : 'user',
+        content: item.text
+      }))
   },
 
   // 添加机器人消息

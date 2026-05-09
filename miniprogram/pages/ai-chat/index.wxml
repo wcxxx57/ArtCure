@@ -7,7 +7,7 @@
       <!-- 左侧：返回按钮（logo） -->
       <view class="header-back" bindtap="onClose">
         <view class="back-avatar">
-          <image class="back-logo" src="https://picui.ogmua.cn/s1/2026/03/07/69ab9a20a82a5.webp" mode="aspectFit"></image>
+          <image class="back-logo" src="/images/icons/close.png" mode="aspectFit"></image>
         </view>
       </view>
       
@@ -98,7 +98,7 @@
       <!-- 正在输入提示 -->
       <view wx:if="{{isTyping}}" class="message-item bot-message">
         <view class="message-avatar">
-          <image class="avatar-logo" src="https://picui.ogmua.cn/s1/2026/03/07/69ab9a20a82a5.webp" mode="aspectFit"></image>
+          <image class="avatar-logo" src="/images/index/ip.png" mode="aspectFit"></image>
         </view>
         <view class="message-bubble bot-bubble typing-bubble">
           <view class="typing-indicator">

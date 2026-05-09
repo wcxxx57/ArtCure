@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>艺哟 ArtCure · vivo AIGC 交互设计原型 v2</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="prototype-shell">
+      <aside class="left-rail" aria-label="原型导航">
+        <section class="brand-card">
+          <img class="brand-ip" src="../../miniprogram/images/index/ip.png" alt="艺哟 IP" />
+          <div>
+            <p class="eyebrow">ArtCure vivo AIGC</p>
+            <h1>艺哟疗愈助手</h1>
+            <p class="brand-desc">按现有小程序页面重构的高保真交互原型</p>
+          </div>
+        </section>
+
+        <section class="nav-card">
+          <div class="nav-heading">
+            <span>页面流程</span>
+            <span id="routeCount">12 页</span>
+          </div>
+          <div id="routeNav" class="route-nav"></div>
+        </section>
+
+        <section class="source-card">
+          <div class="source-title">真实页面基线</div>
+          <p>主 Tab：小屋、疗愈馆、计划、我的。</p>
+          <p>扩展流程：AI 对话、创造分析、资源顾问、资源详情、活动预约、计划定制、计划详情、偏好问卷。</p>
+        </section>
+      </aside>
+
+      <section class="workbench">
+        <header class="topbar">
+          <div>
+            <p id="screenKicker" class="screen-kicker">pages/page1/index</p>
+            <h2 id="screenTitle">AI艺术疗愈小屋</h2>
+          </div>
+          <div class="topbar-actions">
+            <button class="ghost-btn" data-flow="demo">演示主流程</button>
+            <button class="solid-btn" data-route="home">回到小屋</button>
+          </div>
+        </header>
+
+        <section class="stage">
+          <div class="phone-column">
+            <div class="phone-frame" aria-label="手机原型">
+              <div class="hardware-top">
+                <span>9:41</span>
+                <div class="dynamic-island"></div>
+                <span>5G</span>
+              </div>
+              <div id="phoneScreen" class="phone-screen"></div>
+            </div>
+          </div>
+
+          <aside class="context-panel">
+            <section class="context-card">
+              <div class="context-head">
+                <span>当前设计依据</span>
+                <span id="currentStatus" class="status-pill">主 Tab</span>
+              </div>
+              <div id="screenMeta" class="screen-meta"></div>
+            </section>
+
+            <section class="context-card ip-spec">
+              <div class="mini-ip-wrap">
+                <img src="../../miniprogram/images/index/ip.png" alt="艺哟 IP 小图" />
+              </div>
+              <div>
+                <h3>IP 设计落点</h3>
+                <p>让艺哟出现在关键陪伴节点：开场问候、语音引导、AI 分析、计划提醒和资源顾问，而不是只做头像。</p>
+              </div>
+            </section>
+
+            <section class="context-card">
+              <div class="context-head">
+                <span>交互细节</span>
+                <span>Prototype</span>
+              </div>
+              <div id="interactionNotes" class="interaction-notes"></div>
+            </section>
+          </aside>
+        </section>
+
+        <section class="screen-strip-section">
+          <div class="strip-header">
+            <div>
+              <p class="eyebrow">Multi-page Preview</p>
+              <h3>页面缩略图墙</h3>
+            </div>
+            <p>点击缩略卡片切换主手机视图</p>
+          </div>
+          <div id="screenStrip" class="screen-strip"></div>
+        </section>
+      </section>
+
+      <aside class="right-rail">
+        <section class="map-card">
+          <div class="map-head">
+            <span>miniprogram/pages 盘点</span>
+            <span id="pageCount">27</span>
+          </div>
+          <div id="pageMap" class="page-map"></div>
+        </section>
+
+        <section class="story-card">
+          <p class="eyebrow">答辩主线</p>
+          <h3>听你说、看你画、懂你的位置、陪你坚持</h3>
+          <ol>
+            <li>短语音进入树洞，艺哟生成三分钟艺术疗愈引导。</li>
+            <li>上传涂鸦或手账，AI 做非诊断式画面观察。</li>
+            <li>根据城市、预算、疗愈方式推荐线下资源。</li>
+            <li>生成个性化计划，并在个人页沉淀疗愈轨迹。</li>
+          </ol>
+        </section>
+      </aside>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
