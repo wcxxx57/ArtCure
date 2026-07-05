@@ -42,9 +42,10 @@
         canvas-id="healingCanvas"
         style="width: {{canvasWidth}}px; height: {{canvasHeight}}px;"
         disable-scroll="true"
-        bindtouchstart="onCanvasStart"
-        bindtouchmove="onCanvasMove"
-        bindtouchend="onCanvasEnd"
+        catchtouchstart="onCanvasStart"
+        catchtouchmove="onCanvasMove"
+        catchtouchend="onCanvasEnd"
+        catchtouchcancel="onCanvasEnd"
       ></canvas>
 
       <view class="tool-row">

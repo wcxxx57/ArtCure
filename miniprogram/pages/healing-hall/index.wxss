@@ -206,6 +206,8 @@ page {
   font-size: 24rpx;
   color: #666;
   font-weight: 500;
+  line-height: 1.5;
+  word-break: break-all;
 }
 
 .poi-error {

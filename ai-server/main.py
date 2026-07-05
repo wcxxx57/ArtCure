@@ -282,6 +282,19 @@ def enhance_query_with_context(question: str, chat_history: List[ChatMessage]) -
 
 # ==================== 核心函数 ====================
 
+def load_faiss_local(index_dir: Path, embeddings):
+    """Load FAISS via an ASCII relative path to avoid Windows non-ASCII path issues."""
+    original_cwd = Path.cwd()
+    try:
+        os.chdir(index_dir.parent)
+        return FAISS.load_local(
+            index_dir.name,
+            embeddings,
+            allow_dangerous_deserialization=True
+        )
+    finally:
+        os.chdir(original_cwd)
+
 def init_embeddings():
     """初始化 Embedding 模型"""
     print(f"正在加载 Embedding 模型: {EMBEDDING_MODEL}")
@@ -312,13 +325,21 @@ def load_vector_store(embeddings, index_dir=None):
             f"向量索引不存在: {index_dir}\n"
             "请先运行相应的构建脚本"
         )
+
+    missing_files = [
+        file_name
+        for file_name in ("index.faiss", "index.pkl")
+        if not (index_dir / file_name).exists()
+    ]
+    if missing_files:
+        raise FileNotFoundError(
+            f"向量索引文件不完整: {index_dir}\n"
+            f"缺失文件: {', '.join(missing_files)}\n"
+            "请在 ai-server 目录运行 python build_index.py 重新生成"
+        )
     
     print(f"正在加载向量数据库: {index_dir}")
-    return FAISS.load_local(
-        str(index_dir), 
-        embeddings,
-        allow_dangerous_deserialization=True
-    )
+    return load_faiss_local(index_dir, embeddings)
 
 def format_docs(docs):
     """格式化检索到的文档"""
@@ -463,9 +484,9 @@ async def startup_event():
         # 尝试加载资源向量索引
         try:
             resource_vector_store = load_vector_store(embeddings, RESOURCE_INDEX_DIR)
-            print("✅ 资源向量索引加载成功")
+            print("[OK] 资源向量索引加载成功")
         except FileNotFoundError:
-            print("⚠️  资源向量索引未找到，resource_advisor 模式将使用通用索引")
+            print("[WARN] 资源向量索引未找到，resource_advisor 模式将使用通用索引")
             print("   提示：运行 python build_resource_index.py 构建资源索引")
             resource_vector_store = vector_store
         
@@ -480,14 +501,14 @@ async def startup_event():
                 rag_chains[mode] = build_rag_chain(mode, resource_retriever, llm, RAG_RESOURCE_CONTEXT_TOP_K)
             else:
                 rag_chains[mode] = build_rag_chain(mode, retriever, llm, RAG_CONTEXT_TOP_K)
-            print(f"✅ {mode} 模式 RAG 链已就绪")
+            print(f"[OK] {mode} 模式 RAG 链已就绪")
         
         print("=" * 50)
-        print("🚀 服务器启动完成！")
+        print("[READY] 服务器启动完成！")
         print("=" * 50)
         
     except Exception as e:
-        print(f"❌ 启动失败: {e}")
+        print(f"[ERROR] 启动失败: {e}")
         raise
 
 # ==================== API 路由 ====================
@@ -656,7 +677,10 @@ def load_shop_vector_index():
     try:
         idx_dir = INDEX_DIR
         # 使用 FAISS 向量库加载
-        SHOP_VECTOR_STORE = FAISS.load_local(str(idx_dir), HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL))
+        SHOP_VECTOR_STORE = load_vector_store(
+            HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL),
+            idx_dir
+        )
         meta_path = idx_dir / 'shop_metadata.json'
         if meta_path.exists():
             with open(meta_path, 'r', encoding='utf-8') as f:

@@ -99,9 +99,17 @@ Page({
     const point = e.touches && e.touches[0]
     if (!point || !this.canvasContext || !this.lastPoint || this.data.inputMode !== 'canvas') return
 
-    this.canvasContext.lineTo(point.x, point.y)
-    this.canvasContext.stroke()
-    this.canvasContext.draw(true)
+    const previous = this.lastPoint
+    const ctx = this.canvasContext
+    ctx.setStrokeStyle(this.data.brushColor)
+    ctx.setLineWidth(this.data.brushSize)
+    ctx.setLineCap('round')
+    ctx.setLineJoin('round')
+    ctx.beginPath()
+    ctx.moveTo(previous.x, previous.y)
+    ctx.lineTo(point.x, point.y)
+    ctx.stroke()
+    ctx.draw(true)
     this.lastPoint = { x: point.x, y: point.y }
     if (!this.data.hasDrawing) {
       this.setData({ hasDrawing: true, analysisItems: [], analysisError: '' })
@@ -298,6 +306,9 @@ Page({
     const message = err && (err.message || err.errMsg || err.toString && err.toString())
       ? (err.message || err.errMsg || err.toString())
       : '未知错误'
+    if (/HTTP\s*401|unauthorized|AI_AUTH_UNAUTHORIZED/i.test(message)) {
+      return `${prefix}：AI 服务鉴权失败，请检查 vivoAigcGateway 云函数的 JIUWEN_API_KEY 或 VIVO_APP_KEY 环境变量并重新上传部署。`
+    }
     return `${prefix}：${message}`
   },
 

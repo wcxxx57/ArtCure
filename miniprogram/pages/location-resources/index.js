@@ -56,7 +56,7 @@ Page({
             latitude: res.latitude,
             longitude: res.longitude
           },
-          locationStatus: '已获得当前位置，将优先推荐可线下到达的资源'
+          locationStatus: '已获得当前位置；当前 vivo POI 按城市和关键词搜索，结果可直接导航'
         })
         this.searchResources()
       },
@@ -166,7 +166,7 @@ Page({
         score,
         mainCategory: (resource.therapy_categories && resource.therapy_categories[0]) || (resource.tags && resource.tags[0]) || '艺术疗愈',
         sourceText: (resource.source_platforms || []).join(' / '),
-        distanceText: this.data.location ? '附近可达' : resource.district || '同城资源'
+        distanceText: this.data.location ? '已授权定位' : resource.district || '同城资源'
       }
     })
 

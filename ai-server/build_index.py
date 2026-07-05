@@ -4,16 +4,30 @@
 """
 
 import os
+
+# 解决 Anaconda/PyTorch/FAISS 在 Windows 下可能出现的 OpenMP 运行库冲突
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+
 from pathlib import Path
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # 知识库目录
 KNOWLEDGE_BASE_DIR = Path(__file__).parent / "knowledge_base"
 # 向量索引保存目录
 INDEX_DIR = Path(__file__).parent / "vector_index"
+
+def save_faiss_local(vector_store, index_dir: Path):
+    """Save FAISS via an ASCII relative path to avoid Windows non-ASCII path issues."""
+    index_dir.mkdir(parents=True, exist_ok=True)
+    original_cwd = Path.cwd()
+    try:
+        os.chdir(index_dir.parent)
+        vector_store.save_local(index_dir.name)
+    finally:
+        os.chdir(original_cwd)
 
 def load_documents():
     """从知识库目录加载所有文档"""
@@ -65,8 +79,7 @@ def build_vector_store(documents):
     vector_store = FAISS.from_documents(documents, embeddings)
     
     # 保存到本地
-    INDEX_DIR.mkdir(exist_ok=True)
-    vector_store.save_local(str(INDEX_DIR))
+    save_faiss_local(vector_store, INDEX_DIR)
     print(f"向量库已保存到: {INDEX_DIR}")
     
     return vector_store
@@ -90,7 +103,7 @@ def main():
     vector_store = build_vector_store(split_docs)
     
     print("\n" + "=" * 50)
-    print("✅ 向量数据库构建完成！")
+    print("[OK] 向量数据库构建完成！")
     print("=" * 50)
     
     # 测试检索

@@ -280,7 +280,7 @@ Page({
             latitude: res.latitude,
             longitude: res.longitude
           },
-          poiStatus: '已获取当前位置，将优先作为附近疗愈资源推荐依据'
+          poiStatus: '已获取当前位置；当前 vivo POI 按城市和关键词搜索，结果可直接导航'
         })
         this.loadLocalData()
         this.searchPoiResources()

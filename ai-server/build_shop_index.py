@@ -1,4 +1,8 @@
 import os
+
+# 解决 Anaconda/PyTorch/FAISS 在 Windows 下可能出现的 OpenMP 运行库冲突
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+
 from pathlib import Path
 import json
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -7,6 +11,16 @@ from langchain_community.vectorstores import FAISS
 BASE_DIR = Path(__file__).parent
 INDEX_DIR = BASE_DIR / 'vector_index'
 INDEX_DIR.mkdir(exist_ok=True)
+
+def save_faiss_local(vector_store, index_dir: Path):
+    """Save FAISS via an ASCII relative path to avoid Windows non-ASCII path issues."""
+    index_dir.mkdir(parents=True, exist_ok=True)
+    original_cwd = Path.cwd()
+    try:
+        os.chdir(index_dir.parent)
+        vector_store.save_local(index_dir.name)
+    finally:
+        os.chdir(original_cwd)
 
 SHOPS_JSON = BASE_DIR.parent / 'miniprogram' / 'utils' / 'shopsData.json'
 # If shopsData.json not exists, try load from shopsData.js by extracting the array
@@ -39,8 +53,7 @@ embeddings = HuggingFaceEmbeddings(model_name=os.getenv('EMBEDDING_MODEL', 'BAAI
 vector_store = FAISS.from_texts(texts, embeddings, metadatas=metadatas)
 
 # 保存索引
-index_path = INDEX_DIR / 'shop_index.faiss'
-vector_store.save_local(str(INDEX_DIR))
+save_faiss_local(vector_store, INDEX_DIR)
 
 # 保存元数据
 with open(INDEX_DIR / 'shop_metadata.json', 'w', encoding='utf-8') as f:

@@ -27,6 +27,16 @@ RESOURCES_FILE = DATA_DIR / "processed_data" / "xhs_sample_resources.json"
 NOTES_DIR = DATA_DIR / "extracted_notes"
 OUTPUT_DIR = Path(__file__).parent / "resource_vector_index"
 
+def save_faiss_local(vector_store, index_dir: Path):
+    """Save FAISS via an ASCII relative path to avoid Windows non-ASCII path issues."""
+    index_dir.mkdir(parents=True, exist_ok=True)
+    original_cwd = Path.cwd()
+    try:
+        os.chdir(index_dir.parent)
+        vector_store.save_local(index_dir.name)
+    finally:
+        os.chdir(original_cwd)
+
 def load_resources_from_json() -> List[Document]:
     """从 JSON 文件加载资源数据"""
     print(f"正在加载资源数据: {RESOURCES_FILE}")
@@ -122,7 +132,7 @@ def load_resources_from_json() -> List[Document]:
         )
         documents.append(doc)
     
-    print(f"✅ 从 JSON 加载了 {len(documents)} 个资源")
+        print(f"[OK] 从 JSON 加载了 {len(documents)} 个资源")
     return documents
 
 def load_notes_from_markdown() -> List[Document]:
@@ -165,7 +175,7 @@ def load_notes_from_markdown() -> List[Document]:
             print(f"警告: 无法读取文件 {md_file}: {e}")
             continue
     
-    print(f"✅ 从 Markdown 加载了 {len(documents)} 个笔记")
+    print(f"[OK] 从 Markdown 加载了 {len(documents)} 个笔记")
     return documents
 
 def build_index():
@@ -182,7 +192,7 @@ def build_index():
     all_docs = resource_docs + note_docs
     
     if not all_docs:
-        print("❌ 错误: 没有找到任何文档数据")
+        print("[ERROR] 错误: 没有找到任何文档数据")
         return
     
     print(f"\n总共加载了 {len(all_docs)} 个文档")
@@ -200,12 +210,11 @@ def build_index():
     vector_store = FAISS.from_documents(all_docs, embeddings)
     
     # 4. 保存索引
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    vector_store.save_local(str(OUTPUT_DIR))
+    save_faiss_local(vector_store, OUTPUT_DIR)
     
-    print(f"\n✅ 索引构建完成！")
-    print(f"📁 保存位置: {OUTPUT_DIR}")
-    print(f"📊 文档数量: {len(all_docs)}")
+    print(f"\n[OK] 索引构建完成！")
+    print(f"[PATH] 保存位置: {OUTPUT_DIR}")
+    print(f"[COUNT] 文档数量: {len(all_docs)}")
     print(f"   - 资源数据: {len(resource_docs)}")
     print(f"   - 笔记数据: {len(note_docs)}")
     print("=" * 60)
@@ -224,7 +233,7 @@ def build_index():
         for i, doc in enumerate(results, 1):
             print(f"  结果 {i}: {doc.page_content[:100]}...")
     
-    print("\n✅ 测试完成！")
+    print("\n[OK] 测试完成！")
 
 if __name__ == "__main__":
     build_index()

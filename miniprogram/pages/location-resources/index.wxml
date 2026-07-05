@@ -45,6 +45,7 @@
         <view wx:if="{{searchParams}}" class="search-params">
           <text class="info-label">搜索条件：</text>
           <text class="info-value">城市: {{searchParams.city}} | 关键词: {{searchParams.keyword}}</text>
+          <text wx:if="{{searchParams.expandedKeywordsText}}" class="info-value">扩展: {{searchParams.expandedKeywordsText}}</text>
         </view>
         <view wx:if="{{searchError}}" class="search-error">
           <text class="error-icon">⚠️</text>

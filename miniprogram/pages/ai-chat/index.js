@@ -20,7 +20,7 @@ Page({
       },
       companion: {
         name: '日常陪伴 · 轻松聊天',
-        greeting: '哈喽～我是艺呦！今天过得怎么样呀？有什么开心的事想分享吗？或者只是想找人聊聊天也可以哦～ ☕',
+        greeting: '哈喽，我在～今天想随便聊点什么？',
         style: 'casual' // 轻松、活泼、朋友感
       }
     },
@@ -37,7 +37,7 @@ Page({
         { id: 1, type: 'bot', text: '你好，我是~~疗愈师艺呦~~。我会运用~~艺术疗愈的专业知识~~，帮助你探索内心、缓解情绪。有什么想和我聊聊的吗？🌿', richText: '' }
       ],
       companion: [
-        { id: 1, type: 'bot', text: '哈喽～我是~~艺呦~~！今天过得怎么样呀？有什么开心的事想分享吗？或者只是想找人~~聊聊天~~也可以哦～ ☕', richText: '' }
+        { id: 1, type: 'bot', text: '哈喽，我是~~艺呦~~。我在～今天想随便聊点什么？', richText: '' }
       ]
     },
     
@@ -55,6 +55,11 @@ Page({
     isRecording: false,
     voiceStatus: '点麦克风说心情',
     currentGuideText: '',
+    guideSessionActive: false,
+    guideSessionStep: 0,
+    guideSessionStatus: '点“三分钟引导”开始沉浸陪伴',
+    guideAwaitingResponse: false,
+    guideMaxTurns: 4,
     
     // 滚动到的消息ID
     scrollToMessage: '',
@@ -135,7 +140,7 @@ Page({
     html = html.replace(/%%(.+?)%%/g, '<span style="color:#FB8C00;background:#FFF3E0;padding:4rpx 8rpx;border-radius:4rpx;">$1</span>')
     
     // 斜体 *text* -> <em>
-    html = html.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, '<span style="font-style:italic;">$1</span>')
+    html = html.replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1<span style="font-style:italic;">$2</span>')
     
     // 有序列表 1. item -> 带序号的列表
     html = html.replace(/^(\d+)\.\s+(.+)$/gm, '<div style="margin:8rpx 0;padding-left:16rpx;position:relative;"><span style="position:absolute;left:0;color:#4A90E2;font-weight:bold;">$1.</span><span style="margin-left:24rpx;">$2</span></div>')
@@ -173,6 +178,11 @@ Page({
   },
 
   onUnload() {
+    if (this.guideListenTimer) {
+      clearTimeout(this.guideListenTimer)
+      this.guideListenTimer = null
+    }
+
     if (this.data.isRecording && this.recorderManager) {
       this.recorderManager.stop()
     }
@@ -182,18 +192,23 @@ Page({
     this.recorderManager = wx.getRecorderManager()
 
     this.recorderManager.onStart(() => {
+      const recordOptions = this.currentRecordOptions || {}
       this.setData({
         isRecording: true,
-        voiceStatus: '正在听你说'
+        voiceStatus: recordOptions.guide ? '引导中：正在聆听你的回应' : '正在听你说',
+        guideSessionStatus: recordOptions.guide ? '正在聆听：说一句短回应即可' : this.data.guideSessionStatus
       })
     })
 
     this.recorderManager.onStop((res) => {
+      const recordOptions = this.currentRecordOptions || {}
+      this.currentRecordOptions = null
       this.setData({
         isRecording: false,
-        voiceStatus: '语音已记录，正在整理'
+        voiceStatus: recordOptions.guide ? '听到了，正在整理回应' : '语音已记录，正在整理',
+        guideSessionStatus: recordOptions.guide ? '听到了，正在整理回应' : this.data.guideSessionStatus
       })
-      this.handleVoiceStop(res)
+      this.handleVoiceStop(res, recordOptions)
     })
 
     this.recorderManager.onError((err) => {
@@ -263,9 +278,13 @@ Page({
       return
     }
 
+    const start = this.data.guideSessionActive
+      ? () => this.startGuideListening()
+      : () => this.startRecord()
+
     wx.authorize({
       scope: 'scope.record',
-      success: () => this.startRecord(),
+      success: start,
       fail: () => {
         wx.showModal({
           title: '需要麦克风权限',
@@ -281,9 +300,10 @@ Page({
     })
   },
 
-  startRecord() {
+  startRecord(options = {}) {
+    this.currentRecordOptions = options
     this.recorderManager.start({
-      duration: 60000,
+      duration: options.duration || 60000,
       sampleRate: 16000,
       numberOfChannels: 1,
       format: 'pcm',
@@ -291,11 +311,19 @@ Page({
     })
   },
 
-  async handleVoiceStop(res) {
+  async handleVoiceStop(res, recordOptions = {}) {
+    if (recordOptions.skip) {
+      return
+    }
+
     if (!res || !res.tempFilePath) {
-      this.setData({ voiceStatus: '没有录到声音，可再试一次' })
+      this.setData({
+        voiceStatus: recordOptions.guide ? '没有听清，可以再说一句' : '没有录到声音，可再试一次',
+        guideSessionStatus: recordOptions.guide ? '没有听清，可以点“回应”再说一次' : this.data.guideSessionStatus,
+        guideAwaitingResponse: Boolean(recordOptions.guide)
+      })
       wx.showToast({
-        title: '没有录到声音',
+        title: recordOptions.guide ? '没有听清' : '没有录到声音',
         icon: 'none'
       })
       return
@@ -332,15 +360,37 @@ Page({
         throw new Error(result.message || '语音识别失败')
       }
 
-      const text = result.text ? result.text.trim() : ''
+      const text = this.extractVoiceText(result)
       if (!text) {
         throw new Error('没有识别出有效文字')
       }
 
+      if (recordOptions.guide || this.data.guideSessionActive) {
+        this.setData({
+          voiceStatus: '听到了，正在回应你',
+          guideSessionStatus: '听到了，正在回应你'
+        })
+        this.handleGuideUserText(text)
+        return
+      }
+
       this.setData({ voiceStatus: '已转成文字并发送' })
-      this.sendMessage(text)
+      this.sendMessage(text, {
+        inputType: 'voice',
+        scene: 'voice_companion'
+      })
     } catch (err) {
       console.error('[AI Chat] 语音转写失败:', err)
+      if (recordOptions.guide || this.data.guideSessionActive) {
+        this.setData({
+          voiceStatus: '这次没有听清，先继续引导',
+          guideSessionStatus: '这次没有听清，先继续引导',
+          guideAwaitingResponse: true
+        })
+        this.continueGuideAfterSilence()
+        return
+      }
+
       this.setData({ voiceStatus: '转写失败，可改用文字' })
       wx.showToast({
         title: err.message || '语音识别失败',
@@ -357,8 +407,214 @@ Page({
     }
   },
 
+  extractVoiceText(result) {
+    return String(
+      result.text ||
+      (result.raw && result.raw.data && result.raw.data.text) ||
+      ''
+    ).trim()
+  },
+
   onGuideTap() {
-    this.sendMessage('请带我做一次三分钟的艺术疗愈语音引导，步骤要简单，可以边听边画。')
+    if (this.data.guideSessionActive) {
+      this.stopGuideSession()
+      return
+    }
+
+    this.startGuideSession()
+  },
+
+  startGuideSession() {
+    if (this.guideListenTimer) {
+      clearTimeout(this.guideListenTimer)
+      this.guideListenTimer = null
+    }
+
+    const opening = this.buildGuideOpening()
+    this.setData({
+      guideSessionActive: true,
+      guideSessionStep: 0,
+      guideAwaitingResponse: true,
+      guideSessionStatus: '第1轮：听提示，随后说一句你的感受',
+      voiceStatus: '沉浸引导中：听提示后回应',
+      currentGuideText: opening
+    })
+
+    this.addBotMessage(opening, this.data.currentMode, {
+      guideText: opening,
+      isGuide: true
+    })
+    this.playGuideText(opening)
+    this.scheduleGuideListening(2800)
+  },
+
+  stopGuideSession() {
+    if (this.guideListenTimer) {
+      clearTimeout(this.guideListenTimer)
+      this.guideListenTimer = null
+    }
+
+    if (this.data.isRecording && this.recorderManager) {
+      this.currentRecordOptions = { skip: true }
+      this.recorderManager.stop()
+    }
+
+    this.setData({
+      guideSessionActive: false,
+      guideAwaitingResponse: false,
+      guideSessionStatus: '沉浸引导已结束',
+      voiceStatus: '三分钟引导已结束'
+    })
+  },
+
+  buildGuideOpening() {
+    return '我们开始一个三分钟的听与说引导。先让脚轻轻踩住地面，肩膀放松一点。吸气，停一小下，再慢慢呼气。\n\n如果手边有纸和笔，选一个现在最想靠近的颜色。等我开始聆听时，你只要说一句很短的话：这个颜色像什么，或者你现在身体哪里最有感觉。'
+  },
+
+  scheduleGuideListening(delay) {
+    if (this.guideListenTimer) {
+      clearTimeout(this.guideListenTimer)
+    }
+
+    this.guideListenTimer = setTimeout(() => {
+      this.guideListenTimer = null
+      if (!this.data.guideSessionActive || this.data.isRecording) return
+
+      wx.authorize({
+        scope: 'scope.record',
+        success: () => this.startGuideListening(),
+        fail: () => {
+          this.setData({
+            guideAwaitingResponse: true,
+            voiceStatus: '点“回应”说一句，我会继续听',
+            guideSessionStatus: '点“回应”说一句，我会继续听'
+          })
+        }
+      })
+    }, delay || 1800)
+  },
+
+  startGuideListening() {
+    if (!this.data.guideSessionActive || this.data.isRecording) return
+
+    this.setData({
+      guideAwaitingResponse: false,
+      voiceStatus: '正在聆听，想说时直接说，点结束可提前完成',
+      guideSessionStatus: '正在聆听：想说时直接说'
+    })
+    this.startRecord({
+      guide: true,
+      duration: 22000
+    })
+  },
+
+  async handleGuideUserText(text) {
+    const mode = this.data.currentMode
+    const step = this.data.guideSessionStep
+    this.addUserOnlyMessage(text, mode)
+    this.setGuideTyping(mode, true)
+
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'vivoAigcGateway',
+        data: {
+          action: 'chat.complete',
+          data: {
+            scene: 'immersive_guide',
+            mode,
+            inputType: 'voice',
+            intent: 'immersive_guide_turn',
+            turnIndex: step,
+            prompt: text,
+            messages: this.buildChatHistory(mode, text)
+          }
+        }
+      })
+
+      const result = res.result || {}
+      if (result.success === false) {
+        throw new Error(result.message || '沉浸引导生成失败')
+      }
+
+      const reply = result.reply || this.buildGuideTurnFallback(text, step)
+      this.advanceGuideSession(reply, mode, step)
+    } catch (err) {
+      console.warn('[AI Chat] 沉浸引导远端回应失败，使用本地推进:', err)
+      this.advanceGuideSession(this.buildGuideTurnFallback(text, step), mode, step)
+    }
+  },
+
+  continueGuideAfterSilence() {
+    if (!this.data.guideSessionActive) return
+
+    const mode = this.data.currentMode
+    const step = this.data.guideSessionStep
+    this.advanceGuideSession(this.buildGuideTurnFallback('刚才没有听清', step), mode, step)
+  },
+
+  advanceGuideSession(reply, mode, previousStep) {
+    this.setGuideTyping(mode, false)
+
+    const nextStep = previousStep + 1
+    const isFinished = nextStep >= this.data.guideMaxTurns
+    this.addBotMessage(reply, mode, {
+      guideText: reply,
+      isGuide: true
+    })
+    this.playGuideText(reply)
+
+    this.setData({
+      guideSessionStep: nextStep,
+      guideAwaitingResponse: !isFinished,
+      guideSessionActive: !isFinished,
+      guideSessionStatus: isFinished ? '引导完成：可以停下观察作品' : `第${nextStep + 1}轮：听提示后说一句回应`,
+      voiceStatus: isFinished ? '沉浸引导完成' : '沉浸引导中：准备聆听下一句'
+    })
+
+    if (!isFinished) {
+      this.scheduleGuideListening(2600)
+    }
+  },
+
+  buildGuideTurnFallback(text, step) {
+    const userText = String(text || '').trim()
+    const guides = [
+      `我听到了，「${userText || '这个感受'}」先被放在这里。现在请沿着这个感觉画三条很慢的线：一条代表此刻，一条代表你想要的安稳，一条代表下一口呼气。画好后，说一句：哪一条最接近你。`,
+      '谢谢你回应我。接下来沿着刚才最有感觉的那条线，加一些圆点或小色块。每加一个点，就呼一口气。做完后，说一句：画面里哪里稍微松了一点。',
+      '我继续听着。现在给画面找一个小小的安全角落，可以用框、圆圈或浅色把它圈出来。它不需要很大，只要能放下一点点自己。完成后，说一个名字给它。',
+      '很好，我们先停在这里。看着这个名字，慢慢吸气，再呼气。今天这张画不需要被解释，它只是证明你刚刚陪了自己三分钟。'
+    ]
+
+    return guides[Math.min(Math.max(step, 0), guides.length - 1)]
+  },
+
+  async playGuideText(text) {
+    const content = String(text || '').trim()
+    if (!content) return
+
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'vivoAigcGateway',
+        data: {
+          action: 'voice.tts',
+          data: { text: content }
+        }
+      })
+
+      const audioUrl = res.result && res.result.audioUrl
+      if (!audioUrl) return
+
+      if (this.guideAudio) {
+        this.guideAudio.stop()
+        this.guideAudio.destroy()
+      }
+
+      this.guideAudio = wx.createInnerAudioContext()
+      this.guideAudio.src = audioUrl
+      this.guideAudio.play()
+    } catch (err) {
+      console.warn('[AI Chat] 引导语音播放失败，保留文字引导:', err)
+    }
   },
 
   async onPlayGuide() {
@@ -407,7 +663,7 @@ Page({
   },
 
   // 发送消息逻辑
-  sendMessage(text) {
+  sendMessage(text, options = {}) {
     const { currentMode, modeMessages, modeMessageCounters, modeTypingStatus } = this.data
     const messageId = modeMessageCounters[currentMode]
     
@@ -449,11 +705,60 @@ Page({
     }, 300)
     
     // 调用 RAG AI 服务器，传入发送时的模式
-    this.callRAGService(text, currentMode)
+    this.callRAGService(text, currentMode, options)
+  },
+
+  addUserOnlyMessage(text, targetMode) {
+    const mode = targetMode || this.data.currentMode
+    const { currentMode, modeMessages, modeMessageCounters } = this.data
+    const messageId = modeMessageCounters[mode]
+    const userMessage = {
+      id: messageId,
+      type: 'user',
+      text
+    }
+
+    const targetMessages = modeMessages[mode] || []
+    const newMessages = [...targetMessages, userMessage]
+    const newModeMessages = { ...modeMessages }
+    newModeMessages[mode] = newMessages
+
+    const newCounters = { ...modeMessageCounters }
+    newCounters[mode] = messageId + 1
+
+    const updateData = {
+      modeMessages: newModeMessages,
+      modeMessageCounters: newCounters
+    }
+
+    if (mode === currentMode) {
+      updateData.messages = newMessages
+      updateData.scrollToMessage = `msg-${messageId}`
+    }
+
+    this.setData(updateData)
+    if (mode === currentMode) {
+      setTimeout(() => this.scrollToBottom(), 80)
+    }
+  },
+
+  setGuideTyping(mode, typing) {
+    const newTypingStatus = { ...this.data.modeTypingStatus }
+    newTypingStatus[mode] = typing
+
+    const updateData = {
+      modeTypingStatus: newTypingStatus
+    }
+
+    if (mode === this.data.currentMode) {
+      updateData.isTyping = typing
+    }
+
+    this.setData(updateData)
   },
 
   // 调用 RAG AI 服务器（统一的AI服务接口）
-  async callRAGService(userText, requestMode) {
+  async callRAGService(userText, requestMode, options = {}) {
     // 使用请求时的模式，而不是当前显示的模式
     const mode = requestMode || this.data.currentMode
 
@@ -466,13 +771,17 @@ Page({
         therapist: 'voice_companion',
         companion: 'voice_companion'
       }
+      const scene = options.scene || sceneMap[mode] || 'voice_companion'
 
       const res = await wx.cloud.callFunction({
         name: 'vivoAigcGateway',
         data: {
           action: 'chat.complete',
           data: {
-            scene: sceneMap[mode] || 'voice_companion',
+            scene,
+            mode,
+            inputType: options.inputType || 'text',
+            intent: options.intent || '',
             prompt: userText,
             messages: this.buildChatHistory(mode, userText)
           }
@@ -482,9 +791,16 @@ Page({
       const result = res.result || {}
       console.log('[AI Chat] vivoAigcGateway 响应:', result)
 
+      if (result.success === false) {
+        throw new Error(result.message || '蓝心大模型调用失败')
+      }
+
       if (result.reply) {
         // 回复添加到请求时的模式，而不是当前显示的模式
-        this.addBotMessage(result.reply, mode)
+        this.addBotMessage(result.reply, mode, {
+          guideText: result.audioText || result.guideText || '',
+          isGuide: options.intent === 'three_minute_guide'
+        })
         
         // 可选：显示检索来源（调试用）
         if (result.sources && result.sources.length > 0) {
@@ -496,6 +812,16 @@ Page({
       }
       
     } catch (err) {
+      if (options.intent === 'three_minute_guide') {
+        console.warn('[AI Chat] 三分钟引导远端生成失败，使用本地引导:', err)
+        const localGuide = this.buildLocalThreeMinuteGuide()
+        this.addBotMessage(localGuide, mode, {
+          guideText: localGuide,
+          isGuide: true
+        })
+        return
+      }
+
       console.error('[AI Chat] 调用 RAG 服务失败:', err)
       // 降级到本地回复 - 传入请求时的模式
       this.generateLocalReply(userText, mode)
@@ -521,7 +847,7 @@ Page({
   },
 
   // 添加机器人消息
-  addBotMessage(replyText, targetMode) {
+  addBotMessage(replyText, targetMode, extra = {}) {
     // 使用指定的模式，如果没有指定则使用当前模式
     const mode = targetMode || this.data.currentMode
     const { currentMode, modeMessages, modeMessageCounters, modeTypingStatus } = this.data
@@ -564,7 +890,9 @@ Page({
       updateData.messages = newMessages
       updateData.isTyping = false
       updateData.scrollToMessage = `msg-${messageId}`
-      updateData.currentGuideText = replyText
+      if (extra.guideText || extra.isGuide) {
+        updateData.currentGuideText = extra.guideText || replyText
+      }
     }
     
     this.setData(updateData)
@@ -579,6 +907,50 @@ Page({
 
   // 本地回复（降级方案）
   generateLocalReply(userText, targetMode) {
+    const mode = targetMode || this.data.currentMode
+
+    if (mode === 'companion') {
+      this.addBotMessage(this.buildCompanionLocalReply(userText), targetMode)
+      return
+    }
+
+    if (mode === 'comfort') {
+      this.addBotMessage(this.buildComfortLocalReply(userText), targetMode)
+      return
+    }
+
+    this.addBotMessage(this.buildTherapistLocalReply(userText), targetMode)
+  },
+
+  buildCompanionLocalReply(userText) {
+    const text = String(userText || '').trim()
+    if (/难过|不开心|低落|烦|焦虑|压力|累|崩溃|委屈/.test(text)) {
+      return '听起来今天有点不容易。先别急着调整好，我陪你缓一会儿。'
+    }
+    if (/吃|美食|奶茶|咖啡|晚饭|午饭|夜宵/.test(text)) {
+      return '这个话题我爱听。你现在更想吃热乎的，还是来点甜的？'
+    }
+    if (/剧|电影|歌|游戏|周末|计划/.test(text)) {
+      return '听起来可以展开聊聊。你最近最上头的是哪一个？'
+    }
+    return '我在呢。你刚说这个还挺想听后续的，后来呢？'
+  },
+
+  buildComfortLocalReply(userText) {
+    const text = String(userText || '').trim()
+    if (/自杀|自残|伤害自己|不想活|活不下去|结束生命|伤害别人/.test(text)) {
+      return '我听到了，这已经不是需要一个人硬扛的时刻。请先联系身边可信任的人，或立刻拨打当地紧急电话/心理危机援助热线，让真实的人陪在你身边。'
+    }
+    if (/焦虑|压力|累|疲惫|崩溃|烦/.test(text)) {
+      return '我听到了，像是你已经绷了挺久。先不用急着解释原因，给自己一点点停下来的空间也可以。你愿意先说说，现在最压着你的那一小块是什么吗？'
+    }
+    if (/难过|低落|委屈|不开心|想哭/.test(text)) {
+      return '这听起来挺难受的。你不用马上变好，也不用把话说得很完整，我会在这里陪你慢慢捋。此刻最想被接住的是哪一句话？'
+    }
+    return '我听到了。你可以不用整理得很清楚，先把最想说的那一小段放在这里就好，我会陪你慢慢听。'
+  },
+
+  buildTherapistLocalReply(userText) {
     const { replies } = this.data
     let replyText = replies.default
     const lowerText = userText.toLowerCase()
@@ -595,8 +967,17 @@ Page({
     } else if (lowerText.includes('压力') || lowerText.includes('累') || lowerText.includes('疲惫') || lowerText.includes('休息')) {
       replyText = replies.stressed
     }
-    
-    this.addBotMessage(replyText, targetMode)
+
+    return replyText
+  },
+
+  buildLocalThreeMinuteGuide() {
+    return [
+      '先让自己坐稳一点，脚轻轻踩住地面。你可以慢慢吸气，再慢慢呼气。现在不需要把心情说清楚，也不需要画得好看，只要让手和呼吸一起动起来。',
+      '如果身边有纸和笔，先选一个此刻最想靠近的颜色。吸气的时候，把笔放到纸上；呼气的时候，画一条很慢的线。线可以弯，可以断，也可以重复。它不需要代表任何东西，只是陪你把这一刻放下来。',
+      '接下来，用同样的节奏继续画。每一次呼气，都让线条多走一点；每一次吸气，都看看手里的颜色。你可以画圆点、波浪、色块，或者一个小小的安全角落。哪里想重一点就重一点，哪里想轻一点就轻一点。',
+      '最后，慢慢停下来，看一眼这张纸。不要解释它，只问自己：画面里有没有一个地方，比刚才更安静一点？如果愿意，给它取一个名字。这个名字可以很简单，比如“暂时放下”“一点光”或者“我在这里”。'
+    ].join('\n\n')
   },
 
   // 滚动到底部

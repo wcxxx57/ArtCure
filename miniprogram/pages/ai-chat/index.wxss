@@ -201,6 +201,11 @@ page {
   color: #4A90E2;
 }
 
+.guide-active {
+  color: #FFFFFF;
+  background: #4A90E2;
+}
+
 .voice-recording {
   color: #FFFFFF;
   background: #E8757E;

@@ -57,6 +57,7 @@
         <view wx:if="{{poiSearchParams}}" class="poi-search-params">
           <text class="poi-info-label">搜索条件：</text>
           <text class="poi-info-value">城市: {{poiSearchParams.city}} | 关键词: {{poiSearchParams.keyword}}</text>
+          <text wx:if="{{poiSearchParams.expandedKeywordsText}}" class="poi-info-value">扩展: {{poiSearchParams.expandedKeywordsText}}</text>
         </view>
         <view wx:if="{{poiError}}" class="poi-error">
           <text class="poi-error-icon">⚠️</text>
