@@ -1,31 +1,11 @@
 # ArtCure 运行步骤说明指南
 
-> 本指南按当前目录代码包的实际结构整理，适用于本地开发、微信开发者工具快速体验、云开发联调，以及在 vivo 手机上通过微信小程序预览/体验版运行。
-
 ## 1. 项目组成
-
-当前代码包不是传统 Web 前端项目，根目录没有统一的 `npm install && npm run dev` 启动入口。实际运行由三部分组成：
 
 | 模块 | 目录 | 作用 | 是否必须 |
 | --- | --- | --- | --- |
 | 微信小程序前端 | `miniprogram/` | 原生微信小程序页面、样式、交互逻辑 | 必须 |
 | 微信云函数 | `cloudfunctions/` | 登录注册、心情记录、计划、活动、vivo AIGC 网关等后端逻辑 | 必须 |
-| 本地/服务器 RAG AI 服务 | `ai-server/` | FastAPI + FAISS + DeepSeek 的旧版/可选 RAG 对话服务 | 可选 |
-| 数据与文档 | `data_collection/`, `docs_ai/` | 数据采集、资源库、设计与部署说明 | 运行主流程不必须 |
-
-当前小程序 AI 主路径主要调用 `cloudfunctions/vivoAigcGateway`：
-
-```js
-wx.cloud.callFunction({
-  name: 'vivoAigcGateway',
-  data: {
-    action: 'chat.complete',
-    data: {}
-  }
-})
-```
-
-`cloudfunctions/askAI` 和 `ai-server/` 仍保留，可用于本地 RAG 服务或独立服务器部署，但不是当前 `ai-chat` 页面的主调用路径。
 
 ## 2. 环境准备
 
@@ -50,12 +30,10 @@ wx.cloud.callFunction({
    如果使用自己的云开发环境，需要同步修改 `miniprogram/app.js` 里的 `env`。
 
 3. Node.js  
+
    用于云函数依赖安装。建议使用 Node.js 16 或 18。
 
-4. Python 3.9+  
-   仅当你要启动 `ai-server/` RAG 服务时需要。
-
-5. vivo / 九问相关 API Key  
+5. vivo蓝心 / 九问相关 API Key  
    当前 `vivoAigcGateway` 的完整 AI 能力需要配置：
 
    ```txt
@@ -65,18 +43,344 @@ wx.cloud.callFunction({
 
    没有密钥时，部分页面仍可看 UI 和本地降级回复，但蓝心大模型、语音识别、图像分析、POI 搜索等能力不会完整工作。
 
-### 2.2 不需要做的事
+## 3. 从 0 开始完整复现
 
-根目录没有 `package.json`，因此不需要在根目录执行：
+### 3.1 创建或准备微信小程序 AppID
 
-```bash
-npm install
-npm run dev
+1. 登录微信公众平台。
+
+2. 创建小程序，或使用已有小程序。
+
+3. 在小程序后台找到 AppID，格式类似：
+
+   ```txt
+   wx1234567890abcdef
+   ```
+
+### 3.2 创建云开发环境
+
+1. 打开微信开发者工具。
+2. 使用你的 AppID 导入当前项目目录
+
+3. 点击工具栏里的“云开发”。
+4. 如果尚未开通，按提示开通云开发。
+5. 创建一个云开发环境，比如命名为：
+
+   ```txt
+   artcure
+   ```
+
+6. 创建完成后，在云开发控制台复制环境 ID，格式类似：
+
+   ```txt
+   cloud1-xxxxxxxxxxxxxxxx
+   ```
+
+### 3.3 修改前端云环境 ID
+
+打开 `miniprogram/app.js`，将 `env` 改成复制的的云环境 ID：
+
+```js
+this.globalData = {
+  env: "你的云环境ID",
+};
 ```
 
-小程序前端也没有独立构建脚本，直接用微信开发者工具打开项目即可。
+例如：
 
-## 3. 最快启动体验
+```js
+this.globalData = {
+  env: "cloud1-xxxxxxxxxxxxxxxx",
+};
+```
+
+修改后保存。小程序前端所有 `wx.cloud.callFunction`、云存储上传、云数据库相关调用都会默认访问这个环境。
+
+如果这里没有改，常见结果是：
+
+```txt
+云函数找不到
+数据库为空
+云函数环境变量不生效
+提示没有权限
+```
+
+### 3.4 确认 project.config.json
+
+当前 `project.config.json` 已声明：
+
+```json
+{
+  "miniprogramRoot": "miniprogram/",
+  "cloudfunctionRoot": "cloudfunctions/"
+}
+```
+
+微信开发者工具导入项目后，需要确认左侧能看到：
+
+```txt
+miniprogram
+cloudfunctions
+```
+
+### 3.5 创建云数据库集合
+
+进入微信开发者工具：
+
+```txt
+云开发 -> 数据库 -> 新建集合
+```
+
+依次创建以下集合：
+
+| 集合名 | 用途 | 没有时的影响 |
+| --- | --- | --- |
+| `users` | 用户账号、昵称、偏好 | 登录/注册/个人资料异常 |
+| `verification_codes` | 邮箱验证码 | 注册验证码异常 |
+| `user_preferences` | 新用户问卷偏好 | 个性化偏好无法保存 |
+| `mood_records` | 心情打卡记录 | 首页心情记录异常 |
+| `mood_recommendations` | 心情推荐缓存 | 推荐功能无法缓存 |
+| `user_plans` | 用户疗愈计划 | 计划列表、计划详情异常 |
+| `check_in_records` | 计划打卡记录 | 打卡状态异常 |
+| `activities` | 疗愈活动数据 | 活动列表云端数据为空 |
+| `activity_bookings` | 活动预约记录 | 预约/我的活动异常 |
+| `conversations` | 咨询会话 | 咨询聊天列表异常 |
+| `messages` | 咨询消息 | 咨询消息异常 |
+| `healing_resources` | 疗愈资源库 | 资源云端搜索为空 |
+| `shops` | 店铺数据 | 店铺云端搜索为空 |
+
+### 3.6 配置云函数环境变量
+
+进入：
+
+```txt
+云开发 -> 云函数 -> vivoAigcGateway -> 配置 -> 环境变量
+```
+
+如果新环境里还没有 `vivoAigcGateway`，先按第 3.7 节把 `vivoAigcGateway` 上传部署一次；函数出现在云开发控制台后，再回来配置环境变量，并重新部署一次。
+
+至少配置：
+
+```txt
+VIVO_APP_KEY=vivo API Key
+JIUWEN_API_KEY=九问 API Key
+```
+
+推荐同时确认这些默认值，除非你的接口地址或模型名不同：
+
+```txt
+VIVO_API_BASE=https://api-ai.vivo.com.cn
+VIVO_POI_BASE_URL=https://api-ai.vivo.com.cn
+VIVO_WS_HOST=api-ai.vivo.com.cn
+VIVO_CHAT_MODEL=Volc-DeepSeek-V3.2
+VIVO_VISION_MODEL=Volc-DeepSeek-V3.2
+VIVO_EMBEDDING_MODEL=bge-base-zh-v1.5
+VIVO_RERANK_MODEL=bge-reranker-large
+VIVO_ASR_PACKAGE=artcure.miniprogram
+VIVO_ASR_ENGINE_ID=shortasrinput
+VIVO_ASR_TIMEOUT_MS=70000
+JIUWEN_BASE_URL=https://jiuwen.vivo.com.cn/v1
+JIUWEN_CHAT_MESSAGES_PATH=/chat-messages
+JIUWEN_MEDIA_UPLOAD_PATH=/files/media-upload
+```
+
+### 3.7 上传并部署云函数
+
+在微信开发者工具左侧 `cloudfunctions/` 目录中，右键云函数目录，选择：
+
+```txt
+上传并部署：云端安装依赖
+```
+
+需要部署以下云函数：
+
+```txt
+vivoAigcGateway
+moodTracking
+moodRecommendation
+planManagement
+planGenerator
+login
+register
+sendVerificationCode
+updateUserInfo
+changePassword
+userPreferences
+healingActivities
+chatMessage
+healingResources
+shops
+```
+
+| 云函数 | 说明 |
+| --- | --- |
+| `vivoAigcGateway` | AI 对话、绘画分析、语音识别、POI 推荐核心入口 |
+| `moodTracking` | 首页心情记录 |
+| `moodRecommendation` | 心情推荐 |
+| `planManagement` | 疗愈计划、打卡 |
+| `planGenerator` | AI 生成计划，依赖外部工作流服务 |
+| `login`, `register`, `sendVerificationCode` | 账号体系 |
+| `updateUserInfo`, `changePassword` | 用户资料和密码 |
+| `userPreferences` | 问卷偏好 |
+| `healingActivities`, `chatMessage` | 活动和咨询 |
+| `healingResources`, `shops` | 资源/店铺云端查询 |
+
+空目录 `addMoodRecord`、`getMoodRecords`、`poiSearch` 当前没有实际文件，不需要部署。
+
+### 3.8 初始化数据
+
+从 0 创建云环境后，数据库集合是空的。当前项目有两类数据来源：
+
+1. 本地样例数据  
+   疗愈馆和部分活动页面内置了本地样例：
+
+   ```txt
+   miniprogram/utils/sampleResources.js
+   miniprogram/utils/sampleActivities.js
+   ```
+
+   因此即使 `healing_resources`、`shops`、`activities` 暂时为空，也能先看到部分页面内容。
+
+2. 云数据库数据  
+   如果要完整体验云端列表、搜索、预约和记录，需要向集合写入数据。
+
+最小初始化建议：
+
+| 集合 | 是否需要手动导入初始数据 | 建议 |
+| --- | --- | --- |
+| `users` | 不需要 | 注册/登录时自动写入 |
+| `verification_codes` | 不需要 | 发送验证码时自动写入 |
+| `user_preferences` | 不需要 | 问卷提交时自动写入 |
+| `mood_records` | 不需要 | 心情打卡时自动写入 |
+| `mood_recommendations` | 不需要 | 推荐生成时自动写入 |
+| `user_plans` | 不需要 | 创建计划时自动写入 |
+| `check_in_records` | 不需要 | 打卡时自动写入 |
+| `activity_bookings` | 不需要 | 预约时自动写入 |
+| `conversations`, `messages` | 不需要 | 咨询聊天时自动写入 |
+| `activities` | 建议 | 若要云端活动列表有内容，需要导入 |
+| `healing_resources` | 建议 | 若要云端资源搜索有内容，需要导入 |
+| `shops` | 建议 | 若要云端店铺搜索有内容，需要导入 |
+
+可以先在云开发控制台给 `activities` 新增一条测试数据：
+
+```json
+{
+  "title": "周末流体画疗愈体验",
+  "category": "painting",
+  "reviewStatus": "approved",
+  "startTime": "2026-07-20 14:00",
+  "location": "上海市静安区",
+  "price": 128,
+  "cover": "",
+  "description": "通过流体画和呼吸练习进行轻量情绪放松。"
+}
+```
+
+给 `shops` 新增一条测试数据：
+
+```json
+{
+  "name": "测试艺术疗愈工作室",
+  "phone": "13800000000",
+  "content": "提供绘画疗愈、冥想、颂钵体验",
+  "address": "上海市静安区测试路 1 号",
+  "rating": "4.8",
+  "ratingNum": 4.8,
+  "tags": ["绘画疗愈", "冥想", "颂钵"]
+}
+```
+
+给 `healing_resources` 新增一条测试数据：
+
+```json
+{
+  "title": "测试绘画疗愈工作坊",
+  "description": "适合初次体验艺术疗愈的用户，通过色彩和线条表达近期情绪。",
+  "resource_type": "workshop",
+  "therapy_medium": ["fluid_art", "mandala"],
+  "session_format": "group_workshop",
+  "target_crowd": ["general"],
+  "therapy_level": "level_1_relax",
+  "mood_tags": ["anxiety", "stress"],
+  "city": "上海",
+  "district": "静安",
+  "address_text": "上海市静安区测试路 1 号",
+  "price_text": "128元/人",
+  "price_value": 128,
+  "source_platform": "partner",
+  "is_active": true,
+  "likes_count": 1,
+  "healing_score": 80,
+  "keywords": ["绘画疗愈", "流体画", "焦虑", "压力"]
+}
+```
+
+如果只是比赛演示，建议先保证本地样例数据和核心 AI 流程可用，再逐步补充云端数据。
+
+### 3.9 确认云存储
+
+语音识别和图片分析会用到云存储临时文件：
+
+| 功能 | 云存储用途 |
+| --- | --- |
+| AI 对话页语音识别 | 上传临时 PCM 语音文件到 `voice-healing/`，识别后尝试删除 |
+| 创作/图片分析 | 上传用户绘画或图片，供 `vivoAigcGateway` 下载并转发到九问 |
+
+一般不需要手动创建云存储目录，首次上传会自动生成路径。需要确认：
+
+1. 当前云环境已开通云存储。
+2. 云存储容量未超额。
+3. 真机测试时微信已授权录音/相册/相机等必要权限。
+4. 云函数下载的 `fileID` 属于同一个云环境。
+
+### 3.10 本地设置、编译和预览
+
+在微信开发者工具里确认：
+
+```txt
+详情 -> 本地设置 -> 不校验合法域名、web-view、TLS 版本以及 HTTPS 证书
+```
+
+本地调试可以打开该选项。体验版/正式版不要依赖它。
+
+然后点击：
+
+```txt
+编译
+```
+
+如果编译通过，点击：
+
+```txt
+预览
+```
+
+用 vivo 手机微信扫码，验证真机体验。
+
+### 3.11 从 0 部署后的验证顺序
+
+按下面顺序验证最容易定位问题：
+
+1. 打开小程序首页，确认页面能显示。
+2. 进入 AI 对话页，发送一句文本，确认 `vivoAigcGateway` 能返回。
+3. 在云函数日志里确认 `chat.complete` 没有 `VIVO_KEY_MISSING`。
+4. 做一次心情打卡，确认 `mood_records` 有新记录。
+5. 提交一次偏好问卷，确认 `user_preferences` 有新记录。
+6. 创建或查看疗愈计划，确认 `user_plans` 和 `check_in_records` 正常。
+7. 打开疗愈馆，确认本地样例资源可展示。
+8. 如果配置了 `JIUWEN_API_KEY`，测试创作分析。
+9. 如果配置了 vivo ASR 权限，测试短语音识别。
+
+如果第 2 步失败，优先检查：
+
+```txt
+miniprogram/app.js 的 env
+vivoAigcGateway 是否部署到同一个云环境
+VIVO_APP_KEY 是否配置到 vivoAigcGateway
+云函数是否重新部署
+```
+
+## 4. 已有环境的最快启动体验
 
 适合先让项目在开发者工具中跑起来，验证页面、交互和云函数调用链。
 
@@ -141,7 +445,6 @@ vivoAigcGateway
 如果要完整体验账号、心情、计划、疗愈活动等功能，继续部署这些非空云函数目录：
 
 ```txt
-askAI
 changePassword
 chatMessage
 healingActivities
@@ -157,25 +460,7 @@ sendVerificationCode
 shops
 updateUserInfo
 userPreferences
-vivoAigcGateway
-wxPay
 ```
-
-其中：
-
-| 云函数 | 说明 |
-| --- | --- |
-| `vivoAigcGateway` | 当前 AI 对话、绘画分析、语音识别、POI 推荐的核心网关 |
-| `moodTracking`, `moodRecommendation` | 首页心情记录与推荐 |
-| `planManagement`, `planGenerator` | 疗愈计划管理与 AI 计划生成 |
-| `login`, `register`, `sendVerificationCode`, `changePassword`, `updateUserInfo` | 用户账号体系 |
-| `healingActivities`, `chatMessage` | 活动预约、咨询消息 |
-| `healingResources`, `shops` | 疗愈资源/店铺数据接口 |
-| `askAI` | 可选 RAG AI 服务器桥接云函数 |
-| `wxPay` | 支付占位/联调函数，当前包含待替换商户配置 |
-| `quickstartFunctions` | 微信云开发示例函数，可选 |
-
-空目录 `addMoodRecord`、`getMoodRecords`、`poiSearch` 当前没有实际文件，不作为部署项。
 
 ### 步骤 5：配置 vivoAigcGateway 密钥
 
@@ -268,7 +553,7 @@ sales
 6. 疗愈计划 `pages/healing-plan/index`：计划列表、推荐、打卡。
 7. 活动相关页面：活动列表、详情、预约、反馈。
 
-## 4. 云函数依赖安装方式
+## 5. 云函数依赖安装方式
 
 每个云函数目录独立管理依赖，主要依赖如下：
 
@@ -305,377 +590,4 @@ Get-ChildItem .\cloudfunctions -Directory |
     npm install
     Pop-Location
   }
-```
-
-通常比赛演示只需要云端安装依赖，不需要把 `node_modules` 打包进小程序。
-
-## 5. AI 能力配置与验证
-
-### 5.1 vivoAigcGateway 当前支持的 action
-
-| action | 用途 | 关键依赖 |
-| --- | --- | --- |
-| `chat.complete` | AI 对话、沉浸引导文本生成 | `VIVO_APP_KEY`，可回退到本地引导 |
-| `artwork.analyze` | 绘画/图片分析 | `JIUWEN_API_KEY` |
-| `resource.recommend` | vivo POI 地点搜索 | `VIVO_APP_KEY` |
-| `voice.asrShort` | 实时短语音识别 | `VIVO_APP_KEY` |
-| `text.embedding` | vivo 文本向量 | `VIVO_APP_KEY` |
-| `text.rerank` | vivo 文本相似度重排 | `VIVO_APP_KEY` |
-| `voice.tts` | 语音播报占位 | 当前为 mock 返回 |
-
-### 5.2 没有密钥时的表现
-
-| 功能 | 没有密钥时 |
-| --- | --- |
-| AI 聊天 | 前端会捕获错误并使用本地降级回复，能看基础体验 |
-| 三分钟沉浸引导 | 可使用本地引导文案兜底 |
-| 绘画分析 | 会返回缺少 `JIUWEN_API_KEY` 的错误 |
-| 语音识别 | 会返回 `VIVO_KEY_MISSING` |
-| POI 推荐 | 返回空结果或错误提示 |
-| 文本向量/重排 | 返回 `VIVO_KEY_MISSING` |
-
-### 5.3 云函数测试示例
-
-在微信开发者工具的云函数测试中，可以用以下事件测试 `vivoAigcGateway`：
-
-```json
-{
-  "action": "chat.complete",
-  "data": {
-    "scene": "voice_companion",
-    "mode": "therapist",
-    "inputType": "text",
-    "prompt": "最近压力很大，想用绘画放松一下",
-    "messages": [
-      {
-        "role": "user",
-        "content": "最近压力很大，想用绘画放松一下"
-      }
-    ]
-  }
-}
-```
-
-预期结果：
-
-```json
-{
-  "success": true,
-  "reply": "...",
-  "source": "vivo"
-}
-```
-
-如果返回 `VIVO_KEY_MISSING`，说明云函数没有读到 `VIVO_APP_KEY`，需要检查环境变量并重新部署。
-
-## 6. 可选：启动 ai-server RAG 服务
-
-当前 `ai-server/` 是 FastAPI + FAISS + DeepSeek 的 RAG 服务。它不是当前 AI 对话页的主路径，但可以通过 `askAI` 云函数接入，或用于本地验证知识库检索效果。
-
-### 6.1 安装 Python 依赖
-
-Windows PowerShell：
-
-```powershell
-cd E:\ArtCure\ai-server
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-如果 PowerShell 阻止激活脚本，当前窗口临时放开策略：
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\venv\Scripts\Activate.ps1
-```
-
-### 6.2 配置环境变量
-
-复制模板：
-
-```powershell
-Copy-Item .env.example .env
-```
-
-在 `.env` 中填写：
-
-```txt
-DEEPSEEK_API_KEY=你的 DeepSeek API Key
-DEEPSEEK_API_BASE=https://api.deepseek.com
-HOST=0.0.0.0
-PORT=8000
-EMBEDDING_MODEL=BAAI/bge-small-zh-v1.5
-LLM_MODEL=deepseek-chat
-LLM_MAX_TOKENS=1024
-LLM_TEMPERATURE=0.7
-```
-
-可选：如果希望本地 RAG 检索也使用 vivo rerank：
-
-```txt
-VIVO_APP_KEY=你的 vivo API Key
-VIVO_API_BASE=https://api-ai.vivo.com.cn
-VIVO_RERANK_MODEL=bge-reranker-large
-```
-
-不要提交 `.env`。
-
-### 6.3 构建向量索引
-
-当前代码包中已存在：
-
-```txt
-ai-server/vector_index/
-ai-server/resource_vector_index/
-```
-
-如果索引缺失，或更新了知识库/资源数据，重新构建：
-
-```powershell
-cd E:\ArtCure\ai-server
-python build_index.py
-python build_resource_index.py
-```
-
-说明：
-
-| 脚本 | 输入 | 输出 |
-| --- | --- | --- |
-| `build_index.py` | `ai-server/knowledge_base/*.txt` | `ai-server/vector_index/` |
-| `build_resource_index.py` | `data_collection/processed_data/xhs_sample_resources.json` 和 `data_collection/extracted_notes/*.md` | `ai-server/resource_vector_index/` |
-
-首次下载 BGE 模型可能较慢。网络慢时可临时设置 HuggingFace 镜像：
-
-```powershell
-$env:HF_ENDPOINT="https://hf-mirror.com"
-python build_index.py
-```
-
-### 6.4 启动服务
-
-```powershell
-cd E:\ArtCure\ai-server
-.\venv\Scripts\Activate.ps1
-python main.py
-```
-
-默认监听：
-
-```txt
-http://0.0.0.0:8000
-```
-
-本机健康检查：
-
-```powershell
-curl http://127.0.0.1:8000/health
-```
-
-对话测试：
-
-```powershell
-curl -Method POST http://127.0.0.1:8000/chat `
-  -ContentType "application/json" `
-  -Body '{"user_id":"test_user","query":"最近失眠怎么办？","mode":"therapist"}'
-```
-
-### 6.5 通过 askAI 云函数接入 RAG 服务
-
-`cloudfunctions/askAI/index.js` 读取：
-
-```js
-const AI_SERVER_URL = process.env.AI_SERVER_URL || null
-```
-
-在 `askAI` 云函数环境变量中配置：
-
-```txt
-AI_SERVER_URL=http://你的服务器地址:8000
-```
-
-然后重新部署：
-
-```txt
-cloudfunctions/askAI -> 上传并部署：云端安装依赖
-```
-
-注意：
-
-1. 微信云函数无法访问你电脑上的 `127.0.0.1:8000`。
-2. 如果要让云函数调用本地电脑，需要可访问的公网地址、内网穿透，或部署到云服务器。
-3. 真机调试也不能访问电脑的 `127.0.0.1`，需要局域网 IP、公网服务或云函数转发。
-
-## 7. 在 vivo 手机上运行
-
-比赛要求最终能在 vivo 手机上运行。当前作品形态是微信小程序，因此推荐用以下方式验证：
-
-### 7.1 开发阶段真机预览
-
-1. 在微信开发者工具中完成编译。
-2. 点击“预览”生成二维码。
-3. 用 vivo 手机微信扫码。
-4. 进入小程序体验核心页面。
-
-开发阶段如果依赖云函数，手机只需要能访问微信云开发服务即可；如果页面直接访问本地服务，则必须把服务暴露为手机可访问地址。
-
-### 7.2 比赛/评审体验版
-
-1. 确认所有核心云函数已部署到目标云环境。
-2. 确认 `miniprogram/app.js` 的 `env` 是目标云环境 ID。
-3. 确认 `vivoAigcGateway` 已配置云函数环境变量。
-4. 在微信开发者工具点击“上传”。
-5. 在微信公众平台将上传版本设为体验版。
-6. 将评审人员加入体验成员，或按比赛要求提交体验入口。
-7. 使用 vivo 手机微信打开体验版验证。
-
-建议提交前至少验证：
-
-```txt
-AI 文本对话
-三分钟沉浸引导
-绘画/图片分析
-语音识别
-疗愈馆资源推荐
-计划生成与打卡
-登录注册/用户资料
-```
-
-## 8. 推荐演示流程
-
-用于比赛评审或快速展示：
-
-1. 进入首页，完成一次心情记录。
-2. 进入 AI 对话页，分别演示：
-   - 树洞模式：情绪倾诉与温暖回应。
-   - 疗愈师模式：艺术疗愈方法建议。
-   - 日常陪伴：轻量聊天。
-3. 点击“三分钟引导”，演示语音/文字沉浸式疗愈流程。
-4. 进入创作分析页，上传或绘制作品，让 AI 输出观察与练习建议。
-5. 进入疗愈馆，演示资源筛选、详情页、附近资源/POI 推荐。
-6. 进入疗愈计划，生成或查看计划，完成打卡。
-7. 如时间允许，演示活动预约和咨询聊天。
-
-## 9. 常见问题排查
-
-### 9.1 云函数找不到
-
-检查：
-
-1. `miniprogram/app.js` 中 `env` 是否是当前云环境。
-2. 目标云环境中是否部署了对应云函数。
-3. 前端调用的 `name` 是否与云函数目录名一致。
-
-### 9.2 vivoAigcGateway 返回 VIVO_KEY_MISSING
-
-检查：
-
-1. `vivoAigcGateway` 云函数环境变量是否配置 `VIVO_APP_KEY`。
-2. 配置后是否重新部署云函数。
-3. 是否部署到了小程序当前使用的云环境。
-
-### 9.3 绘画分析返回 JIUWEN_KEY_MISSING
-
-检查：
-
-1. 是否配置 `JIUWEN_API_KEY`。
-2. 图片是否成功上传到云存储。
-3. 云函数日志里是否有九问媒体上传失败信息。
-
-### 9.4 语音识别失败
-
-检查：
-
-1. vivo 手机/微信是否授权麦克风。
-2. `vivoAigcGateway` 是否配置 `VIVO_APP_KEY`。
-3. 录音格式是否保持为当前代码要求的 16k/16bit 单声道 PCM。
-4. 云函数日志中是否出现 ASR 超时或 WebSocket 连接错误。
-
-### 9.5 ai-server 启动失败
-
-常见原因：
-
-1. 没有 `.env` 或 `DEEPSEEK_API_KEY` 为空。
-2. `vector_index/index.faiss` 或 `vector_index/index.pkl` 缺失。
-3. Python 依赖未安装完整。
-4. 首次下载 embedding 模型失败。
-5. 8000 端口被占用。
-
-检查命令：
-
-```powershell
-cd E:\ArtCure\ai-server
-Test-Path .env
-Test-Path .\vector_index\index.faiss
-Test-Path .\vector_index\index.pkl
-python main.py
-```
-
-### 9.6 真机能打开页面，但 AI 没反应
-
-优先看：
-
-1. 微信开发者工具云函数日志。
-2. `vivoAigcGateway` 是否部署到正确云环境。
-3. 环境变量是否配置在云端，而不是只写在本地。
-4. 小程序端是否捕获错误并进入本地降级回复。
-
-### 9.7 支付功能不能用
-
-`cloudfunctions/wxPay/index.js` 当前仍有待替换的商户配置，例如子商户号。比赛演示如果不重点展示支付，建议把预约支付视为占位能力；如果要演示真实支付，需要先完成微信支付商户号、云支付权限和回调函数配置。
-
-## 10. 交付前检查清单
-
-### 本地/开发者工具
-
-- [ ] 微信开发者工具能正常导入 `E:\ArtCure`。
-- [ ] `miniprogram/app.js` 云环境 ID 正确。
-- [ ] `vivoAigcGateway` 已部署并能测试通过。
-- [ ] 核心业务云函数已部署。
-- [ ] 云数据库集合已创建。
-- [ ] 主要页面无编译错误。
-
-### AI 能力
-
-- [ ] `VIVO_APP_KEY` 已在云函数环境变量配置。
-- [ ] `JIUWEN_API_KEY` 已在云函数环境变量配置。
-- [ ] AI 文本对话可返回远端结果。
-- [ ] 绘画分析可返回结构化结果。
-- [ ] 语音识别可在真机上识别短语音。
-- [ ] POI 推荐可返回地点线索。
-
-### vivo 真机/比赛体验
-
-- [ ] 已通过 vivo 手机微信扫码预览。
-- [ ] 已上传体验版并验证入口。
-- [ ] 关闭本地服务后，核心演示路径仍可通过云函数工作。
-- [ ] 不依赖本机 `127.0.0.1`。
-- [ ] 不在公开材料中泄露 API Key。
-
-## 11. 一句话启动路线
-
-如果只想最快跑起来：
-
-```txt
-微信开发者工具导入 E:\ArtCure
--> 确认 miniprogram/app.js 的云环境 ID
--> 部署 vivoAigcGateway：上传并部署（云端安装依赖）
--> 给 vivoAigcGateway 配置 VIVO_APP_KEY / JIUWEN_API_KEY
--> 创建必要数据库集合
--> 编译
--> 预览到 vivo 手机微信体验
-```
-
-如果还要跑本地 RAG 服务：
-
-```powershell
-cd E:\ArtCure\ai-server
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-Copy-Item .env.example .env
-python build_index.py
-python build_resource_index.py
-python main.py
 ```
