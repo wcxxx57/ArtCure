@@ -54,15 +54,12 @@
     <!-- 语音疗愈入口 -->
     <view class="voice-strip">
       <view class="voice-copy">
-        <text class="voice-title">{{guideSessionActive ? '沉浸式三分钟引导' : '语音疗愈'}}</text>
-        <text class="voice-status">{{guideSessionActive ? guideSessionStatus : voiceStatus}}</text>
+        <text class="voice-title">语音疗愈</text>
+        <text class="voice-status">闭上眼，和艺呦听与说</text>
       </view>
       <view class="voice-actions">
-        <view class="voice-pill {{isRecording ? 'voice-recording' : ''}}" bindtap="onVoiceTap">
-          <text>{{isRecording ? '结束' : (guideSessionActive ? '回应' : '说心情')}}</text>
-        </view>
-        <view class="voice-pill guide-pill {{guideSessionActive ? 'guide-active' : ''}}" bindtap="onGuideTap">
-          <text>{{guideSessionActive ? '结束引导' : '三分钟引导'}}</text>
+        <view class="voice-pill voice-start-pill" bindtap="onVoiceTap">
+          <text>开始</text>
         </view>
       </view>
     </view>

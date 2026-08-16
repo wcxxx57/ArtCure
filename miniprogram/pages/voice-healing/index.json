@@ -1,4 +1,5 @@
 {
-  "navigationBarTitleText": "对话陪伴",
-  "navigationStyle": "custom"
+  "navigationBarTitleText": "沉浸式语音疗愈",
+  "navigationStyle": "custom",
+  "usingComponents": {}
 }

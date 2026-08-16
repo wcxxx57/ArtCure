@@ -3,6 +3,7 @@
     "pages/page1/index",
     "pages/onboarding-survey/index",
     "pages/ai-chat/index",
+    "pages/voice-healing/index",
     "pages/create-analysis/index",
     "pages/healing-hall-ai-advisor/index",
     "pages/resource-detail/index",

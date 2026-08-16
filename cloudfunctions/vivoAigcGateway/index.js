@@ -23,6 +23,7 @@ const DEFAULT_VISION_MODEL = getConfigValue('VIVO_VISION_MODEL') || DEFAULT_CHAT
 const DEFAULT_EMBEDDING_MODEL = getConfigValue('VIVO_EMBEDDING_MODEL') || 'bge-base-zh-v1.5'
 const DEFAULT_RERANK_MODEL = getConfigValue('VIVO_RERANK_MODEL') || 'bge-reranker-large'
 const ASR_CHUNK_SIZE = 1280
+// 16kHz / 16bit / 单声道下，1280 字节正好是 40ms，需按实时节奏发送。
 const ASR_CHUNK_INTERVAL_MS = 40
 const POI_PAGE_SIZE = 15
 const POI_MAX_PAGES = 3
@@ -74,12 +75,16 @@ exports.main = async (event = {}, context) => {
         return await recommendResources(data)
       case 'voice.asrShort':
         return await transcribeShortVoice(data)
+      case 'voice.healingAgent':
+        return await completeVoiceHealing(data)
+      case 'voice.tool':
+        return await runVoiceHealingTool(data)
       case 'text.embedding':
         return await embedTexts(data)
       case 'text.rerank':
         return await rerankTexts(data)
       case 'voice.tts':
-        return mockTts(data)
+        return await synthesizeTts(data)
       default:
         return {
           success: false,
@@ -177,7 +182,11 @@ async function completeChat(data) {
         turnIndex: Number(data.turnIndex || 0),
         ragContext: rag.context
       })
-      : buildMockChatReply(scene, userQuery, { mode })
+      : buildMockChatReply(scene, userQuery, {
+        mode,
+        intent,
+        turnIndex: Number(data.turnIndex || 0)
+      })
   }
 
   return {
@@ -339,8 +348,8 @@ async function transcribeShortVoice(data = {}) {
     }
   }
 
-  const audioType = data.audioType || data.format || 'pcm'
-  if (String(audioType).toLowerCase() !== 'pcm') {
+  const audioType = String(data.audioType || data.format || 'pcm').toLowerCase()
+  if (audioType !== 'pcm') {
     return {
       success: false,
       code: 'ASR_AUDIO_FORMAT_UNSUPPORTED',
@@ -371,6 +380,8 @@ async function transcribeShortVoice(data = {}) {
     requestId,
     sid: result.sid,
     text: result.text,
+    audioBytes: audioBuffer.length,
+    audioDurationMs: Math.round(audioBuffer.length / 32),
     raw: result.raw
   }
 }
@@ -416,8 +427,8 @@ function callVivoShortAsr(audioBuffer, options) {
     let finished = false
     let sid = ''
     let finalText = ''
-    let appendedText = ''
     let lastResult = null
+    let lastResultSignature = ''
     const timer = setTimeout(() => {
       finish(new Error('vivo 实时短语音识别超时'))
     }, Number(getConfigValue('VIVO_ASR_TIMEOUT_MS') || 70000))
@@ -481,23 +492,23 @@ function callVivoShortAsr(audioBuffer, options) {
       }
 
       if (message.action === 'result' && message.type === 'asr') {
-        if (message.code && message.code !== 0) {
+        if (message.code && message.code !== 0 && message.code !== 9) {
           finish(new Error(`vivo ASR ${message.code}: ${message.desc || '识别失败'}`))
           return
         }
 
         lastResult = message
-        const text = message.data && message.data.text ? message.data.text.trim() : ''
+        const resultData = message.data || {}
+        const text = String(resultData.text || resultData.onebest || '').trim()
         if (text) {
-          if (message.data && message.data.reformation === 0) {
-            appendedText += text
-            finalText = appendedText
-          } else {
-            finalText = text
+          const signature = `${message.code || 0}|${resultData.result_id || ''}|${resultData.reformation || ''}|${text}`
+          if (signature !== lastResultSignature) {
+            finalText = mergeShortAsrText(finalText, text, resultData.reformation)
+            lastResultSignature = signature
           }
         }
 
-        if ((message.data && message.data.is_last) || message.is_finish) {
+        if (resultData.is_last || message.is_finish || message.code === 9) {
           finish(null, {
             sid,
             text: finalText,
@@ -526,12 +537,15 @@ function callVivoShortAsr(audioBuffer, options) {
 }
 
 async function sendPcmFrames(ws, audioBuffer) {
-  for (let offset = 0; offset < audioBuffer.length; offset += ASR_CHUNK_SIZE) {
+  // vivo demo 要求每帧 1280 字节（16kHz/16bit/单声道下正好 40ms）。
+  // 最后不足一帧的数据不发送，避免服务端把不完整采样当成异常尾音。
+  const completeLength = audioBuffer.length - (audioBuffer.length % ASR_CHUNK_SIZE)
+  for (let offset = 0; offset < completeLength; offset += ASR_CHUNK_SIZE) {
     if (ws.readyState !== WebSocket.OPEN) {
       throw new Error('vivo ASR 连接已断开')
     }
 
-    const chunk = audioBuffer.subarray(offset, Math.min(offset + ASR_CHUNK_SIZE, audioBuffer.length))
+    const chunk = audioBuffer.subarray(offset, offset + ASR_CHUNK_SIZE)
     ws.send(chunk)
     await sleep(ASR_CHUNK_INTERVAL_MS)
   }
@@ -642,6 +656,155 @@ async function rerankTexts(data = {}) {
   }
 }
 
+async function runVoiceHealingTool(data = {}) {
+  const tool = String(data.tool || '').trim()
+  const input = data.input || {}
+
+  if (tool === 'healing_music') {
+    return await createHealingMusic(input)
+  }
+  if (tool === 'breathing') {
+    return await createBreathingAudio(input)
+  }
+  if (tool === 'mindfulness') {
+    return {
+      success: true,
+      tool,
+      anchor: input.anchor || 'body',
+      instruction: '注意一个此刻能感受到的声音、一个身体接触点和一处颜色，不评价，只停留三次呼吸。'
+    }
+  }
+
+  return {
+    success: false,
+    code: 'VOICE_TOOL_UNKNOWN',
+    message: `未知疗愈工具: ${tool}`
+  }
+}
+
+function mergeShortAsrText(previous, incoming, reformation) {
+  const before = String(previous || '')
+  const next = String(incoming || '')
+  if (!before) return next
+
+  // vivo 短语音协议：reformation=1 表示修正整句，reformation=0 表示追加片段。
+  if (Number(reformation) === 1) return next
+  if (Number(reformation) !== 0) return next
+  if (next === before || before.endsWith(next)) return before
+  if (next.startsWith(before)) return next
+  return before + next
+}
+
+async function createHealingMusic(input = {}) {
+  const seconds = Math.min(Math.max(Number(input.duration || 30), 12), 45)
+  const soundscape = input.soundscape || 'pink_noise'
+  const wav = createAmbientWav(seconds, soundscape)
+  const audio = await uploadGeneratedAudio('soundscape', wav)
+  return {
+    success: true,
+    tool: 'healing_music',
+    source: 'generated-noise-soundscape',
+    musicUrl: audio.tempFileURL,
+    duration: seconds,
+    soundscape,
+    description: `已生成${soundscape === 'brown_noise' ? '棕噪' : soundscape === 'white_noise' ? '白噪' : soundscape === 'ocean' ? '海浪感' : '粉红噪音'}背景声，适合作为低音量连续环境。`
+  }
+}
+
+async function createBreathingAudio(input = {}) {
+  const patternMatch = String(input.pattern || '4-6').match(/^(\d+)-(\d+)$/)
+  const inhaleSeconds = patternMatch ? Math.min(Math.max(Number(patternMatch[1]), 3), 6) : 4
+  const exhaleSeconds = patternMatch ? Math.min(Math.max(Number(patternMatch[2]), 4), 8) : 6
+  const rounds = Math.min(Math.max(Number(input.rounds || 4), 2), 6)
+  const wav = createBreathingWav({ inhaleSeconds, exhaleSeconds, rounds })
+  const audio = await uploadGeneratedAudio('breathing', wav)
+  return {
+    success: true,
+    tool: 'breathing',
+    pattern: `${inhaleSeconds}-${exhaleSeconds}`,
+    rounds,
+    source: 'generated-paced-breathing-audio',
+    audioUrl: audio.tempFileURL,
+    duration: (inhaleSeconds + exhaleSeconds) * rounds,
+    instruction: `吸气${inhaleSeconds}秒，呼气${exhaleSeconds}秒，做${rounds}轮；如果不舒服，回到自然呼吸。`
+  }
+}
+
+async function uploadGeneratedAudio(prefix, wav) {
+  const cloudPath = `voice-healing/${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}.wav`
+  const upload = await cloud.uploadFile({ cloudPath, fileContent: wav })
+  const temp = await cloud.getTempFileURL({ fileList: [upload.fileID] })
+  const file = temp.fileList && temp.fileList[0]
+  if (!file || !file.tempFileURL) throw new Error(`${prefix} 音频临时地址生成失败`)
+  return { fileID: upload.fileID, tempFileURL: file.tempFileURL }
+}
+
+function createAmbientWav(seconds, soundscape) {
+  const sampleRate = 24000
+  const sampleCount = sampleRate * seconds
+  const pcm = Buffer.alloc(sampleCount * 2)
+  let brownState = 0
+  let pinkB0 = 0
+  let pinkB1 = 0
+  let pinkB2 = 0
+
+  for (let index = 0; index < sampleCount; index += 1) {
+    const time = index / sampleRate
+    const fade = Math.min(1, time / 2, (seconds - time) / 2)
+    const white = Math.random() * 2 - 1
+    brownState = Math.max(-1, Math.min(1, (brownState + white * 0.025) * 0.985))
+    pinkB0 = 0.99886 * pinkB0 + white * 0.0555179
+    pinkB1 = 0.99332 * pinkB1 + white * 0.0750759
+    pinkB2 = 0.96900 * pinkB2 + white * 0.1538520
+    const pink = (pinkB0 + pinkB1 + pinkB2 + white * 0.5362) * 0.12
+    const lowTone = Math.sin(2 * Math.PI * 174 * time) * 0.08
+    const softTone = Math.sin(2 * Math.PI * 261 * time + Math.sin(time * 0.7) * 0.4) * 0.035
+    const oceanEnvelope = 0.55 + 0.45 * Math.max(0, Math.sin(2 * Math.PI * 0.075 * time - 0.8))
+    const noise = soundscape === 'white_noise'
+      ? white * 0.32
+      : soundscape === 'brown_noise'
+        ? brownState * 0.48
+        : soundscape === 'ocean'
+          ? (pink * 0.42 + brownState * 0.12) * oceanEnvelope
+          : pink * 0.48
+    const sample = Math.max(-1, Math.min(1, (noise + lowTone + softTone) * fade * 0.34))
+    pcm.writeInt16LE(Math.round(sample * 32767), index * 2)
+  }
+
+  return createWavFromPcm(pcm, sampleRate)
+}
+
+function createBreathingWav({ inhaleSeconds, exhaleSeconds, rounds }) {
+  const sampleRate = 24000
+  const cycleSeconds = inhaleSeconds + exhaleSeconds
+  const totalSeconds = cycleSeconds * rounds
+  const sampleCount = sampleRate * totalSeconds
+  const pcm = Buffer.alloc(sampleCount * 2)
+
+  for (let index = 0; index < sampleCount; index += 1) {
+    const time = index / sampleRate
+    const cycleTime = time % cycleSeconds
+    const isInhale = cycleTime < inhaleSeconds
+    const phaseTime = isInhale ? cycleTime : cycleTime - inhaleSeconds
+    const phaseDuration = isInhale ? inhaleSeconds : exhaleSeconds
+    const progress = Math.min(1, phaseTime / phaseDuration)
+    const level = isInhale
+      ? 0.5 - 0.5 * Math.cos(Math.PI * progress)
+      : 0.5 + 0.5 * Math.cos(Math.PI * progress)
+    const frequency = isInhale ? 220 + level * 70 : 220 + level * 70
+    const carrier = Math.sin(2 * Math.PI * frequency * time) * 0.11
+    const harmonic = Math.sin(2 * Math.PI * frequency * 2 * time) * 0.018
+    const chime = phaseTime < 0.6
+      ? Math.exp(-phaseTime * 5) * Math.sin(2 * Math.PI * 440 * phaseTime) * 0.045
+      : 0
+    const fade = Math.min(1, time / 1.2, (totalSeconds - time) / 1.2)
+    const sample = Math.max(-1, Math.min(1, (carrier + harmonic + chime) * (0.35 + level * 0.65) * fade))
+    pcm.writeInt16LE(Math.round(sample * 32767), index * 2)
+  }
+
+  return createWavFromPcm(pcm, sampleRate)
+}
+
 function normalizeTextArray(value) {
   const list = Array.isArray(value) ? value : [value]
   return list
@@ -653,13 +816,242 @@ function compactText(text, maxLen) {
   return String(text || '').replace(/\s+/g, ' ').trim().slice(0, maxLen)
 }
 
-function mockTts(data) {
+async function synthesizeTts(data = {}) {
+  const text = compactText(data.text || '先慢慢吸气，再把今天的压力随着呼气放下来。', 1800)
+  if (!hasVivoKey()) {
+    return {
+      success: false,
+      code: 'VIVO_KEY_MISSING',
+      message: '未配置 VIVO_APP_KEY，暂时无法生成语音'
+    }
+  }
+
+  const appKey = getConfigValue('VIVO_APP_KEY')
+  const requestId = createRequestId()
+  const userId = normalizeAsrUserId(data.userId || 'artcure_voice_healing')
+  const params = new URLSearchParams({
+    engineid: getConfigValue('VIVO_TTS_ENGINE_ID') || 'tts_humanoid_lam',
+    system_time: String(Math.floor(Date.now() / 1000)),
+    user_id: userId,
+    model: 'unknown',
+    product: 'artcure',
+    package: getConfigValue('VIVO_TTS_PACKAGE') || 'artcure.miniprogram',
+    client_version: '1.0.0',
+    system_version: 'unknown',
+    sdk_version: '1.0.0',
+    android_version: 'unknown',
+    requestId
+  })
+  const ws = new WebSocket(`wss://${VIVO_WS_HOST}/tts?${params.toString()}`, {
+    headers: {
+      Authorization: `Bearer ${appKey}`,
+      'X-AI-GATEWAY-SIGNATURE': 'developers-aigc'
+    }
+  })
+
+  const pcm = await new Promise((resolve, reject) => {
+    const chunks = []
+    let settled = false
+    const timer = setTimeout(() => finish(new Error('vivo TTS 超时')), 45000)
+    const finish = (error, value) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      if (ws.readyState === WebSocket.OPEN) ws.close()
+      if (error) reject(error)
+      else resolve(Buffer.concat(chunks))
+    }
+
+    ws.on('open', () => {
+      ws.send(JSON.stringify({
+        aue: 0,
+        auf: 'audio/L16;rate=24000',
+        vcn: data.voice || getConfigValue('VIVO_TTS_VOICE') || 'F245_natural',
+        speed: Number(data.speed || 50),
+        volume: Number(data.volume || 60),
+        text: Buffer.from(text, 'utf8').toString('base64'),
+        encoding: 'utf8',
+        reqId: Date.now()
+      }))
+    })
+    ws.on('message', raw => {
+      try {
+        const message = JSON.parse(raw.toString())
+        if (message.error_code && message.error_code !== 0) {
+          finish(new Error(`vivo TTS ${message.error_code}: ${message.error_msg || '合成失败'}`))
+          return
+        }
+        if (message.data && message.data.audio) chunks.push(Buffer.from(message.data.audio, 'base64'))
+        if (message.data && Number(message.data.status) === 2) finish(null)
+      } catch (error) {
+        finish(new Error(`vivo TTS 返回非 JSON 数据: ${error.message}`))
+      }
+    })
+    ws.on('error', finish)
+    ws.on('close', () => {
+      if (!settled) finish(null)
+    })
+  })
+
+  if (!pcm.length) throw new Error('vivo TTS 未返回音频数据')
+  const wav = createWavFromPcm(pcm, 24000)
+  const cloudPath = `voice-healing/tts-${Date.now()}-${Math.random().toString(36).slice(2)}.wav`
+  const upload = await cloud.uploadFile({ cloudPath, fileContent: wav })
+  const temp = await cloud.getTempFileURL({ fileList: [upload.fileID] })
   return {
     success: true,
-    source: 'mock',
-    audioUrl: '',
-    text: data.text || '先慢慢吸气，再把今天的压力随着呼气放下来。'
+    source: 'vivo-tts',
+    text,
+    audioUrl: temp.fileList && temp.fileList[0] && temp.fileList[0].tempFileURL,
+    fileID: upload.fileID
   }
+}
+
+function createWavFromPcm(pcm, sampleRate) {
+  const header = Buffer.alloc(44)
+  header.write('RIFF', 0)
+  header.writeUInt32LE(36 + pcm.length, 4)
+  header.write('WAVE', 8)
+  header.write('fmt ', 12)
+  header.writeUInt32LE(16, 16)
+  header.writeUInt16LE(1, 20)
+  header.writeUInt16LE(1, 22)
+  header.writeUInt32LE(sampleRate, 24)
+  header.writeUInt32LE(sampleRate * 2, 28)
+  header.writeUInt16LE(2, 32)
+  header.writeUInt16LE(16, 34)
+  header.write('data', 36)
+  header.writeUInt32LE(pcm.length, 40)
+  return Buffer.concat([header, pcm])
+}
+
+async function completeVoiceHealing(data = {}) {
+  const prompt = String(data.prompt || lastUserMessage(data.messages || [])).trim()
+  const turnIndex = Number(data.turnIndex || 0)
+  if (!prompt) {
+    return {
+      success: false,
+      code: 'VOICE_PROMPT_EMPTY',
+      message: 'voice.healingAgent 需要用户语音转写文本'
+    }
+  }
+
+  let reply = ''
+  let source = 'local-voice-healing'
+  if (hasVivoKey()) {
+    try {
+      const result = await completeChat({
+        scene: 'immersive_voice_healing',
+        mode: 'therapist',
+        inputType: 'voice',
+        intent: 'voice_healing_turn',
+        turnIndex,
+        prompt,
+        messages: data.messages || []
+      })
+      reply = result.reply || ''
+      source = result.source || 'vivo'
+    } catch (error) {
+      console.warn('[completeVoiceHealing] remote generation failed:', error.message)
+    }
+  }
+
+  if (!reply) reply = buildVoiceHealingFallback(prompt, turnIndex)
+  reply = normalizeVoiceHealingReply(reply, prompt, turnIndex)
+
+  return {
+    success: true,
+    source,
+    reply,
+    audioText: compactText(reply, 1800),
+    toolCall: chooseVoiceHealingTool(prompt, turnIndex)
+  }
+}
+
+function normalizeVoiceHealingReply(reply, prompt, turnIndex) {
+  const cleaned = String(reply || '')
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/^\s*(回复|回答|建议|回应)[:：]\s*/i, '')
+    .replace(/^\s*[-*•]\s*/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
+  if (!cleaned) return buildVoiceHealingFallback(prompt, turnIndex)
+  if (cleaned.length <= 120) return cleaned
+
+  // 语音回复只保留 2～3 句，避免模型生成较长内容后才进入 TTS。
+  const sentences = cleaned.match(/[^。！？!?；;]+[。！？!?；;]?/g) || [cleaned]
+  let compact = ''
+  for (const sentence of sentences) {
+    const next = `${compact}${sentence.trim()}`
+    if (next.length > 120 && compact) break
+    compact = next
+    if ((compact.match(/[。！？!?]/g) || []).length >= 3) break
+  }
+  return (compact || cleaned.slice(0, 120)).trim()
+}
+
+function chooseVoiceHealingTool(prompt, turnIndex) {
+  const text = String(prompt || '')
+  if (/^(嗯+|好+|好的?|可以|行|知道了|没有|没事|谢谢)[。！!，,。 ]*$/i.test(text)) {
+    return {
+      name: 'mindfulness',
+      reason: '用户在确认陪伴节奏，保持当前练习的连续性',
+      input: { anchor: 'breath' }
+    }
+  }
+
+  if (/音乐|声音|安静|吵|睡不着|放松|紧绷|白噪|噪音|背景声/.test(text)) {
+    const soundscape = /海|雨|自然/.test(text)
+      ? 'ocean'
+      : /吵|白噪|噪音/.test(text)
+        ? 'white_noise'
+        : /低沉|压迫|沉下来/.test(text)
+          ? 'brown_noise'
+          : 'pink_noise'
+    return {
+      name: 'healing_music',
+      reason: '用户需要更稳定的听觉背景',
+      input: { mood: 'soft', soundscape, duration: 30 }
+    }
+  }
+  if (/呼吸|胸口|心跳|慌|焦虑|紧张|喘不过气|心烦|发慌/.test(text)) {
+    return {
+      name: 'breathing',
+      reason: '用户提到需要先安顿身体节奏',
+      input: { pattern: '4-6', rounds: 4 }
+    }
+  }
+  return {
+    name: 'mindfulness',
+    reason: '把注意力温和地带回当下',
+    input: { anchor: 'body' }
+  }
+}
+
+function buildVoiceHealingFallback(prompt, turnIndex) {
+  const text = String(prompt || '').trim()
+  if (/^(嗯+|好+|好的?|可以|行|知道了|没有|没事|谢谢)[。！!，,。 ]*$/i.test(text) && Number(turnIndex || 0) > 0) {
+    return '嗯，我在。我们不用急着往下走，先陪这一口呼吸停一会儿。等你愿意时，只要告诉我一个颜色，或者说“继续”就好。'
+  }
+
+  if (/累|疲惫|工作|加班|撑不住|耗尽/.test(text)) {
+    return '听起来你今天被消耗了不少。先不用把自己调整好，我陪你安静坐一会儿。现在更想说说发生了什么，还是只想听一点安静的声音？'
+  }
+  if (/焦虑|紧张|心慌|喘|胸口|害怕|发抖/.test(text)) {
+    return '这会儿身体好像比语言更早感到紧张。我们先把速度放慢一点，吸气不用很深，呼气稍微长一些。你现在最明显的感觉在哪里？'
+  }
+  if (/难过|委屈|失望|想哭|孤单|低落/.test(text)) {
+    return '这句话里有一点难过，我先陪你把它放在这里，不急着解释。你更想让我听你说，还是陪你找一个能让身体松一点的小地方？'
+  }
+
+  const fallbacks = [
+    `我在这儿。你刚才说的「${text || '这一刻'}」可以先不用整理成结论，想从哪一点开始说都可以。`,
+    '嗯，我跟着你。我们先不急着往下走，你可以告诉我刚才那一刻最先冒出来的一个词。',
+    '我还在听。你不用说得完整，哪怕只是一个颜色、一个声音，或者一句“我不知道”也可以。',
+    '我们可以先停一下。此刻不用证明自己已经好起来，只要知道你正在陪自己走过这一小段。'
+  ]
+  return fallbacks[Math.min(Math.max(turnIndex, 0), fallbacks.length - 1)]
 }
 
 function hasVivoKey() {
@@ -771,6 +1163,25 @@ function buildSystemPrompt(scene, meta = {}) {
     ].join('\n')
   }
 
+  if (scene === 'immersive_voice_healing') {
+    const knowledge = meta.ragContext
+      ? `【可参考的艺术疗愈知识】\n${meta.ragContext}\n`
+      : '【可参考的艺术疗愈知识】\n只使用低风险、可自愿停止的艺术疗愈和正念原则。\n'
+    return [
+      '你是“艺呦”，一位通过手机语音陪伴用户的艺术疗愈 AI。',
+      '你提供的是自我觉察、情绪支持和低风险练习，不能诊断、不能替代心理咨询或医疗服务。',
+      '如果用户表达自伤、伤害他人、强烈绝望或现实危险，先温和提醒联系身边可信任的人、当地紧急服务或专业危机援助。',
+      knowledge,
+      '【当前任务】进行“听与说”的沉浸式艺术疗愈。用户可能闭着眼，只靠听和说参与。',
+      '【回复要求】',
+      '1. 先回应用户刚才的具体词语或画面，再自然接话，不要使用固定模板开场。',
+      '2. 用户只是分享时先陪伴和追问；只有明确需要方法时，才给一个很小的动作。',
+      '3. 只说 2～3 句、45～120 个中文字符，适合女声播报；最多问一个问题。',
+      '4. 不用 Markdown、标题、列表、括号说明、心理诊断或“作为 AI”等话术。',
+      '5. “嗯、好、可以、没有”等短回应要承接上一轮，不重新介绍流程。练习只在需要时给出。'
+    ].join('\n')
+  }
+
   if (isTherapistChatMode(scene, meta.mode, meta.intent)) {
     const knowledge = meta.ragContext
       ? `【艺术疗愈知识库参考】\n${meta.ragContext}\n`
@@ -875,6 +1286,10 @@ function isTherapistChatMode(scene, mode, intent) {
 }
 
 function getChatGenerationConfig(scene, mode, intent) {
+  if (scene === 'immersive_voice_healing' || intent === 'voice_healing_turn') {
+    return { temperature: 0.48, maxTokens: 220 }
+  }
+
   if (isGuideIntent(scene, intent)) {
     return { temperature: 0.72, maxTokens: 1500 }
   }
@@ -921,7 +1336,10 @@ async function retrieveArtTherapyContext(prompt, messages, meta = {}) {
   let ranked = localRanked
   let ranker = 'local-keyword'
 
-  if (hasVivoKey() && localRanked.length > 1) {
+  // 语音疗愈的知识库很小且已在本地完成关键词排序；每轮再调用远程 rerank
+  // 只会增加一次网络往返，直接使用本地结果可以缩短首句回复等待。
+  const isVoiceHealing = meta.scene === 'immersive_voice_healing' || meta.intent === 'voice_healing_turn'
+  if (hasVivoKey() && localRanked.length > 1 && !isVoiceHealing) {
     try {
       const reranked = await rerankKnowledgeChunks(query, localRanked)
       if (reranked.length) {
@@ -1085,6 +1503,10 @@ function lastUserMessage(messages) {
 }
 
 function buildMockChatReply(scene, userText, meta = {}) {
+  if (scene === 'immersive_voice_healing') {
+    return buildVoiceHealingFallback(userText, Number(meta.turnIndex || 0))
+  }
+
   if (isShortCompanionMode(scene, meta.mode, meta.intent)) {
     const text = String(userText || '').trim()
     if (/难过|不开心|低落|烦|焦虑|压力|累|崩溃|委屈/.test(text)) {
@@ -1438,7 +1860,13 @@ async function callVivoChat(messages, options = {}) {
 
   const choices = response && response.choices
   const firstChoice = Array.isArray(choices) ? choices[0] : null
-  return (firstChoice && firstChoice.message && firstChoice.message.content) || '我已经收到你的信息，但暂时没有生成有效回复。'
+  const content = firstChoice && firstChoice.message && firstChoice.message.content
+  if (Array.isArray(content)) {
+    const text = content.map(item => typeof item === 'string' ? item : item && item.text || '').join('')
+    if (text.trim()) return text.trim()
+  }
+  if (typeof content === 'string' && content.trim()) return content.trim()
+  throw new Error('蓝心大模型返回了空回复')
 }
 
 async function callJiuwenTextChat(messages) {

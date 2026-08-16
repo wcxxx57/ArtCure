@@ -1,0 +1,111 @@
+<view class="healing-page {{sessionActive ? 'session-active' : ''}}">
+  <view class="ambient-glow glow-one"></view>
+  <view class="ambient-glow glow-two"></view>
+
+  <view class="healing-header">
+    <view class="header-icon close-icon" bindtap="onClose">×</view>
+    <view class="header-title-wrap">
+      <text class="header-title">愈见·艺呦</text>
+      <text class="header-subtitle">沉浸式语音疗愈</text>
+    </view>
+    <view class="header-icon sound-icon" bindtap="onToggleMute">
+      <text>{{isMuted ? '开声' : '静音'}}</text>
+    </view>
+  </view>
+
+  <scroll-view
+    class="healing-scroll"
+    scroll-y="true"
+    scroll-into-view="{{scrollToMessage}}"
+    scroll-with-animation="true"
+  >
+    <view class="welcome-visual">
+      <view class="ip-orbit orbit-back"></view>
+      <view class="ip-orbit orbit-front"></view>
+      <image class="healing-ip {{isSpeaking ? 'ip-speaking' : ''}}" src="/images/index/ip.png" mode="aspectFit"></image>
+      <view class="ip-caption">
+        <text class="caption-title">{{sessionActive ? '我在这里，慢慢来' : '给自己一段安静的时间'}}</text>
+        <text class="caption-subtitle">{{sessionActive ? statusText : '可以闭上眼，只用听和说参与'}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{!sessionActive}}" class="intro-card">
+      <view class="intro-kicker">LISTEN · SPEAK · CREATE</view>
+      <text class="intro-title">让声音带你回到自己</text>
+      <text class="intro-copy" user-select="true">艺呦会先带你安顿呼吸，再根据你说出的感受，选择合适的正念、呼吸或声音练习。你不需要说得完整，也不需要解释作品。</text>
+      <view class="intro-notice">
+        <text class="notice-dot">·</text>
+        <text user-select="true">这是自我觉察与情绪支持，不替代专业医疗或心理服务</text>
+      </view>
+      <picker class="voice-picker" mode="selector" range="{{voiceOptions}}" range-key="name" value="{{voiceIndex}}" bindchange="onVoiceChange">
+        <view class="voice-picker-inner">
+          <view class="voice-picker-copy">
+            <text class="voice-picker-label">艺呦音色</text>
+            <text class="voice-picker-value">{{selectedVoiceName}}</text>
+          </view>
+          <text class="voice-picker-action">点击选择 ›</text>
+        </view>
+      </picker>
+    </view>
+
+    <view wx:if="{{sessionActive}}" class="session-summary">
+      <view class="summary-pill"><text>● {{elapsedText}}</text></view>
+      <view class="summary-pill"><text>{{sessionRound}} 轮对话</text></view>
+      <view class="summary-pill summary-soft"><text>{{toolSummary}}</text></view>
+    </view>
+
+    <view class="message-list">
+      <block wx:for="{{messages}}" wx:key="id">
+        <view id="msg-{{item.id}}" class="message-row {{item.role === 'user' ? 'message-user' : 'message-assistant'}}">
+          <image wx:if="{{item.role !== 'user'}}" class="message-avatar" src="/images/index/ip.png" mode="aspectFit"></image>
+          <view class="message-content">
+          <view class="message-label">{{item.role === 'user' ? '你' : '艺呦'}}<text wx:if="{{item.isVoice}}" class="voice-mark"> · 语音</text></view>
+          <view class="message-bubble">
+            <text user-select="true">{{item.text}}</text>
+          </view>
+          </view>
+        </view>
+      </block>
+
+      <view wx:if="{{isThinking}}" class="message-row message-assistant">
+        <image class="message-avatar" src="/images/index/ip.png" mode="aspectFit"></image>
+        <view class="message-content">
+          <view class="message-label">艺呦</view>
+          <view class="message-bubble thinking-bubble"><view class="thinking-dots"><text></text><text></text><text></text></view></view>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{toolEvents.length}}" class="tool-trace">
+      <view class="trace-title"><text class="trace-line"></text><text>艺呦正在为你准备</text></view>
+      <block wx:for="{{toolEvents}}" wx:key="id">
+        <view class="tool-event {{item.status === 'done' ? 'tool-done' : ''}}">
+          <view class="tool-icon">{{item.icon}}</view>
+          <view class="tool-copy"><text class="tool-name">{{item.name}}</text><text class="tool-desc">{{item.description}}</text></view>
+          <text class="tool-state">{{item.status === 'done' ? '已完成' : '进行中'}}</text>
+        </view>
+      </block>
+    </view>
+
+    <view class="scroll-bottom" id="message-bottom"></view>
+  </scroll-view>
+
+  <view class="healing-footer {{sessionActive ? 'footer-session' : ''}}">
+    <view class="footer-status">
+      <view class="status-wave {{isRecording ? 'wave-listening' : ''}}"><text></text><text></text><text></text><text></text><text></text></view>
+      <text>{{sessionActive ? statusText : '准备好后，点击开始'}}</text>
+    </view>
+    <view class="main-control {{sessionActive ? 'control-stop' : 'control-start'}} {{isRecording ? 'control-listening' : ''}}" bindtap="onMainControl">
+      <view class="control-ripple ripple-one"></view>
+      <view class="control-ripple ripple-two"></view>
+      <view class="control-core">
+        <text wx:if="{{!sessionActive}}">开始<br/>对话</text>
+        <text wx:elif="{{isRecording}}">说完了</text>
+        <text wx:elif="{{isSpeaking}}">艺呦<br/>说话中</text>
+        <text wx:elif="{{isThinking}}">正在<br/>思考</text>
+        <text wx:else>我来说</text>
+      </view>
+    </view>
+    <text class="footer-tip">{{sessionActive ? (isSpeaking ? '请先听艺呦说完' : (isThinking ? '艺呦正在整理回应' : (isRecording ? '说完后停顿 1.5 秒，或点“说完了”' : '轮到你说了，艺呦会自动听到停顿'))) : '开始后艺呦会先说话，然后轮到你回应'}}</text>
+  </view>
+</view>

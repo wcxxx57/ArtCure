@@ -159,6 +159,7 @@ Page({
   },
 
   onLoad(options) {
+    this.pageAlive = true
     this.setupRecorder()
 
     // 初始化当前模式的消息和快捷问题
@@ -174,10 +175,15 @@ Page({
   },
 
   onShow() {
-    // 页面显示
+    this.pageAlive = true
+  },
+
+  onHide() {
+    this.pageAlive = false
   },
 
   onUnload() {
+    this.pageAlive = false
     if (this.guideListenTimer) {
       clearTimeout(this.guideListenTimer)
       this.guideListenTimer = null
@@ -192,6 +198,7 @@ Page({
     this.recorderManager = wx.getRecorderManager()
 
     this.recorderManager.onStart(() => {
+      if (!this.pageAlive) return
       const recordOptions = this.currentRecordOptions || {}
       this.setData({
         isRecording: true,
@@ -201,6 +208,7 @@ Page({
     })
 
     this.recorderManager.onStop((res) => {
+      if (!this.pageAlive) return
       const recordOptions = this.currentRecordOptions || {}
       this.currentRecordOptions = null
       this.setData({
@@ -212,6 +220,7 @@ Page({
     })
 
     this.recorderManager.onError((err) => {
+      if (!this.pageAlive) return
       console.error('[AI Chat] 录音失败:', err)
       this.setData({
         isRecording: false,
@@ -273,30 +282,8 @@ Page({
   },
 
   onVoiceTap() {
-    if (this.data.isRecording) {
-      this.recorderManager.stop()
-      return
-    }
-
-    const start = this.data.guideSessionActive
-      ? () => this.startGuideListening()
-      : () => this.startRecord()
-
-    wx.authorize({
-      scope: 'scope.record',
-      success: start,
-      fail: () => {
-        wx.showModal({
-          title: '需要麦克风权限',
-          content: '开启麦克风后，艺呦可以听你说心情。也可以继续使用文字输入。',
-          confirmText: '去设置',
-          success: (res) => {
-            if (res.confirm) {
-              wx.openSetting()
-            }
-          }
-        })
-      }
+    wx.navigateTo({
+      url: '/pages/voice-healing/index'
     })
   },
 
