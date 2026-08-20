@@ -1,4 +1,4 @@
-# ArtCure艺呦小程序运行指南
+# 艺呦艺术疗愈陪伴运行指南
 
 > 注：由于基于uniapp开发的微信小程序对于微信云生态依赖较大，我们也难以与评委老师们共享我们使用的云环境与权限，因此完整体验本项目需要麻烦评委老师们参考此指南创建自己的微信小程序账号、AppID 和云开发环境导入运行，可能较为复杂，敬请老师们见谅，有问题可以随时联系我们，谢谢老师们！
 >
@@ -23,22 +23,20 @@
 3. 微信云开发环境
    需要在小程序账号下开通云开发，并创建一个云环境。
 
-4. vivo 蓝心 / 九问 API Key
-   完整 AI 能力需要配置：
+4. LLM API Key
+   对话和创作分析使用 OpenAI 兼容接口，需要配置：
 
    ```txt
-   VIVO_APP_KEY
-   JIUWEN_API_KEY
+   LLM_API_KEY
    ```
 
-   未配置密钥时，仍可查看主要页面、本地样例数据和部分降级体验；蓝心大模型、语音识别、图像分析、POI 搜索等能力不会完整工作。
+   未配置密钥时，仍可查看主要页面、本地样例数据和部分降级体验；LLM 对话和创作分析不会完整工作。vivo 密钥只用于当前保留的 ASR、TTS 和 POI 能力。
    
-   我们团队配置的KEY为
-   
-   ```txt
-   VIVO_APP_KEY:sk-xuanji-2026887953-Yll6dGd3aHNOZWdCRUpBWg==
-   JIUWEN_API_KEY:app-qqbm66soqK6GFmpFgNisboIy
-   ```
+这里不要填写或提交真实密钥。请在微信云开发的 `vivoAigcGateway` 环境变量中配置：
+
+```txt
+LLM_API_KEY=你的 LLM API Key
+```
    
    
 
@@ -133,29 +131,32 @@ shops
 云开发 -> 云函数 -> vivoAigcGateway -> 配置 -> 环境变量
 ```
 
-配置密钥：
+配置 LLM：
 
 ```txt
-VIVO_APP_KEY=可使用的vivo API Key
-JIUWEN_API_KEY=可使用的API Key
+LLM_API_KEY=可使用的 LLM API Key
+LLM_BASE_URL=https://api.electricracker.de5.net/v1
+LLM_MODEL=gpt-5.6-luna
+LLM_VISION_MODEL=gpt-5.6-luna
 ```
 
-如需完整确认，可同时配置或保留以下默认值：
+如果还要使用当前保留的 vivo 语音识别、TTS 或位置搜索能力，再配置：
 
 ```txt
+VIVO_APP_KEY=可使用的 vivo API Key
 VIVO_API_BASE=https://api-ai.vivo.com.cn
 VIVO_POI_BASE_URL=https://api-ai.vivo.com.cn
 VIVO_WS_HOST=api-ai.vivo.com.cn
-VIVO_CHAT_MODEL=Volc-DeepSeek-V3.2
-VIVO_VISION_MODEL=Volc-DeepSeek-V3.2
-VIVO_EMBEDDING_MODEL=bge-base-zh-v1.5
-VIVO_RERANK_MODEL=bge-reranker-large
 VIVO_ASR_PACKAGE=artcure.miniprogram
 VIVO_ASR_ENGINE_ID=shortasrinput
 VIVO_ASR_TIMEOUT_MS=70000
-JIUWEN_BASE_URL=https://jiuwen.vivo.com.cn/v1
-JIUWEN_CHAT_MESSAGES_PATH=/chat-messages
-JIUWEN_MEDIA_UPLOAD_PATH=/files/media-upload
+# 可选：为语音陪伴配置预生成音景的云存储 fileID；未配置时使用短音频算法生成降级方案。
+VOICE_SOUND_OCEAN_FILE_ID=cloud://...
+VOICE_SOUND_RAIN_FILE_ID=cloud://...
+VOICE_SOUND_PINK_NOISE_FILE_ID=cloud://...
+VOICE_SOUND_BROWN_NOISE_FILE_ID=cloud://...
+VOICE_SOUND_WHITE_NOISE_FILE_ID=cloud://...
+VOICE_SOUND_NIGHT_FILE_ID=cloud://...
 ```
 
 配置环境变量后，需要重新部署 `vivoAigcGateway`，否则新变量可能不生效。
@@ -240,11 +241,11 @@ miniprogram/utils/sampleActivities.js
 
 1. 首页 `pages/page1/index`：页面可显示，心情记录入口正常。
 2. AI 对话 `pages/ai-chat/index`：发送一句文本，确认 `vivoAigcGateway` 能返回。
-3. 云函数日志：确认 `chat.complete` 没有 `VIVO_KEY_MISSING`。
+3. 云函数日志：确认 `chat.complete` 没有 `LLM_KEY_MISSING`。
 4. 心情打卡：确认 `mood_records` 有新记录。
 5. 偏好问卷：确认 `user_preferences` 有新记录。
 6. 疗愈计划 `pages/healing-plan/index`：确认计划生成、列表和打卡可用。
-7. 创作分析 `pages/create-analysis/index`：配置 `JIUWEN_API_KEY` 后测试绘画/图片分析。
+7. 创作分析 `pages/create-analysis/index`：配置 `LLM_API_KEY` 后测试绘画/图片分析。
 8. AI 对话语音输入：配置 vivo ASR 权限后测试短语音识别。
 9. 疗愈馆 `pages/healing-hall/index`：确认本地样例资源、云端资源或 vivo POI 推荐入口可展示。
 10. 位置资源 `pages/location-resources/index`：测试附近资源/搜索体验。

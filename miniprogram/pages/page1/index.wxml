@@ -10,7 +10,7 @@
     <view class="hero-section">
       <view class="hero-copy">
         <text class="hero-title">你好呀，欢迎来到</text>
-        <text class="hero-title">AI艺术疗愈小屋</text>
+        <text class="hero-title">艺呦艺术疗愈陪伴</text>
         <text class="hero-subtitle">让我们一起在艺术疗愈的体验与陪伴中，遇见更好的自己</text>
       </view>
       <view class="ip-stage" bindtap="onAvatarTap">

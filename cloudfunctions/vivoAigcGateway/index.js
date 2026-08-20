@@ -1,35 +1,105 @@
-// vivo AIGC 能力统一网关
-// 说明：优先读取云函数环境变量；本地/上传演示可使用同目录 config.local.js；语音识别调用 vivo ASR。
+// 艺呦艺术疗愈陪伴 AI 网关
+// 说明：对话/视觉生成使用 OpenAI 兼容 LLM；语音识别和 TTS 暂保留 vivo 能力。
 
 const cloud = require('wx-server-sdk')
 const https = require('https')
 const WebSocket = require('ws')
 const crypto = require('crypto')
 const artTherapyKnowledge = require('./artTherapyKnowledge')
+const voiceHealingSkills = require('./voiceHealingSkills')
 const localConfig = loadLocalConfig()
 
 cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
 })
 
+const LLM_CHAT_PATH = getConfigValue('LLM_CHAT_PATH') || '/chat/completions'
 const JIUWEN_BASE_URL = (getConfigValue('JIUWEN_BASE_URL') || 'https://jiuwen.vivo.com.cn/v1').replace(/\/$/, '')
 const JIUWEN_CHAT_MESSAGES_PATH = getConfigValue('JIUWEN_CHAT_MESSAGES_PATH') || '/chat-messages'
-const JIUWEN_MEDIA_UPLOAD_PATH = getConfigValue('JIUWEN_MEDIA_UPLOAD_PATH') || '/files/media-upload'
-const VIVO_BASE_URL = (getConfigValue('VIVO_API_URL') || getConfigValue('VIVO_API_BASE') || 'https://api-ai.vivo.com.cn').replace(/\/$/, '')
-const VIVO_POI_BASE_URL = getConfigValue('VIVO_POI_BASE_URL') || VIVO_BASE_URL
-const VIVO_WS_HOST = getConfigValue('VIVO_WS_HOST') || 'api-ai.vivo.com.cn'
-const DEFAULT_CHAT_MODEL = getConfigValue('VIVO_CHAT_MODEL') || getConfigValue('JIUWEN_MODEL') || 'Volc-DeepSeek-V3.2'
-const DEFAULT_VISION_MODEL = getConfigValue('VIVO_VISION_MODEL') || DEFAULT_CHAT_MODEL
+const DEFAULT_CHAT_MODEL = normalizeConfigValue(getConfigValue('LLM_MODEL'))
+const VIVO_CHAT_MODEL = getConfigValue('VIVO_CHAT_MODEL') || getConfigValue('JIUWEN_MODEL') || 'Volc-DeepSeek-V3.2'
 const DEFAULT_EMBEDDING_MODEL = getConfigValue('VIVO_EMBEDDING_MODEL') || 'bge-base-zh-v1.5'
 const DEFAULT_RERANK_MODEL = getConfigValue('VIVO_RERANK_MODEL') || 'bge-reranker-large'
 const ASR_CHUNK_SIZE = 1280
-// 16kHz / 16bit / 单声道下，1280 字节正好是 40ms，需按实时节奏发送。
 const ASR_CHUNK_INTERVAL_MS = 40
 const POI_PAGE_SIZE = 15
 const POI_MAX_PAGES = 3
 const POI_QUERY_VARIANT_LIMIT = 9
 const POI_TARGET_RESULT_COUNT = 36
 const POI_EXPANDED_QUERY_PAGE_LIMIT = 1
+
+// 语音疗愈 Agent 的普通工具协议。工具只描述可执行能力，具体是否调用由模型结合
+// system prompt、当前对话和用户状态自行判断；危机转接不暴露给普通模型调用。
+const VOICE_AGENT_TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: 'start_soundscape',
+      description: '准备低音量、可循环的自然环境音景；结合对话判断用户是否需要声音陪伴、安静空间或降低环境干扰。',
+      parameters: {
+        type: 'object',
+        properties: {
+          soundscape: {
+            type: 'string',
+            enum: ['ocean', 'rain', 'pink_noise', 'brown_noise', 'white_noise', 'night'],
+            description: '音景类型；结合用户在对话中流露的偏好选择，没有明显偏好时选择温和的默认音景。'
+          },
+          duration: { type: 'number', description: '陪伴时长，单位秒，建议 60 到 300。' },
+          volume: { type: 'number', description: '播放音量，建议 0.24 到 0.42，保持柔和但需要在手机扬声器上可听见。' }
+        },
+        required: ['soundscape']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'start_breathing',
+      description: '准备不屏息、可随时停止的短呼吸节律音频；当对话显示呼吸节律能帮助用户安顿下来时使用。',
+      parameters: {
+        type: 'object',
+        properties: {
+          pattern: { type: 'string', enum: ['3-5', '4-6', '5-7'], description: '吸气秒数-呼气秒数。' },
+          rounds: { type: 'number', description: '练习轮数，建议 2 到 6。' }
+        },
+        required: ['pattern']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'start_grounding',
+      description: '准备一个简短的感官接地练习，把注意力带回脚底、座面、声音和颜色；当用户显得紧张、飘散或情绪过载时可使用。',
+      parameters: { type: 'object', properties: {} }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'start_art_exercise',
+      description: '准备一个低门槛的短时艺术表达练习，例如连续线条、色块或身体地图；当创作能帮助用户表达或整理当下感受时使用。',
+      parameters: {
+        type: 'object',
+        properties: {
+          type: {
+            type: 'string',
+            enum: ['continuous_line', 'color_field', 'body_map', 'mandala'],
+            description: '练习类型。'
+          }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'analyze_artwork',
+      description: '打开创作分析页面，让用户提交作品后进行非诊断式画面观察；当对话自然进入作品回看或画面探索时使用。',
+      parameters: { type: 'object', properties: {} }
+    }
+  },
+]
 
 const POI_KEYWORD_EXPANSIONS = [
   {
@@ -62,6 +132,10 @@ const POI_KEYWORD_EXPANSIONS = [
   }
 ]
 
+const VOICE_AGENT_TOOL_NAMES = new Set(
+  VOICE_AGENT_TOOLS.map(item => item.function.name)
+)
+
 exports.main = async (event = {}, context) => {
   const { action, data = {} } = event
 
@@ -75,10 +149,24 @@ exports.main = async (event = {}, context) => {
         return await recommendResources(data)
       case 'voice.asrShort':
         return await transcribeShortVoice(data)
-      case 'voice.healingAgent':
-        return await completeVoiceHealing(data)
-      case 'voice.tool':
-        return await runVoiceHealingTool(data)
+      case 'voice.healingTurn':
+        return await completeVoiceHealingTurn(data)
+      case 'voice.tool': {
+        const toolStartedAt = Date.now()
+        console.info('[voice.tool] api execute', {
+          tool: data.tool || '',
+          input: data.input || {}
+        })
+        const toolResult = await runVoiceHealingTool(data)
+        console.info('[voice.tool] api result', {
+          tool: data.tool || '',
+          success: toolResult && toolResult.success !== false,
+          source: toolResult && toolResult.source || '',
+          hasAudioFile: Boolean(toolResult && (toolResult.musicFileID || toolResult.audioFileID || toolResult.fileID)),
+          durationMs: Date.now() - toolStartedAt
+        })
+        return toolResult
+      }
       case 'text.embedding':
         return await embedTexts(data)
       case 'text.rerank':
@@ -110,39 +198,43 @@ async function completeChat(data) {
     prompt = '',
     mode = 'therapist',
     inputType = 'text',
-    intent = ''
+    intent = '',
+    currentUserMessage = '',
+    voiceRouteHint = null
   } = data
+  const userQuery = String(currentUserMessage || prompt || lastUserMessage(messages)).trim()
 
-  if (!hasVivoKey()) {
-    if (isGuideIntent(scene, intent)) {
-      const fallbackReply = buildGuideFallbackReply({
+  if (!hasChatProvider()) {
+    // 没有配置远程模型时，聊天仍应按运行指南提供本地降级体验。
+    // 这里返回成功结果，避免前端把“可预期的配置缺失”误报为 RAG 请求异常。
+    const fallbackReply = isGuideIntent(scene, intent)
+      ? buildGuideFallbackReply({
         scene,
         intent,
-        userQuery: prompt || lastUserMessage(messages),
+        userQuery,
+        turnIndex: Number(data.turnIndex || 0)
+      })
+      : buildMockChatReply(scene, userQuery, {
+        mode,
+        intent,
         turnIndex: Number(data.turnIndex || 0)
       })
 
-      return {
-        success: true,
-        source: 'local-guide-fallback',
-        reply: fallbackReply,
-        audioText: extractGuideText(fallbackReply, scene, intent),
-        sources: [],
-        retrieval: {
-          ranker: 'none',
-          query: prompt || lastUserMessage(messages)
-        }
-      }
-    }
-
     return {
-      success: false,
-      code: 'VIVO_KEY_MISSING',
-      message: '未配置 VIVO_APP_KEY，无法调用蓝心大模型'
+      success: true,
+      source: isGuideIntent(scene, intent) ? 'local-guide-fallback' : 'local-chat-fallback',
+      provider: 'local',
+      model: '',
+      reply: fallbackReply,
+      audioText: extractGuideText(fallbackReply, scene, intent),
+      sources: [],
+      retrieval: {
+        ranker: 'none',
+        query: userQuery
+      }
     }
   }
 
-  const userQuery = prompt || lastUserMessage(messages)
   const normalizedMessages = normalizeMessages(messages, userQuery)
   const rag = await retrieveArtTherapyContext(userQuery, normalizedMessages, {
     scene,
@@ -155,22 +247,29 @@ async function completeChat(data) {
     mode,
     intent,
     inputType,
-    ragContext: rag.context
+    ragContext: rag.context,
+    currentUserText: userQuery,
+    voiceRouteHint
   })
-  const vivoMessages = [
+  const llmMessages = [
     { role: 'system', content: systemPrompt },
     ...normalizedMessages
   ]
 
   let reply = ''
-  let source = 'vivo'
+  let source = 'llm'
+  let provider = 'openai-compatible'
+  let model = DEFAULT_CHAT_MODEL
   const generation = getChatGenerationConfig(scene, mode, intent)
 
   try {
-    reply = await callVivoChat(vivoMessages, {
-      temperature: generation.temperature,
-      max_tokens: generation.maxTokens
+    const generated = await callConfiguredChat(llmMessages, {
+      maxTokens: generation.maxTokens
     })
+    reply = generated.reply
+    source = generated.source
+    provider = generated.provider
+    model = generated.model
   } catch (error) {
     console.warn('[completeChat] remote generation failed, using local reply:', error.message)
     source = isGuideIntent(scene, intent) ? 'local-guide-fallback' : 'local-chat-fallback'
@@ -192,6 +291,8 @@ async function completeChat(data) {
   return {
     success: true,
     source,
+    provider: source === 'llm' || source === 'vivo-llm' ? provider : 'local',
+    model: source === 'llm' || source === 'vivo-llm' ? model : '',
     reply,
     audioText: extractGuideText(reply, scene, intent),
     sources: rag.sources,
@@ -212,45 +313,43 @@ async function analyzeArtwork(data) {
     promptLength: String(prompt || '').length
   })
 
-  if (!hasJiuwenKey()) {
-    throw createGatewayError(
-      'JIUWEN_KEY_MISSING',
-      '缺少 JIUWEN_API_KEY：请在 vivoAigcGateway/config.local.js 或微信云函数环境变量中配置九问 API Key'
-    )
-  }
+  getRequiredConfigValue('LLM_API_KEY')
+  getRequiredConfigValue('LLM_BASE_URL')
+  getRequiredConfigValue('LLM_VISION_MODEL')
 
   if (!imageUrl && !fileID) {
     throw new Error('没有可分析的图片：缺少 fileID 或 imageUrl')
   }
 
-  const resolvedImageUrl = imageUrl || await uploadCloudFileToJiuwen(fileID)
-  console.log('[artwork.analyze] image ready for jiuwen', {
-    imageUrl: maskUrl(resolvedImageUrl)
+  const imageInput = await resolveArtworkImageInput({ fileID, imageUrl })
+  console.log('[artwork.analyze] image ready for llm vision', {
+    inputType: imageInput.startsWith('data:') ? 'data-url' : 'remote-url',
+    inputLength: imageInput.length
   })
 
-  if (!resolvedImageUrl) {
+  if (!imageInput) {
     throw new Error(`没有可分析的图片：fileID=${fileID || '空'}，imageUrl=${imageUrl ? '已传入' : '空'}`)
   }
 
-  const rawText = await callJiuwenArtworkVision({
-    imageUrl: resolvedImageUrl,
+  const rawText = await callLlmArtworkVision({
+    imageInput,
     prompt,
     sourceType
   })
   const result = normalizeArtworkResult(rawText)
   if (!Array.isArray(result) || result.length < 2) {
-    throw new Error(`九问图片分析返回内容无法解析为两个元素数组：${rawText || '空响应'}`)
+    throw new Error(`LLM 图片分析返回内容无法解析为两个元素数组：${rawText || '空响应'}`)
   }
 
   console.log('[artwork.analyze] success', {
-    source: 'jiuwen',
+    source: 'llm',
     rawTextLength: String(rawText || '').length,
     resultCount: result.length
   })
 
   return {
     success: true,
-    source: 'jiuwen',
+    source: 'llm',
     result,
     rawText
   }
@@ -357,7 +456,8 @@ async function transcribeShortVoice(data = {}) {
     }
   }
 
-  const audioBuffer = await resolveAudioBuffer(data)
+  const rawAudioBuffer = await resolveAudioBuffer(data)
+  const audioBuffer = normalizePcmAudio(rawAudioBuffer)
   if (!audioBuffer || audioBuffer.length === 0) {
     return {
       success: false,
@@ -365,6 +465,14 @@ async function transcribeShortVoice(data = {}) {
       message: '未获取到可识别的语音数据'
     }
   }
+
+  console.info('[voice.asrShort] audio normalized', {
+    rawBytes: rawAudioBuffer.length,
+    pcmBytes: audioBuffer.length,
+    hasWavHeader: isWavBuffer(rawAudioBuffer),
+    sampleRate: Number(data.sampleRate || 16000),
+    audioType
+  })
 
   const requestId = createRequestId()
   const userId = normalizeAsrUserId(data.userId || data.openid || 'artcure_user')
@@ -384,6 +492,7 @@ async function transcribeShortVoice(data = {}) {
     audioDurationMs: Math.round(audioBuffer.length / 32),
     raw: result.raw
   }
+
 }
 
 async function resolveAudioBuffer(data) {
@@ -399,6 +508,43 @@ async function resolveAudioBuffer(data) {
   }
 
   throw new Error('voice.asrShort 需要 fileID 或 audioBase64')
+}
+
+function isWavBuffer(buffer) {
+  return Boolean(
+    buffer &&
+    buffer.length >= 12 &&
+    buffer.toString('ascii', 0, 4) === 'RIFF' &&
+    buffer.toString('ascii', 8, 12) === 'WAVE'
+  )
+}
+
+function normalizePcmAudio(input) {
+  if (!input) return Buffer.alloc(0)
+  const buffer = Buffer.isBuffer(input) ? input : Buffer.from(input)
+  if (!isWavBuffer(buffer)) {
+    // ASR 按 16bit 采样读取，末尾不能保留半个采样点。
+    return buffer.length % 2 === 0 ? buffer : buffer.subarray(0, buffer.length - 1)
+  }
+
+  // 微信真机在部分基础库版本中即使声明 format=pcm，临时文件仍可能带 WAV 头。
+  // 只把 data chunk 交给 vivo，避免 RIFF/fmt 字节被当作语音内容。
+  let offset = 12
+  while (offset + 8 <= buffer.length) {
+    const chunkId = buffer.toString('ascii', offset, offset + 4)
+    const chunkSize = buffer.readUInt32LE(offset + 4)
+    const chunkStart = offset + 8
+    if (chunkId === 'data') {
+      const end = Math.min(chunkStart + chunkSize, buffer.length)
+      const pcm = buffer.subarray(chunkStart, end)
+      return pcm.length % 2 === 0 ? pcm : pcm.subarray(0, pcm.length - 1)
+    }
+    // RIFF chunk 按偶数字节对齐，防止异常文件导致死循环。
+    offset = chunkStart + chunkSize + (chunkSize % 2)
+  }
+
+  // 不是标准 WAV 时不要把整段带头文件发送给 ASR。
+  return Buffer.alloc(0)
 }
 
 function callVivoShortAsr(audioBuffer, options) {
@@ -418,7 +564,7 @@ function callVivoShortAsr(audioBuffer, options) {
       requestId
     })
 
-    const ws = new WebSocket(`ws://${VIVO_WS_HOST}/asr/v2?${query.toString()}`, {
+    const ws = new WebSocket(`ws://${getRequiredVivoWsHost()}/asr/v2?${query.toString()}`, {
       headers: {
         Authorization: `Bearer ${getConfigValue('VIVO_APP_KEY')}`
       }
@@ -457,11 +603,13 @@ function callVivoShortAsr(audioBuffer, options) {
           type: 'started',
           request_id: requestId.replace(/-/g, ''),
           asr_info: {
-            front_vad_time: 6000,
-            end_vad_time: 2000,
+            // 与 vivo 实时短语音协议的 VAD 参数保持一致：太短的噪声片段
+            // 不作为一句话提交，静音结束也不必等待过长时间。
+            mini_speech_time: 300,
+            end_vad_time: 1600,
             audio_type: 'pcm',
             chinese2digital: 1,
-            punctuation: 2
+            punctuation: 1
           },
           business_info: JSON.stringify({
             scenes_pkg: packageName,
@@ -469,7 +617,13 @@ function callVivoShortAsr(audioBuffer, options) {
           })
         }))
 
-        await sendPcmFrames(ws, audioBuffer)
+        const framesSent = await sendPcmFrames(ws, audioBuffer)
+        console.info('[voice.asrShort] pcm frames sent', {
+          framesSent,
+          frameBytes: ASR_CHUNK_SIZE,
+          frameIntervalMs: ASR_CHUNK_INTERVAL_MS,
+          pcmBytes: audioBuffer.length
+        })
       } catch (error) {
         finish(error)
       }
@@ -537,22 +691,27 @@ function callVivoShortAsr(audioBuffer, options) {
 }
 
 async function sendPcmFrames(ws, audioBuffer) {
-  // vivo demo 要求每帧 1280 字节（16kHz/16bit/单声道下正好 40ms）。
-  // 最后不足一帧的数据不发送，避免服务端把不完整采样当成异常尾音。
-  const completeLength = audioBuffer.length - (audioBuffer.length % ASR_CHUNK_SIZE)
-  for (let offset = 0; offset < completeLength; offset += ASR_CHUNK_SIZE) {
+  // vivo 文档要求每帧 1280 字节（16kHz/16bit/单声道下正好 40ms），
+  // 并建议按实时节奏发送；连续倾倒整个文件会让实时 VAD/断句丢失中间内容。
+  let frameCount = 0
+  for (let offset = 0; offset < audioBuffer.length; offset += ASR_CHUNK_SIZE) {
     if (ws.readyState !== WebSocket.OPEN) {
       throw new Error('vivo ASR 连接已断开')
     }
 
-    const chunk = audioBuffer.subarray(offset, offset + ASR_CHUNK_SIZE)
+    const sourceChunk = audioBuffer.subarray(offset, Math.min(offset + ASR_CHUNK_SIZE, audioBuffer.length))
+    const chunk = sourceChunk.length === ASR_CHUNK_SIZE
+      ? sourceChunk
+      : Buffer.concat([sourceChunk, Buffer.alloc(ASR_CHUNK_SIZE - sourceChunk.length)])
     ws.send(chunk)
+    frameCount += 1
     await sleep(ASR_CHUNK_INTERVAL_MS)
   }
 
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(Buffer.from('--end--'))
   }
+  return frameCount
 }
 
 function sleep(ms) {
@@ -584,7 +743,7 @@ async function embedTexts(data = {}) {
   const requestId = createRequestId()
   const response = await requestJson({
     method: 'POST',
-    url: `${VIVO_BASE_URL}/embedding-model-api/predict/batch?requestId=${encodeURIComponent(requestId)}`,
+    url: `${getRequiredVivoBaseUrl()}/embedding-model-api/predict/batch?requestId=${encodeURIComponent(requestId)}`,
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${getConfigValue('VIVO_APP_KEY')}`
@@ -629,7 +788,7 @@ async function rerankTexts(data = {}) {
   const requestId = createRequestId()
   const response = await requestJson({
     method: 'POST',
-    url: `${VIVO_BASE_URL}/rerank?requestId=${encodeURIComponent(requestId)}`,
+    url: `${getRequiredVivoBaseUrl()}/rerank?requestId=${encodeURIComponent(requestId)}`,
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${getConfigValue('VIVO_APP_KEY')}`
@@ -656,30 +815,77 @@ async function rerankTexts(data = {}) {
   }
 }
 
-async function runVoiceHealingTool(data = {}) {
+async function runVoiceHealingTool(data = {}, options = {}) {
   const tool = String(data.tool || '').trim()
   const input = data.input || {}
+  const skill = voiceHealingSkills[tool]
 
-  if (tool === 'healing_music') {
-    return await createHealingMusic(input)
-  }
-  if (tool === 'breathing') {
-    return await createBreathingAudio(input)
-  }
-  if (tool === 'mindfulness') {
+  if (!skill) {
     return {
-      success: true,
-      tool,
-      anchor: input.anchor || 'body',
-      instruction: '注意一个此刻能感受到的声音、一个身体接触点和一处颜色，不评价，只停留三次呼吸。'
+      success: false,
+      code: 'VOICE_TOOL_UNKNOWN',
+      message: `未知疗愈工具: ${tool}`
     }
   }
 
-  return {
-    success: false,
-    code: 'VOICE_TOOL_UNKNOWN',
-    message: `未知疗愈工具: ${tool}`
+  if (tool === 'start_soundscape') {
+    return await createHealingMusic(input, skill)
   }
+  if (tool === 'start_breathing') {
+    return await createBreathingAudio(input, skill)
+  }
+  if (tool === 'start_grounding') {
+    return {
+      success: true,
+      tool,
+      source: 'evidence-informed-grounding',
+      skill: serializeVoiceSkill(skill),
+      steps: [
+        '感受双脚或身体与座面的接触，不需要改变它。',
+        '找到一个此刻听得见的声音，再找到一处你愿意看的颜色。',
+        '随着三次自然呼吸，观察这些线索，不评价，也不强迫自己放松。'
+      ],
+      instruction: '注意一个此刻能感受到的声音、一个身体接触点和一处颜色，不评价，只停留三次自然呼吸。'
+    }
+  }
+  if (tool === 'start_art_exercise') {
+    const exercise = chooseArtExercise(input)
+    return {
+      success: true,
+      tool,
+      source: 'evidence-informed-art-exercise',
+      skill: serializeVoiceSkill(skill),
+      exercise
+    }
+  }
+  if (tool === 'analyze_artwork') {
+    return {
+      success: true,
+      tool,
+      source: 'create-analysis-module',
+      skill: serializeVoiceSkill(skill),
+      navigationUrl: '/pages/create-analysis/index?source=voice-healing'
+    }
+  }
+  if (tool === 'handoff_support') {
+    if (!options.allowSafety) {
+      return {
+        success: false,
+        code: 'VOICE_TOOL_SAFETY_ONLY',
+        message: 'handoff_support 只能由危机安全路由触发'
+      }
+    }
+    return {
+      success: true,
+      tool,
+      source: 'safety-critical',
+      skill: serializeVoiceSkill(skill),
+      safetyLevel: 'high',
+      instruction: '先暂停这段练习，尽量不要独处。请立刻联系身边可信任的人、当地急救服务或心理危机援助；如果你愿意，我可以陪你把求助对象和要说的话整理出来。'
+    }
+  }
+
+  return { success: true, tool, skill: serializeVoiceSkill(skill) }
 }
 
 function mergeShortAsrText(previous, incoming, reformation) {
@@ -695,23 +901,62 @@ function mergeShortAsrText(previous, incoming, reformation) {
   return before + next
 }
 
-async function createHealingMusic(input = {}) {
-  const seconds = Math.min(Math.max(Number(input.duration || 30), 12), 45)
-  const soundscape = input.soundscape || 'pink_noise'
-  const wav = createAmbientWav(seconds, soundscape)
+async function createHealingMusic(input = {}, skill = voiceHealingSkills.start_soundscape) {
+  const duration = clampNumber(input.duration, 180, 60, 300)
+  const soundscape = normalizeSoundscape(input.soundscape)
+  const volume = clampNumber(input.volume, 0.34, 0.18, 0.5)
+  const cached = await resolveCachedSoundscape(soundscape)
+
+  if (cached) {
+    return {
+      success: true,
+      tool: 'start_soundscape',
+      source: 'cached-soundscape',
+      musicUrl: cached.tempFileURL,
+      fileID: cached.fileID,
+      duration,
+      soundscape,
+      volume,
+      loop: true,
+      personalization: {
+        soundscape,
+        duration,
+        volume,
+        generated: false
+      },
+      skill: serializeVoiceSkill(skill),
+      description: `${getSoundscapeLabel(soundscape)}音景已准备好，将以低音量循环播放。`
+    }
+  }
+
+  // 没有配置预生成音景时，使用短时本地算法生成作为演示降级；前端循环播放，
+  // 避免每次为了几分钟的陪伴在云函数中生成过大的 WAV。
+  const generatedSeconds = Math.min(duration, 45)
+  const wav = createAmbientWav(generatedSeconds, soundscape)
   const audio = await uploadGeneratedAudio('soundscape', wav)
   return {
     success: true,
-    tool: 'healing_music',
-    source: 'generated-noise-soundscape',
+    tool: 'start_soundscape',
+    source: 'generated-fallback-soundscape',
     musicUrl: audio.tempFileURL,
-    duration: seconds,
+    fileID: audio.fileID,
+    duration,
     soundscape,
-    description: `已生成${soundscape === 'brown_noise' ? '棕噪' : soundscape === 'white_noise' ? '白噪' : soundscape === 'ocean' ? '海浪感' : '粉红噪音'}背景声，适合作为低音量连续环境。`
+    volume,
+    loop: true,
+    personalization: {
+      soundscape,
+      duration,
+      volume,
+      generated: true,
+      generatedSeconds
+    },
+    skill: serializeVoiceSkill(skill),
+    description: `${getSoundscapeLabel(soundscape)}音景已准备好，将以低音量循环播放。`
   }
 }
 
-async function createBreathingAudio(input = {}) {
+async function createBreathingAudio(input = {}, skill = voiceHealingSkills.start_breathing) {
   const patternMatch = String(input.pattern || '4-6').match(/^(\d+)-(\d+)$/)
   const inhaleSeconds = patternMatch ? Math.min(Math.max(Number(patternMatch[1]), 3), 6) : 4
   const exhaleSeconds = patternMatch ? Math.min(Math.max(Number(patternMatch[2]), 4), 8) : 6
@@ -720,14 +965,130 @@ async function createBreathingAudio(input = {}) {
   const audio = await uploadGeneratedAudio('breathing', wav)
   return {
     success: true,
-    tool: 'breathing',
+    tool: 'start_breathing',
     pattern: `${inhaleSeconds}-${exhaleSeconds}`,
     rounds,
     source: 'generated-paced-breathing-audio',
     audioUrl: audio.tempFileURL,
+    fileID: audio.fileID,
     duration: (inhaleSeconds + exhaleSeconds) * rounds,
-    instruction: `吸气${inhaleSeconds}秒，呼气${exhaleSeconds}秒，做${rounds}轮；如果不舒服，回到自然呼吸。`
+    volume: 0.28,
+    loop: false,
+    skill: serializeVoiceSkill(skill),
+    instruction: `吸气${inhaleSeconds}秒，呼气${exhaleSeconds}秒，做${rounds}轮；不屏息，如果不舒服，回到自然呼吸。`
   }
+}
+
+function chooseArtExercise(input = {}) {
+  const requested = String(input.type || input.exercise || '').trim()
+  const type = ['continuous_line', 'color_field', 'body_map', 'mandala'].includes(requested)
+    ? requested
+    : 'continuous_line'
+  const exercises = {
+    continuous_line: {
+      type,
+      title: '三分钟连续线条',
+      durationMinutes: 3,
+      steps: [
+        '拿一张纸，让笔尖从纸面上的任意位置开始。',
+        '接下来三分钟，让线条慢慢走，不追求画得像，也不需要解释。',
+        '停下后，看看你最先注意到的地方，并给这幅画取一个名字。'
+      ],
+      reflection: '这条线现在更像是在靠近什么，还是在和什么保持距离？'
+    },
+    color_field: {
+      type,
+      title: '一块属于此刻的颜色',
+      durationMinutes: 3,
+      steps: [
+        '选择一个你此刻愿意靠近的颜色，不需要它代表任何固定含义。',
+        '让这个颜色慢慢形成一个色块，注意手部动作和身体感觉。',
+        '停下来后，问问自己：这个颜色对我来说像什么？'
+      ],
+      reflection: '这个颜色是让你更靠近自己，还是给你留出了一点距离？'
+    },
+    body_map: {
+      type,
+      title: '身体地图',
+      durationMinutes: 4,
+      steps: [
+        '画一个简单的身体轮廓，不需要准确。',
+        '用线条、点或颜色标出此刻最明显的紧绷、沉重、发热或空空的地方。',
+        '看一看画面，不解释它，只记录你最先注意到的区域。'
+      ],
+      reflection: '如果这个身体部位可以提出一个小请求，它会是什么？'
+    },
+    mandala: {
+      type,
+      title: '从中心向外',
+      durationMinutes: 4,
+      steps: [
+        '先画一个圆或一个你愿意停留的中心。',
+        '从中心向外重复简单的点、线或形状，按照自己的节奏来。',
+        '停下来后，观察重复动作给你带来的感觉，而不是评价结果。'
+      ],
+      reflection: '画面里有没有一个让你想多停留一会儿的部分？'
+    }
+  }
+  return exercises[type]
+}
+
+function serializeVoiceSkill(skill) {
+  if (!skill) return null
+  return {
+    id: skill.id,
+    name: skill.name,
+    evidenceLevel: skill.evidenceLevel,
+    sources: skill.sources,
+    safety: skill.safety
+  }
+}
+
+function normalizeSoundscape(value) {
+  const soundscape = String(value || 'pink_noise').trim()
+  return ['ocean', 'rain', 'pink_noise', 'brown_noise', 'white_noise', 'night'].includes(soundscape)
+    ? soundscape
+    : 'pink_noise'
+}
+
+function getSoundscapeLabel(soundscape) {
+  return {
+    ocean: '海浪',
+    rain: '轻雨',
+    pink_noise: '粉红噪声',
+    brown_noise: '棕噪声',
+    white_noise: '白噪声',
+    night: '夜间环境'
+  }[soundscape] || '环境'
+}
+
+async function resolveCachedSoundscape(soundscape) {
+  const configKey = {
+    ocean: 'VOICE_SOUND_OCEAN_FILE_ID',
+    rain: 'VOICE_SOUND_RAIN_FILE_ID',
+    pink_noise: 'VOICE_SOUND_PINK_NOISE_FILE_ID',
+    brown_noise: 'VOICE_SOUND_BROWN_NOISE_FILE_ID',
+    white_noise: 'VOICE_SOUND_WHITE_NOISE_FILE_ID',
+    night: 'VOICE_SOUND_NIGHT_FILE_ID'
+  }[soundscape]
+  const fileID = configKey ? getConfigValue(configKey) : ''
+  if (!fileID) return null
+
+  try {
+    const temp = await cloud.getTempFileURL({ fileList: [fileID] })
+    const file = temp.fileList && temp.fileList[0]
+    if (!file || !file.tempFileURL) return null
+    return { fileID, tempFileURL: file.tempFileURL }
+  } catch (error) {
+    console.warn('[voice.soundscape] cached audio unavailable:', error.message)
+    return null
+  }
+}
+
+function clampNumber(value, fallback, min, max) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return fallback
+  return Math.min(Math.max(number, min), max)
 }
 
 async function uploadGeneratedAudio(prefix, wav) {
@@ -750,7 +1111,7 @@ function createAmbientWav(seconds, soundscape) {
 
   for (let index = 0; index < sampleCount; index += 1) {
     const time = index / sampleRate
-    const fade = Math.min(1, time / 2, (seconds - time) / 2)
+    const fade = Math.min(1, time / 0.6, (seconds - time) / 0.6)
     const white = Math.random() * 2 - 1
     brownState = Math.max(-1, Math.min(1, (brownState + white * 0.025) * 0.985))
     pinkB0 = 0.99886 * pinkB0 + white * 0.0555179
@@ -760,14 +1121,20 @@ function createAmbientWav(seconds, soundscape) {
     const lowTone = Math.sin(2 * Math.PI * 174 * time) * 0.08
     const softTone = Math.sin(2 * Math.PI * 261 * time + Math.sin(time * 0.7) * 0.4) * 0.035
     const oceanEnvelope = 0.55 + 0.45 * Math.max(0, Math.sin(2 * Math.PI * 0.075 * time - 0.8))
+    const rainEnvelope = 0.72 + 0.28 * Math.max(0, Math.sin(2 * Math.PI * 0.19 * time + 0.6))
     const noise = soundscape === 'white_noise'
       ? white * 0.32
       : soundscape === 'brown_noise'
         ? brownState * 0.48
         : soundscape === 'ocean'
           ? (pink * 0.42 + brownState * 0.12) * oceanEnvelope
-          : pink * 0.48
-    const sample = Math.max(-1, Math.min(1, (noise + lowTone + softTone) * fade * 0.34))
+          : soundscape === 'rain'
+            ? (pink * 0.50 + white * 0.05) * rainEnvelope
+            : soundscape === 'night'
+              ? brownState * 0.28 + pink * 0.12
+              : pink * 0.48
+    const tone = soundscape === 'night' ? lowTone * 0.35 : lowTone
+    const sample = Math.max(-1, Math.min(1, (noise + tone + softTone) * fade * 0.72))
     pcm.writeInt16LE(Math.round(sample * 32767), index * 2)
   }
 
@@ -842,7 +1209,7 @@ async function synthesizeTts(data = {}) {
     android_version: 'unknown',
     requestId
   })
-  const ws = new WebSocket(`wss://${VIVO_WS_HOST}/tts?${params.toString()}`, {
+  const ws = new WebSocket(`wss://${getRequiredVivoWsHost()}/tts?${params.toString()}`, {
     headers: {
       Authorization: `Bearer ${appKey}`,
       'X-AI-GATEWAY-SIGNATURE': 'developers-aigc'
@@ -926,45 +1293,435 @@ function createWavFromPcm(pcm, sampleRate) {
 }
 
 async function completeVoiceHealing(data = {}) {
-  const prompt = String(data.prompt || lastUserMessage(data.messages || [])).trim()
+  const prompt = String(
+    data.currentUserMessage || data.prompt || lastUserMessage(data.messages || [])
+  ).trim()
   const turnIndex = Number(data.turnIndex || 0)
   if (!prompt) {
     return {
       success: false,
       code: 'VOICE_PROMPT_EMPTY',
-      message: 'voice.healingAgent 需要用户语音转写文本'
+      message: 'voice.healingTurn 需要用户语音转写文本'
     }
   }
 
-  let reply = ''
-  let source = 'local-voice-healing'
-  if (hasVivoKey()) {
-    try {
-      const result = await completeChat({
-        scene: 'immersive_voice_healing',
-        mode: 'therapist',
-        inputType: 'voice',
-        intent: 'voice_healing_turn',
-        turnIndex,
-        prompt,
-        messages: data.messages || []
-      })
-      reply = result.reply || ''
-      source = result.source || 'vivo'
-    } catch (error) {
-      console.warn('[completeVoiceHealing] remote generation failed:', error.message)
+  const safetyRoute = routeVoiceHealingSafety(prompt, {
+    sessionState: data.sessionState
+  })
+
+  if (safetyRoute.bypassModel) {
+    let toolResult = null
+    if (safetyRoute.toolCall && safetyRoute.toolCall.phase === 'execute') {
+      toolResult = await runVoiceHealingTool({
+        tool: safetyRoute.toolCall.name,
+        input: safetyRoute.toolCall.input || {}
+      }, { allowSafety: true })
+    }
+    const reply = normalizeVoiceHealingReply(safetyRoute.reply, prompt, turnIndex)
+    return {
+      success: true,
+      source: 'local-voice-safety-router',
+      provider: 'local',
+      model: '',
+      reply,
+      audioText: compactText(reply, 1800),
+      intent: safetyRoute.intent,
+      safety: safetyRoute.safety,
+      toolCall: safetyRoute.toolCall,
+      toolResult,
+      evidenceIds: getVoiceEvidenceIds(safetyRoute.toolCall),
+      retrieval: null,
+      latency: { toolMs: 0 }
     }
   }
 
-  if (!reply) reply = buildVoiceHealingFallback(prompt, turnIndex)
-  reply = normalizeVoiceHealingReply(reply, prompt, turnIndex)
+  const explicitToolCall = routeVoiceHealingExplicitTool(prompt)
+  if (explicitToolCall) {
+    const toolStartedAt = Date.now()
+    console.info('[voice.tool] explicit execute', {
+      tool: explicitToolCall.name,
+      input: explicitToolCall.input,
+      toolCallId: explicitToolCall.id
+    })
+    const toolResult = await runVoiceHealingTool({
+      tool: explicitToolCall.name,
+      input: explicitToolCall.input
+    })
+    const toolMs = Date.now() - toolStartedAt
+    console.info('[voice.tool] explicit result', {
+      tool: explicitToolCall.name,
+      success: toolResult && toolResult.success !== false,
+      source: toolResult && toolResult.source || '',
+      hasAudioFile: Boolean(toolResult && (toolResult.musicFileID || toolResult.audioFileID || toolResult.fileID)),
+      durationMs: toolMs
+    })
+    const reply = buildVoiceToolResultReply(explicitToolCall, toolResult)
+    return {
+      success: true,
+      source: 'local-voice-explicit-tool',
+      provider: 'local',
+      model: '',
+      reply: normalizeVoiceHealingReply(reply, prompt, turnIndex),
+      audioText: compactText(reply, 1800),
+      intent: `tool_${explicitToolCall.name}`,
+      safety: safetyRoute.safety,
+      toolCall: explicitToolCall,
+      toolResult,
+      evidenceIds: getVoiceEvidenceIds(explicitToolCall),
+      retrieval: null,
+      latency: { toolMs }
+    }
+  }
+
+  if (!hasChatProvider()) {
+    const fallbackReply = normalizeVoiceHealingReply(
+      buildVoiceHealingFallback(prompt, turnIndex),
+      prompt,
+      turnIndex
+    )
+    return {
+      success: true,
+      source: 'local-voice-healing',
+      provider: 'local',
+      model: '',
+      reply: fallbackReply,
+      audioText: compactText(fallbackReply, 1800),
+      intent: safetyRoute.intent,
+      safety: safetyRoute.safety,
+      toolCall: null,
+      toolResult: null,
+      evidenceIds: [],
+      retrieval: null,
+      latency: { toolMs: 0 }
+    }
+  }
+
+  const normalizedMessages = normalizeMessages(data.messages || [], prompt)
+  const rag = await retrieveArtTherapyContext(prompt, normalizedMessages, {
+    scene: 'immersive_voice_healing',
+    mode: 'therapist',
+    intent: 'voice_healing_turn',
+    inputType: 'voice'
+  })
+  const systemPrompt = buildSystemPrompt('immersive_voice_healing', {
+    mode: 'therapist',
+    intent: 'voice_healing_turn',
+    inputType: 'voice',
+    ragContext: rag.context,
+    currentUserText: prompt,
+    sessionState: data.sessionState
+  })
+
+  try {
+    const agent = await runVoiceHealingAgent([
+      { role: 'system', content: systemPrompt },
+      ...normalizedMessages
+    ], {
+      prompt,
+      turnIndex
+    })
+    const reply = normalizeVoiceHealingReply(
+      agent.reply || buildVoiceHealingFallback(prompt, turnIndex),
+      prompt,
+      turnIndex
+    )
+    console.info('[completeVoiceHealing] agent result', {
+      source: agent.source || '',
+      provider: agent.provider || '',
+      model: agent.model || '',
+      intent: agent.intent || '',
+      tool: agent.toolCall && agent.toolCall.name || '',
+      promptLength: prompt.length,
+      replyLength: reply.length
+    })
+    return {
+      success: true,
+      source: agent.source,
+      provider: agent.provider,
+      model: agent.model,
+      reply,
+      audioText: compactText(reply, 1800),
+      intent: agent.intent || safetyRoute.intent,
+      safety: safetyRoute.safety,
+      toolCall: agent.toolCall,
+      toolResult: agent.toolResult,
+      evidenceIds: getVoiceEvidenceIds(agent.toolCall),
+      retrieval: { ...rag, sources: rag.sources },
+      latency: { toolMs: agent.toolMs || 0 }
+    }
+  } catch (error) {
+    console.warn('[completeVoiceHealing] agent failed, using local reply:', error.message)
+    const fallbackReply = normalizeVoiceHealingReply(buildVoiceHealingFallback(prompt, turnIndex), prompt, turnIndex)
+    return {
+      success: true,
+      source: 'local-voice-healing-fallback',
+      provider: 'local',
+      model: '',
+      reply: fallbackReply,
+      audioText: compactText(fallbackReply, 1800),
+      intent: safetyRoute.intent,
+      safety: safetyRoute.safety,
+      toolCall: null,
+      toolResult: null,
+      evidenceIds: [],
+      retrieval: { ...rag, sources: rag.sources },
+      latency: { toolMs: 0 }
+    }
+  }
+}
+
+async function runVoiceHealingAgent(messages, options = {}) {
+  const decision = await requestVoiceAgentDecision(messages, { prompt: options.prompt })
+
+  const toolCall = decision.toolCall
+  if (!toolCall) {
+    const parsed = parseVoiceAgentDecision(decision.message && decision.message.content)
+    return {
+      reply: parsed.reply || (decision.message && decision.message.content) || '',
+      source: decision.source,
+      provider: decision.provider,
+      model: decision.model,
+      intent: parsed.intent || 'emotional_listening',
+      toolCall: null,
+      toolResult: null,
+      toolMs: 0
+    }
+  }
+
+  const toolStartedAt = Date.now()
+  console.info('[voice.tool] execute', {
+    tool: toolCall.name,
+    input: toolCall.input || {},
+    toolCallId: toolCall.id || ''
+  })
+  const toolResult = await runVoiceHealingTool({
+    tool: toolCall.name,
+    input: toolCall.input || {}
+  })
+  const toolMs = Date.now() - toolStartedAt
+  console.info('[voice.tool] result', {
+    tool: toolCall.name,
+    success: toolResult && toolResult.success !== false,
+    source: toolResult && toolResult.source || '',
+    hasAudioFile: Boolean(toolResult && (toolResult.musicFileID || toolResult.audioFileID || toolResult.fileID)),
+    durationMs: toolMs
+  })
+  const finalReply = await requestVoiceAgentFinalReply(messages, {
+    source: decision.source,
+    provider: decision.provider,
+    model: decision.model,
+    assistantMessage: decision.message,
+    toolCall,
+    toolResult
+  })
 
   return {
-    success: true,
-    source,
-    reply,
-    audioText: compactText(reply, 1800),
-    toolCall: chooseVoiceHealingTool(prompt, turnIndex)
+    ...finalReply,
+    intent: `tool_${toolCall.name}`,
+    toolCall: { ...toolCall, phase: 'execute', requiresConsent: false },
+    toolResult,
+    toolMs
+  }
+}
+
+async function requestVoiceAgentDecision(messages, options = {}) {
+  try {
+    const response = await callConfiguredChatCompletion(messages, {
+      maxTokens: 260,
+      tools: VOICE_AGENT_TOOLS,
+      toolChoice: 'auto'
+    })
+    const message = response.message || { role: 'assistant', content: '' }
+    const parsed = parseVoiceAgentDecision(message.content)
+    const toolCall = extractVoiceToolCall(message) || parsed.toolCall
+    return { ...response, message, toolCall }
+  } catch (error) {
+    // 部分 OpenAI 兼容网关不接受 tools 字段时，仍让模型按同一套 Agent prompt
+    // 输出严格 JSON 决策，而不是退回关键词路由。
+    console.warn('[requestVoiceAgentDecision] native tools unavailable, using JSON protocol:', error.message)
+    const response = await callConfiguredChatCompletion(appendVoiceJsonProtocol(messages), { maxTokens: 300 })
+    const parsed = parseVoiceAgentDecision(response.message && response.message.content)
+    return { ...response, toolCall: parsed.toolCall }
+  }
+}
+
+async function requestVoiceAgentFinalReply(messages, options = {}) {
+  const finalMessages = messages.slice()
+  if (options.guardMessage) finalMessages.push({ role: 'system', content: options.guardMessage })
+  if (options.toolCall) {
+    const assistantMessage = options.assistantMessage && (
+      Array.isArray(options.assistantMessage.tool_calls) || options.assistantMessage.function_call
+    )
+      ? options.assistantMessage
+      : {
+        role: 'assistant',
+        content: '',
+        tool_calls: [{
+          id: options.toolCall.id || `voice_tool_${Date.now()}`,
+          type: 'function',
+          function: {
+            name: options.toolCall.name,
+            arguments: JSON.stringify(options.toolCall.input || {})
+          }
+        }]
+      }
+    finalMessages.push(assistantMessage)
+    finalMessages.push({
+      role: 'tool',
+      tool_call_id: options.toolCall.id || `voice_tool_${Date.now()}`,
+      name: options.toolCall.name,
+      content: compactText(JSON.stringify(options.toolResult || {}), 5000)
+    })
+  }
+
+  try {
+    const response = await callConfiguredChatCompletion(finalMessages, { maxTokens: 260 })
+    const parsed = parseVoiceAgentDecision(response.message && response.message.content)
+    return {
+      reply: parsed.reply || (response.message && response.message.content) || '',
+      source: response.source || options.source,
+      provider: response.provider || options.provider,
+      model: response.model || options.model
+    }
+  } catch (error) {
+    console.warn('[requestVoiceAgentFinalReply] failed:', error.message)
+    return {
+      reply: buildVoiceToolResultReply(options.toolCall, options.toolResult),
+      source: options.source || 'local-voice-tool-fallback',
+      provider: options.provider || 'local',
+      model: options.model || ''
+    }
+  }
+}
+
+function appendVoiceJsonProtocol(messages) {
+  return messages.concat({
+    role: 'system',
+    content: [
+      '当前对话网关不支持原生 function calling。请严格只输出一个 JSON 对象，不要 Markdown，不要额外文字。',
+      '格式：{"reply":"给用户的自然中文回复","intent":"简短意图名","tool_call":null 或 {"name":"工具名","arguments":{}}}。',
+      '根据整个对话、用户当前状态和工具返回结果，自行判断是否需要 tool_call；没有合适工具时填写 null。不要等待固定确认词，也不要把提到某个练习自动当成调用。'
+    ].join('\n')
+  })
+}
+
+function parseVoiceAgentDecision(content) {
+  const text = String(content || '').trim()
+  if (!text) return { reply: '', intent: '', toolCall: null }
+  const candidates = [
+    text,
+    text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim(),
+    extractJsonObject(text)
+  ].filter(Boolean)
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate)
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) continue
+      return {
+        reply: String(parsed.reply || parsed.response || '').trim(),
+        intent: String(parsed.intent || '').trim(),
+        toolCall: normalizeVoiceToolCall(parsed.tool_call || parsed.toolCall || parsed.tool)
+      }
+    } catch (error) {
+      // 继续尝试下一个 JSON 候选；普通自然语言回复会在循环后原样返回。
+    }
+  }
+  return { reply: text, intent: '', toolCall: null }
+}
+
+function extractJsonObject(text) {
+  const start = String(text || '').indexOf('{')
+  const end = String(text || '').lastIndexOf('}')
+  if (start === -1 || end <= start) return ''
+  return String(text).slice(start, end + 1)
+}
+
+function extractVoiceToolCall(message) {
+  if (!message) return null
+  const calls = Array.isArray(message.tool_calls) ? message.tool_calls : []
+  if (calls.length) {
+    const call = calls[0]
+    return normalizeVoiceToolCall({
+      id: call.id,
+      name: call.function && call.function.name,
+      arguments: call.function && call.function.arguments
+    })
+  }
+  if (message.function_call) {
+    return normalizeVoiceToolCall({
+      name: message.function_call.name,
+      arguments: message.function_call.arguments
+    })
+  }
+  return null
+}
+
+function normalizeVoiceToolCall(toolCall) {
+  if (!toolCall) return null
+  const name = String(toolCall.name || '').trim()
+  if (!name || !VOICE_AGENT_TOOL_NAMES.has(name)) return null
+  let input = toolCall.input || toolCall.arguments || {}
+  if (typeof input === 'string') {
+    try { input = JSON.parse(input) } catch (error) { input = {} }
+  }
+  if (!input || typeof input !== 'object' || Array.isArray(input)) input = {}
+  return {
+    id: String(toolCall.id || `voice_tool_${Date.now()}`),
+    name,
+    input,
+    phase: toolCall.phase || 'execute',
+    requiresConsent: Boolean(toolCall.requiresConsent)
+  }
+}
+
+function buildVoiceToolResultReply(toolCall, toolResult) {
+  if (!toolCall) return '我在听。你不用急着把这一刻说清楚。'
+  if (toolCall.name === 'handoff_support') return '我会先陪你停在这里。现在最重要的是让身边真实的人知道你正需要支持，请尽量不要独处。'
+  const result = toolResult || {}
+  if (result.instruction) return result.instruction
+  if (result.description) return result.description
+  if (result.exercise && result.exercise.steps && result.exercise.steps[0]) return result.exercise.steps[0]
+  return buildToolStartReply(toolCall.name, toolCall.input || {})
+}
+
+async function completeVoiceHealingTurn(data = {}) {
+  const planningStartedAt = Date.now()
+  const plan = await completeVoiceHealing(data)
+  if (!plan.success) return plan
+
+  const latency = {
+    planningMs: Date.now() - planningStartedAt,
+    ttsMs: 0,
+    toolMs: plan.latency && Number(plan.latency.toolMs || 0) || 0
+  }
+  let ttsResult = null
+  if (plan.audioText && !data.isMuted) {
+    const ttsStartedAt = Date.now()
+    try {
+      ttsResult = await synthesizeTts({
+        text: plan.audioText,
+        voice: data.voice,
+        userId: data.userId || 'artcure_voice_user'
+      })
+      latency.ttsMs = Date.now() - ttsStartedAt
+    } catch (error) {
+      latency.ttsMs = Date.now() - ttsStartedAt
+      ttsResult = {
+        success: false,
+        code: 'VOICE_TTS_FAILED',
+        message: error.message
+      }
+      }
+  }
+
+  return {
+    ...plan,
+    audioUrl: ttsResult && ttsResult.success ? ttsResult.audioUrl : '',
+    audioFileID: ttsResult && ttsResult.success ? ttsResult.fileID : '',
+    ttsSource: ttsResult && ttsResult.source,
+    toolResult: plan.toolResult && plan.toolResult.success !== false ? plan.toolResult : null,
+    toolError: plan.toolResult && plan.toolResult.success === false ? plan.toolResult.message : '',
+    latency
   }
 }
 
@@ -991,87 +1748,179 @@ function normalizeVoiceHealingReply(reply, prompt, turnIndex) {
   return (compact || cleaned.slice(0, 120)).trim()
 }
 
-function chooseVoiceHealingTool(prompt, turnIndex) {
-  const text = String(prompt || '')
-  if (/^(嗯+|好+|好的?|可以|行|知道了|没有|没事|谢谢)[。！!，,。 ]*$/i.test(text)) {
+function routeVoiceHealingSafety(prompt, meta = {}) {
+  const text = String(prompt || '').trim()
+  const normalized = text.replace(/[。！？!?，,、；;：: ]+$/g, '')
+  if (hasCrisisSignal(text)) {
     return {
-      name: 'mindfulness',
-      reason: '用户在确认陪伴节奏，保持当前练习的连续性',
-      input: { anchor: 'breath' }
+      intent: 'safety_crisis',
+      bypassModel: true,
+      safety: { level: 'high', action: 'handoff_support' },
+      toolCall: {
+        name: 'handoff_support',
+        phase: 'execute',
+        requiresConsent: false,
+        reason: '识别到可能的现实危险或自伤/他伤信号',
+        input: {}
+      },
+      reply: '我听见你现在可能正处在很危险、很难独自承受的时刻。先暂停这段练习，尽量不要独处，请马上联系身边可信任的人、当地急救服务或心理危机援助。'
     }
   }
 
-  if (/音乐|声音|安静|吵|睡不着|放松|紧绷|白噪|噪音|背景声/.test(text)) {
-    const soundscape = /海|雨|自然/.test(text)
-      ? 'ocean'
-      : /吵|白噪|噪音/.test(text)
-        ? 'white_noise'
-        : /低沉|压迫|沉下来/.test(text)
-          ? 'brown_noise'
-          : 'pink_noise'
+  if (/^(不用|不要|不需要|先不用|停一下|停止|退出|结束|别放)/i.test(normalized)) {
     return {
-      name: 'healing_music',
-      reason: '用户需要更稳定的听觉背景',
-      input: { mood: 'soft', soundscape, duration: 30 }
+      intent: 'decline_or_stop',
+      bypassModel: true,
+      safety: { level: 'normal', action: 'cancel_pending_tool' },
+      toolCall: null,
+      reply: '好，我们先不做这个练习，也不播放声音。我会留在这里，你想继续说，或者安静一会儿，都可以。'
     }
   }
-  if (/呼吸|胸口|心跳|慌|焦虑|紧张|喘不过气|心烦|发慌/.test(text)) {
-    return {
-      name: 'breathing',
-      reason: '用户提到需要先安顿身体节奏',
-      input: { pattern: '4-6', rounds: 4 }
-    }
-  }
+
   return {
-    name: 'mindfulness',
-    reason: '把注意力温和地带回当下',
-    input: { anchor: 'body' }
+    intent: 'emotional_listening',
+    bypassModel: false,
+    safety: { level: 'normal', action: 'continue' },
+    toolCall: null,
+    reply: ''
   }
+}
+
+function routeVoiceHealingExplicitTool(prompt) {
+  const text = String(prompt || '').trim()
+  if (!text) return null
+
+  const requestsSoundscape = /(?:启动|开始|播放|放|打开|来一段|给我一段).{0,12}(?:声音陪伴|环境音|音景|背景音|雨声|海浪声|白噪音|粉红噪声|棕噪声)/.test(text) ||
+    /(?:声音陪伴|环境音|音景|背景音|雨声|海浪声|白噪音|粉红噪声|棕噪声).{0,12}(?:吧|可以|好|要|行)/.test(text)
+  if (!requestsSoundscape) return null
+
+  return {
+    id: `voice_tool_direct_${Date.now()}`,
+    name: 'start_soundscape',
+    input: {
+      soundscape: inferSoundscape(text),
+      duration: 180,
+      volume: 0.34
+    },
+    phase: 'execute',
+    requiresConsent: false
+  }
+}
+
+function inferSoundscape(text) {
+  if (/rain|雨/.test(text)) return 'rain'
+  if (/ocean|海|浪|自然/.test(text)) return 'ocean'
+  if (/white_noise|白噪|噪音|吵/.test(text)) return 'white_noise'
+  if (/brown_noise|棕噪|低沉|压迫|沉下来/.test(text)) return 'brown_noise'
+  if (/night|夜|睡/.test(text)) return 'night'
+  return 'pink_noise'
+}
+
+function buildToolStartReply(tool, input = {}) {
+  if (tool === 'start_soundscape') {
+    return `我为你准备一段低音量的${getSoundscapeLabel(inferSoundscape(String(input.soundscape || '')))}音景。你不用配合说话，如果不舒服，随时告诉我“停一下”。`
+  }
+  if (tool === 'start_breathing') {
+    return '我们先做四轮自然呼吸：吸气四秒，呼气六秒，不屏息。任何不舒服都回到自然呼吸。'
+  }
+  if (tool === 'start_grounding') {
+    return '我们做一个很短的感官接地：感受双脚或座面的接触，再找一个听得见的声音和一处愿意看的颜色。'
+  }
+  if (tool === 'start_art_exercise') {
+    return '如果你愿意，拿一张纸画三分钟连续线条。让笔尖慢慢走，不追求画得像，停下后再看看最先注意到的地方。'
+  }
+  return '我会陪你慢慢来。'
+}
+
+function getVoiceEvidenceIds(toolCall) {
+  if (!toolCall || !voiceHealingSkills[toolCall.name]) return []
+  return (voiceHealingSkills[toolCall.name].sources || []).map(source => source.title)
 }
 
 function buildVoiceHealingFallback(prompt, turnIndex) {
   const text = String(prompt || '').trim()
   if (/^(嗯+|好+|好的?|可以|行|知道了|没有|没事|谢谢)[。！!，,。 ]*$/i.test(text) && Number(turnIndex || 0) > 0) {
-    return '嗯，我在。我们不用急着往下走，先陪这一口呼吸停一会儿。等你愿意时，只要告诉我一个颜色，或者说“继续”就好。'
+    return '嗯，我在。我们不用急着往下走，安静一会儿也可以。等你愿意时，告诉我一个刚刚掠过脑子的词就好。'
   }
 
   if (/累|疲惫|工作|加班|撑不住|耗尽/.test(text)) {
     return '听起来你今天被消耗了不少。先不用把自己调整好，我陪你安静坐一会儿。现在更想说说发生了什么，还是只想听一点安静的声音？'
   }
   if (/焦虑|紧张|心慌|喘|胸口|害怕|发抖/.test(text)) {
-    return '这会儿身体好像比语言更早感到紧张。我们先把速度放慢一点，吸气不用很深，呼气稍微长一些。你现在最明显的感觉在哪里？'
+    return '这会儿身体好像比语言更早感到紧张，像是已经撑了一阵子。先不用解决它，你现在最明显的感觉在胸口、肩膀，还是脑子里？'
   }
   if (/难过|委屈|失望|想哭|孤单|低落/.test(text)) {
-    return '这句话里有一点难过，我先陪你把它放在这里，不急着解释。你更想让我听你说，还是陪你找一个能让身体松一点的小地方？'
+    return '这句话里有一点难过，我先陪你把它放在这里，不急着解释。你更想让我听你说，还是先陪你安静一会儿？'
   }
 
-  const fallbacks = [
-    `我在这儿。你刚才说的「${text || '这一刻'}」可以先不用整理成结论，想从哪一点开始说都可以。`,
-    '嗯，我跟着你。我们先不急着往下走，你可以告诉我刚才那一刻最先冒出来的一个词。',
-    '我还在听。你不用说得完整，哪怕只是一个颜色、一个声音，或者一句“我不知道”也可以。',
-    '我们可以先停一下。此刻不用证明自己已经好起来，只要知道你正在陪自己走过这一小段。'
-  ]
-  return fallbacks[Math.min(Math.max(turnIndex, 0), fallbacks.length - 1)]
+  if (text) {
+    return `我听见你刚才说：“${compactText(text, 72)}”。我先不替你下结论。你想让我先听你说说，还是陪你做一个很短的练习？`
+  }
+
+  return '我在这儿。你不用把话说得完整，想从哪一点开始都可以。'
 }
 
-function hasVivoKey() {
-  return Boolean(getConfigValue('VIVO_APP_KEY'))
+function hasLlmKey() {
+  return Boolean(getLlmApiKey())
+}
+
+function getLlmApiKey() {
+  return getConfigValue('LLM_API_KEY') || ''
 }
 
 function hasJiuwenKey() {
   return Boolean(getJiuwenApiKey())
 }
 
-function hasVivoPoiKey() {
-  return hasVivoKey()
-}
-
 function getJiuwenApiKey() {
   return getConfigValue('JIUWEN_API_KEY') || ''
 }
 
+function hasChatProvider() {
+  return hasLlmKey() || hasVivoKey() || hasJiuwenKey()
+}
+
+function hasVivoKey() {
+  return Boolean(getConfigValue('VIVO_APP_KEY'))
+}
+
+function hasVivoPoiKey() {
+  return hasVivoKey()
+}
+
 function getConfigValue(key) {
   return process.env[key] || localConfig[key] || ''
+}
+
+function normalizeConfigValue(value) {
+  return String(value || '').trim().replace(/\/$/, '')
+}
+
+function getRequiredConfigValue(key) {
+  const value = String(getConfigValue(key) || '').trim()
+  if (!value) {
+    throw createGatewayError(
+      'CONFIG_MISSING',
+      `缺少云函数环境变量 ${key}，请在 vivoAigcGateway 的环境变量中配置`
+    )
+  }
+  return value
+}
+
+function getRequiredLlmBaseUrl() {
+  return normalizeConfigValue(getRequiredConfigValue('LLM_BASE_URL'))
+}
+
+function getRequiredVivoBaseUrl() {
+  return normalizeConfigValue(getRequiredConfigValue('VIVO_API_BASE'))
+}
+
+function getRequiredVivoPoiBaseUrl() {
+  return normalizeConfigValue(getRequiredConfigValue('VIVO_POI_BASE_URL'))
+}
+
+function getRequiredVivoWsHost() {
+  return normalizeConfigValue(getRequiredConfigValue('VIVO_WS_HOST'))
 }
 
 function loadLocalConfig() {
@@ -1103,13 +1952,13 @@ function normalizeGatewayError(error) {
   if ((error && error.httpStatusCode === 401) || /HTTP\s*401|unauthorized/i.test(message)) {
     return {
       code: 'AI_AUTH_UNAUTHORIZED',
-      message: 'AI 服务鉴权失败：请检查 vivoAigcGateway 云函数环境变量 JIUWEN_API_KEY 或 VIVO_APP_KEY 是否有效，并重新上传部署云函数。'
+      message: 'AI 服务鉴权失败：请检查 vivoAigcGateway 云函数环境变量 LLM_API_KEY 是否有效，并重新上传部署云函数。'
     }
   }
 
-  if (/VIVO_APP_KEY/.test(message)) {
+  if (/LLM_API_KEY/.test(message)) {
     return {
-      code: 'VIVO_KEY_MISSING',
+      code: 'LLM_KEY_MISSING',
       message
     }
   }
@@ -1166,19 +2015,29 @@ function buildSystemPrompt(scene, meta = {}) {
   if (scene === 'immersive_voice_healing') {
     const knowledge = meta.ragContext
       ? `【可参考的艺术疗愈知识】\n${meta.ragContext}\n`
-      : '【可参考的艺术疗愈知识】\n只使用低风险、可自愿停止的艺术疗愈和正念原则。\n'
+      : '【可参考的艺术疗愈知识】\n可适当参考一些合适的艺术疗愈技巧和引导。\n'
+    const currentUserText = String(meta.currentUserText || '').trim()
+    const currentUserAnchor = currentUserText
+      ? [
+        '【本轮用户】',
+        `用户原话：“${compactText(currentUserText, 360)}”`,
+        '请围绕这句话自然回应；如果没有听清或意思不完整，先简单确认，不要自行猜测。'
+      ].join('\n')
+      : '【本轮用户】请围绕最后一条 role=user 消息自然回应。'
     return [
-      '你是“艺呦”，一位通过手机语音陪伴用户的艺术疗愈 AI。',
+      '你是“艺呦”，一位通过手机语音陪伴用户的艺术疗愈师 AI。',
       '你提供的是自我觉察、情绪支持和低风险练习，不能诊断、不能替代心理咨询或医疗服务。',
       '如果用户表达自伤、伤害他人、强烈绝望或现实危险，先温和提醒联系身边可信任的人、当地紧急服务或专业危机援助。',
       knowledge,
       '【当前任务】进行“听与说”的沉浸式艺术疗愈。用户可能闭着眼，只靠听和说参与。',
-      '【回复要求】',
-      '1. 先回应用户刚才的具体词语或画面，再自然接话，不要使用固定模板开场。',
-      '2. 用户只是分享时先陪伴和追问；只有明确需要方法时，才给一个很小的动作。',
-      '3. 只说 2～3 句、45～120 个中文字符，适合女声播报；最多问一个问题。',
-      '4. 不用 Markdown、标题、列表、括号说明、心理诊断或“作为 AI”等话术。',
-      '5. “嗯、好、可以、没有”等短回应要承接上一轮，不重新介绍流程。练习只在需要时给出。'
+      currentUserAnchor,
+      '【工具决策规则】',
+      '1. 通过理解用户此刻的需要，自行判断是否调用播放声音、做呼吸、接地、画画或分析作品等工具。',
+      '2. 如果决定使用工具，直接发起对应的 tool_call，不要只在回复里说“准备好了”或“开始了”；等工具返回结果后，再自然地告诉用户下一步。',
+      '3. 用户明确表示不要、停止或不舒服时，停止当前练习；一次只调用一个最合适的工具。',
+      '【表达方式】',
+      '语气自然、温和、口语化，适合直接播报，模仿真实疗愈师直接对话的形式，也不要太死板。根据用户说的内容做自然的回应，不必每次提问或提出练习。',
+      '回复通常控制在约 20～120 个中文字符，简单回应可以更短，内容复杂时可以适当展开。不要做心理诊断或替代专业服务。'
     ].join('\n')
   }
 
@@ -1287,22 +2146,22 @@ function isTherapistChatMode(scene, mode, intent) {
 
 function getChatGenerationConfig(scene, mode, intent) {
   if (scene === 'immersive_voice_healing' || intent === 'voice_healing_turn') {
-    return { temperature: 0.48, maxTokens: 220 }
+    return { maxTokens: 220 }
   }
 
   if (isGuideIntent(scene, intent)) {
-    return { temperature: 0.72, maxTokens: 1500 }
+    return { maxTokens: 1500 }
   }
   if (isShortCompanionMode(scene, mode, intent)) {
-    return { temperature: 0.78, maxTokens: 260 }
+    return { maxTokens: 260 }
   }
   if (isTreeHoleMode(scene, mode, intent)) {
-    return { temperature: 0.66, maxTokens: 560 }
+    return { maxTokens: 560 }
   }
   if (isTherapistChatMode(scene, mode, intent)) {
-    return { temperature: 0.58, maxTokens: 1000 }
+    return { maxTokens: 1000 }
   }
-  return { temperature: 0.62, maxTokens: 1200 }
+  return { maxTokens: 1200 }
 }
 
 function normalizeMessages(messages, prompt) {
@@ -1336,20 +2195,8 @@ async function retrieveArtTherapyContext(prompt, messages, meta = {}) {
   let ranked = localRanked
   let ranker = 'local-keyword'
 
-  // 语音疗愈的知识库很小且已在本地完成关键词排序；每轮再调用远程 rerank
-  // 只会增加一次网络往返，直接使用本地结果可以缩短首句回复等待。
-  const isVoiceHealing = meta.scene === 'immersive_voice_healing' || meta.intent === 'voice_healing_turn'
-  if (hasVivoKey() && localRanked.length > 1 && !isVoiceHealing) {
-    try {
-      const reranked = await rerankKnowledgeChunks(query, localRanked)
-      if (reranked.length) {
-        ranked = reranked
-        ranker = 'vivo-rerank'
-      }
-    } catch (error) {
-      console.warn('[RAG] vivo rerank failed, using local ranking:', error.message)
-    }
-  }
+  // 当前 LLM 已切换到独立 OpenAI 兼容接口，知识库使用本地关键词排序，
+  // 避免这一轮请求额外触发 vivo 的 rerank 服务。
 
   const topK = meta.intent === 'three_minute_guide' || meta.scene === 'three_minute_guide' ? 5 : 4
   const selected = ranked.slice(0, topK)
@@ -1361,7 +2208,9 @@ async function retrieveArtTherapyContext(prompt, messages, meta = {}) {
     sources: selected.map(item => ({
       id: item.id,
       title: item.title,
-      score: typeof item.score === 'number' ? Number(item.score.toFixed(4)) : item.score
+      score: typeof item.score === 'number' ? Number(item.score.toFixed(4)) : item.score,
+      evidenceLevel: item.evidenceLevel || 'unclassified',
+      sourceUrls: item.sourceUrls || []
     }))
   }
 }
@@ -1433,7 +2282,7 @@ async function rerankKnowledgeChunks(query, chunks) {
   const requestId = createRequestId()
   const response = await requestJson({
     method: 'POST',
-    url: `${VIVO_BASE_URL}/rerank?requestId=${encodeURIComponent(requestId)}`,
+    url: `${getRequiredVivoBaseUrl()}/rerank?requestId=${encodeURIComponent(requestId)}`,
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${getConfigValue('VIVO_APP_KEY')}`
@@ -1480,7 +2329,21 @@ function buildBigrams(text) {
 }
 
 function hasCrisisSignal(text) {
-  return ['自杀', '自残', '伤害自己', '不想活', '活不下去', '结束生命', '伤害别人'].some(keyword => text.includes(keyword))
+  const normalized = String(text || '')
+  const keywords = [
+    '自杀',
+    '自残',
+    '伤害自己',
+    '不想活',
+    '活不下去',
+    '结束生命',
+    '想死',
+    '想消失',
+    '没有活着的意义',
+    '伤害别人',
+    '杀人'
+  ]
+  return keywords.some(keyword => normalized.includes(keyword))
 }
 
 function extractGuideText(reply, scene, intent) {
@@ -1677,99 +2540,60 @@ function detectImageMime(buffer) {
   return 'image/jpeg'
 }
 
-async function uploadCloudFileToJiuwen(fileID) {
-  console.log('[artwork.analyze] preparing jiuwen media upload', {
-    fileID
-  })
-
+async function resolveArtworkImageInput({ fileID, imageUrl }) {
+  if (imageUrl) return String(imageUrl)
   const file = await getCloudFileBuffer(fileID)
-  console.log('[artwork.analyze] cloud file downloaded', {
-    fileID,
-    filename: file.filename,
-    contentType: file.contentType,
-    size: file.buffer.length
-  })
-
-  const uploadRes = await uploadJiuwenMedia(file)
-  const mediaUrl = uploadRes.work_url || uploadRes.idc_url || uploadRes.url
-
-  console.log('[artwork.analyze] jiuwen media-upload response', {
-    success: uploadRes.success,
-    contentType: uploadRes.content_type,
-    hasWorkUrl: Boolean(uploadRes.work_url),
-    hasIdcUrl: Boolean(uploadRes.idc_url),
-    workUrl: maskUrl(uploadRes.work_url),
-    idcUrl: maskUrl(uploadRes.idc_url),
-    selectedUrl: maskUrl(mediaUrl)
-  })
-
-  if (!mediaUrl) {
-    throw new Error(`九问媒体上传失败：${JSON.stringify(uploadRes).slice(0, 1000)}`)
-  }
-
-  return mediaUrl
+  return `data:${file.contentType};base64,${file.buffer.toString('base64')}`
 }
 
-async function uploadJiuwenMedia(file) {
-  return await requestMultipart({
-    method: 'POST',
-    url: `${JIUWEN_BASE_URL}${JIUWEN_MEDIA_UPLOAD_PATH}`,
-    headers: {
-      Authorization: `Bearer ${getJiuwenApiKey()}`
-    },
-    fields: {
-      user: 'wechat-miniprogram-user'
-    },
-    file: {
-      fieldName: 'file',
-      filename: file.filename,
-      contentType: file.contentType,
-      buffer: file.buffer
-    },
-    timeout: 45000
-  })
-}
-
-async function callJiuwenArtworkVision({ imageUrl, prompt, sourceType }) {
+async function callLlmArtworkVision({ imageInput, prompt, sourceType }) {
   const query = buildArtworkVisionQuery({ prompt, sourceType })
+  const llmBaseUrl = getRequiredLlmBaseUrl()
+  const llmVisionModel = getRequiredConfigValue('LLM_VISION_MODEL')
+  const llmApiKey = getRequiredConfigValue('LLM_API_KEY')
 
-  console.log('[artwork.analyze] call jiuwen chat-messages', {
-    imageUrl: maskUrl(imageUrl),
+  console.log('[artwork.analyze] call llm vision', {
+    inputType: imageInput.startsWith('data:') ? 'data-url' : 'remote-url',
     queryLength: query.length,
     sourceType
   })
 
   const response = await requestJson({
     method: 'POST',
-    url: `${JIUWEN_BASE_URL}${JIUWEN_CHAT_MESSAGES_PATH}`,
+    url: `${llmBaseUrl}${LLM_CHAT_PATH}`,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
-      Authorization: `Bearer ${getJiuwenApiKey()}`
+      Authorization: `Bearer ${llmApiKey}`
     },
-    body: {
-      inputs: {},
-      query,
-      user: 'wechat-miniprogram-user',
-      response_mode: 'blocking',
-      upload_mediums: [
+    body: buildLlmPayload({
+      model: llmVisionModel,
+      messages: [
         {
-          url: imageUrl,
-          type: 'image'
+          role: 'system',
+          content: '你是艺呦艺术疗愈陪伴的创作观察助手。只做画面观察和低风险自我觉察引导，不做心理诊断，不武断解释象征意义。'
+        },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: query },
+            { type: 'image_url', image_url: { url: imageInput } }
+          ]
         }
-      ]
-    },
-    timeout: 55000
+      ],
+      maxTokens: 900
+    }),
+    timeout: 60000
   })
 
-  const answer = extractJiuwenAnswer(response)
-  console.log('[artwork.analyze] jiuwen chat-messages response', {
+  const answer = extractChatCompletionContent(response)
+  console.log('[artwork.analyze] llm vision response', {
     responseKeys: response && typeof response === 'object' ? Object.keys(response) : [],
     hasAnswer: Boolean(answer),
     answerLength: String(answer || '').length
   })
 
   if (!answer) {
-    throw new Error(`九问 chat-messages 返回中没有 answer 字段：${JSON.stringify(response).slice(0, 1000)}`)
+    throw new Error(`LLM 视觉接口返回了空回复：${JSON.stringify(response).slice(0, 1000)}`)
   }
 
   return answer
@@ -1787,44 +2611,113 @@ function buildArtworkVisionQuery({ prompt, sourceType }) {
   ].join('\n')
 }
 
-function extractJiuwenAnswer(response) {
-  const data = response && response.data
-  const dataOutputs = data && data.outputs
-  const outputs = response && response.outputs
-  return (response && response.answer) ||
-    (data && data.answer) ||
-    (dataOutputs && dataOutputs.answer) ||
-    (dataOutputs && dataOutputs.text) ||
-    (outputs && outputs.answer) ||
-    (outputs && outputs.text) ||
-    ''
+async function callConfiguredChatCompletion(messages, options = {}) {
+  if (hasLlmKey()) {
+    try {
+      const response = await callLlmChatCompletion(messages, options)
+      const message = extractChatCompletionMessage(response)
+      if (!message) throw new Error('LLM 接口没有返回 assistant message')
+      return {
+        message,
+        source: 'llm',
+        provider: 'openai-compatible',
+        model: options.model || DEFAULT_CHAT_MODEL
+      }
+    } catch (error) {
+      if (!hasVivoKey() && !hasJiuwenKey()) throw error
+      console.warn('[callConfiguredChatCompletion] LLM provider failed, trying configured vivo provider:', error.message)
+    }
+  }
+
+  if (hasVivoKey()) {
+    try {
+      const response = await callVivoChatCompletion(messages, options)
+      const message = extractChatCompletionMessage(response)
+      if (!message) throw new Error('vivo 接口没有返回 assistant message')
+      return {
+        message,
+        source: 'vivo-llm',
+        provider: 'vivo-compatible',
+        model: options.model || VIVO_CHAT_MODEL
+      }
+    } catch (error) {
+      if (!hasJiuwenKey()) throw error
+      console.warn('[callConfiguredChatCompletion] vivo provider failed, trying Jiuwen:', error.message)
+    }
+  }
+
+  if (hasJiuwenKey()) {
+    const reply = await callJiuwenTextChat(messages)
+    return {
+      message: { role: 'assistant', content: reply },
+      source: 'jiuwen-llm',
+      provider: 'jiuwen-compatible',
+      model: options.model || VIVO_CHAT_MODEL
+    }
+  }
+
+  throw new Error('未配置可用的对话模型')
 }
 
-function maskUrl(url) {
-  if (!url) return ''
-  const text = String(url)
-  if (text.length <= 120) return text
-  return `${text.slice(0, 80)}...${text.slice(-32)}`
+async function callConfiguredChat(messages, options = {}) {
+  const result = await callConfiguredChatCompletion(messages, options)
+  const reply = extractChatMessageContent(result.message)
+  if (!reply) throw new Error('对话模型返回了空回复')
+  return { ...result, reply }
 }
 
 async function callVivoChat(messages, options = {}) {
+  const response = await callVivoChatCompletion(messages, options)
+  const content = extractChatCompletionContent(response)
+  if (!content) throw new Error('vivo/九问对话模型接口返回了空回复')
+  return content
+}
+
+async function callVivoChatCompletion(messages, options = {}) {
   const requestId = createRequestId()
-  const model = options.model || DEFAULT_CHAT_MODEL
+  const vivoBaseUrl = getRequiredVivoBaseUrl()
   const payload = {
-    model,
+    model: options.model || VIVO_CHAT_MODEL,
     messages,
-    temperature: typeof options.temperature === 'number' ? options.temperature : 0.6,
-    max_tokens: options.max_tokens || 1200,
+    temperature: typeof options.temperature === 'number' ? options.temperature : 0.65,
+    max_tokens: options.maxTokens || 1200,
     stream: false
   }
+  if (Array.isArray(options.tools) && options.tools.length) {
+    payload.tools = options.tools
+    payload.tool_choice = options.toolChoice || 'auto'
+  }
+  const candidates = []
+  const encodedRequestId = encodeURIComponent(requestId)
+  const vivoKey = getConfigValue('VIVO_APP_KEY')
+  const jiuwenKey = getJiuwenApiKey()
 
-  const candidates = buildChatEndpointCandidates(requestId)
-  let response = null
+  if (vivoKey) {
+    candidates.push(
+      {
+        name: 'vivo-openai-request-id',
+        url: `${vivoBaseUrl}/v1/chat/completions?request_id=${encodedRequestId}`,
+        apiKey: vivoKey
+      },
+      {
+        name: 'vivo-openai-requestId',
+        url: `${vivoBaseUrl}/v1/chat/completions?requestId=${encodedRequestId}`,
+        apiKey: vivoKey
+      }
+    )
+  }
+  if (jiuwenKey) {
+    candidates.push({
+      name: 'jiuwen-openai-request-id',
+      url: `${JIUWEN_BASE_URL}/chat/completions?request_id=${encodedRequestId}`,
+      apiKey: jiuwenKey
+    })
+  }
+
   let lastError = null
-
   for (const candidate of candidates) {
     try {
-      response = await requestJson({
+      const response = await requestJson({
         method: 'POST',
         url: candidate.url,
         headers: {
@@ -1834,43 +2727,43 @@ async function callVivoChat(messages, options = {}) {
         body: payload,
         timeout: 45000
       })
-      break
+      const message = extractChatCompletionMessage(response)
+      if (message && (extractChatMessageContent(message) || Array.isArray(message.tool_calls) || message.function_call)) {
+        console.info('[callVivoChat] remote model response', {
+          endpoint: candidate.name,
+          model: payload.model,
+          replyLength: extractChatMessageContent(message).length,
+          hasToolCalls: Boolean(message.tool_calls || message.function_call)
+        })
+        return response
+      }
+      lastError = new Error(`${candidate.name} 返回了空回复`)
     } catch (error) {
       lastError = error
       console.warn('[callVivoChat] endpoint failed:', candidate.name, error.message)
-      if (!isEndpointFallbackError(error)) {
-        throw error
-      }
     }
   }
 
-  if (!response && JIUWEN_BASE_URL && getJiuwenApiKey()) {
+  // 九问的 chat-messages 接口不是 OpenAI 兼容格式，作为已配置的 vivo
+  // 模型入口再尝试一次，避免网关只因为 endpoint 版本差异落到本地固定回复。
+  if (jiuwenKey) {
     try {
       const answer = await callJiuwenTextChat(messages)
-      if (answer) return answer
+      if (answer) {
+        return {
+          choices: [{ message: { role: 'assistant', content: answer } }]
+        }
+      }
     } catch (error) {
       lastError = error
       console.warn('[callVivoChat] jiuwen chat-messages failed:', error.message)
     }
   }
 
-  if (!response) {
-    throw lastError || new Error('蓝心大模型接口调用失败')
-  }
-
-  const choices = response && response.choices
-  const firstChoice = Array.isArray(choices) ? choices[0] : null
-  const content = firstChoice && firstChoice.message && firstChoice.message.content
-  if (Array.isArray(content)) {
-    const text = content.map(item => typeof item === 'string' ? item : item && item.text || '').join('')
-    if (text.trim()) return text.trim()
-  }
-  if (typeof content === 'string' && content.trim()) return content.trim()
-  throw new Error('蓝心大模型返回了空回复')
+  throw lastError || new Error('vivo/九问对话模型接口调用失败')
 }
 
 async function callJiuwenTextChat(messages) {
-  const query = buildJiuwenTextQuery(messages)
   const response = await requestJson({
     method: 'POST',
     url: `${JIUWEN_BASE_URL}${JIUWEN_CHAT_MESSAGES_PATH}`,
@@ -1880,73 +2773,123 @@ async function callJiuwenTextChat(messages) {
     },
     body: {
       inputs: {},
-      query,
+      query: buildJiuwenTextQuery(messages),
       user: 'wechat-miniprogram-user',
       response_mode: 'blocking'
     },
     timeout: 55000
   })
-
   const answer = extractJiuwenAnswer(response)
   if (!answer) {
     throw new Error(`九问 chat-messages 返回中没有 answer 字段：${JSON.stringify(response).slice(0, 1000)}`)
   }
-
   return answer
 }
 
 function buildJiuwenTextQuery(messages) {
-  const system = []
-  const dialog = []
-
-  normalizeMessages(messages, '').forEach(item => {
-    if (item.role === 'system') {
-      system.push(item.content)
-      return
-    }
-    dialog.push(`${item.role === 'assistant' ? '艺哟' : '用户'}：${item.content}`)
-  })
-
+  const normalized = Array.isArray(messages)
+    ? messages.filter(item => item && item.content).map(item => ({
+      role: item.role === 'assistant' ? 'assistant' : item.role === 'system' ? 'system' : 'user',
+      content: String(item.content)
+    }))
+    : []
+  const dialog = normalized
+    .filter(item => item.role !== 'system')
+    .map(item => `${item.role === 'assistant' ? '艺呦' : '用户'}：${item.content}`)
+    .slice(-8)
+    .join('\n')
+  const system = normalized
+    .filter(item => item.role === 'system')
+    .map(item => item.content)
+    .join('\n')
   return compactText([
-    system.length ? `请严格遵守以下角色和安全边界：\n${system.join('\n')}` : '',
-    '请根据下面对话生成回复：',
-    dialog.slice(-8).join('\n')
+    system ? `请遵守以下角色和安全边界：\n${system}` : '',
+    '请根据下面的对话生成最后一轮回复：',
+    dialog
   ].filter(Boolean).join('\n\n'), 6000)
 }
 
-function buildChatEndpointCandidates(requestId) {
-  const appKey = getConfigValue('VIVO_APP_KEY')
-  const jiuwenKey = getJiuwenApiKey()
-  const encodedRequestId = encodeURIComponent(requestId)
-  const candidates = [
-    {
-      name: 'vivo-openai-request-id',
-      url: `${VIVO_BASE_URL}/v1/chat/completions?request_id=${encodedRequestId}`,
-      apiKey: appKey
-    },
-    {
-      name: 'vivo-openai-requestId',
-      url: `${VIVO_BASE_URL}/v1/chat/completions?requestId=${encodedRequestId}`,
-      apiKey: appKey
-    }
-  ]
-
-  if (JIUWEN_BASE_URL && jiuwenKey) {
-    candidates.push({
-      name: 'jiuwen-openai-request-id',
-      url: `${JIUWEN_BASE_URL}/chat/completions?request_id=${encodedRequestId}`,
-      apiKey: jiuwenKey
-    })
-  }
-
-  return candidates
+function extractJiuwenAnswer(response) {
+  const data = response && response.data
+  const dataOutputs = data && data.outputs
+  const outputs = response && response.outputs
+  return String(
+    (response && response.answer) ||
+    (data && data.answer) ||
+    (dataOutputs && (dataOutputs.answer || dataOutputs.text)) ||
+    (outputs && (outputs.answer || outputs.text)) ||
+    ''
+  ).trim()
 }
 
-function isEndpointFallbackError(error) {
-  const message = String(error && error.message || '')
-  return /HTTP\s+(404|405|501|502|503|504)/.test(message) ||
-    message.indexOf('ENOTFOUND') !== -1 ||
-    message.indexOf('ECONNRESET') !== -1
+async function callLlmChat(messages, options = {}) {
+  const response = await callLlmChatCompletion(messages, options)
+  const content = extractChatCompletionContent(response)
+  if (content) return content
+  throw new Error('LLM 接口返回了空回复')
+}
+
+async function callLlmChatCompletion(messages, options = {}) {
+  const llmBaseUrl = getRequiredLlmBaseUrl()
+  const llmModel = options.model || getRequiredConfigValue('LLM_MODEL')
+  const llmApiKey = getRequiredConfigValue('LLM_API_KEY')
+  const payload = buildLlmPayload({
+    model: llmModel,
+    messages,
+    maxTokens: options.maxTokens || 1200,
+    tools: options.tools,
+    toolChoice: options.toolChoice
+  })
+
+  const response = await requestJson({
+    method: 'POST',
+    url: `${llmBaseUrl}${LLM_CHAT_PATH}`,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      Authorization: `Bearer ${llmApiKey}`
+    },
+    body: payload,
+    timeout: 45000
+  })
+
+  const message = extractChatCompletionMessage(response)
+  if (message && (extractChatMessageContent(message) || Array.isArray(message.tool_calls) || message.function_call)) return response
+  throw new Error('LLM 接口返回了空回复')
+}
+
+function buildLlmPayload({ model, messages, maxTokens, tools, toolChoice }) {
+  const payload = {
+    model,
+    messages,
+    max_completion_tokens: maxTokens,
+    stream: false
+  }
+  if (Array.isArray(tools) && tools.length) {
+    payload.tools = tools
+    payload.tool_choice = toolChoice || 'auto'
+  }
+  return payload
+}
+
+function extractChatCompletionMessage(response) {
+  const choices = response && response.choices
+  const firstChoice = Array.isArray(choices) ? choices[0] : null
+  return firstChoice && firstChoice.message ? firstChoice.message : null
+}
+
+function extractChatMessageContent(message) {
+  const content = message && message.content
+  if (Array.isArray(content)) {
+    return content
+      .map(item => typeof item === 'string' ? item : item && (item.text || item.content) || '')
+      .join('')
+      .trim()
+  }
+  return typeof content === 'string' ? content.trim() : ''
+}
+
+function extractChatCompletionContent(response) {
+  return extractChatMessageContent(extractChatCompletionMessage(response))
 }
 
 function buildPoiKeywordVariants(keyword) {
@@ -2172,7 +3115,7 @@ async function callVivoPoi({ city, keywords, maxPages = POI_MAX_PAGES }) {
 
 function buildVivoPoiUrl({ city, keywords, pageNum, pageSize, requestId }) {
   // 不使用 URLSearchParams，避免微信云函数环境兼容问题。
-  return `${VIVO_POI_BASE_URL}/search/geo` +
+  return `${getRequiredVivoPoiBaseUrl()}/search/geo` +
     `?keywords=${encodeURIComponent(keywords)}` +
     `&city=${encodeURIComponent(city)}` +
     `&page_num=${pageNum}` +

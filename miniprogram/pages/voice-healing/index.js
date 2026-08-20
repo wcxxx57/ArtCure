@@ -1,14 +1,31 @@
 const TOOL_META = {
-  healing_music: { name: '声音疗愈', description: '生成一段粉红或棕噪环境声', icon: '♫' },
-  mindfulness: { name: '正念鼓励', description: '把注意力带回此刻的身体感受', icon: '◌' },
-  breathing: { name: '呼吸引导', description: '生成带节律提示音的呼吸练习', icon: '◒' }
+  start_soundscape: { name: '声音陪伴', description: '准备低音量、可循环的环境音景', icon: '♫' },
+  start_breathing: { name: '呼吸引导', description: '用较长呼气的节律提示安顿身体', icon: '◒' },
+  start_grounding: { name: '感官接地', description: '把注意力带回脚底、声音和颜色', icon: '◌' },
+  start_art_exercise: { name: '艺术表达', description: '准备一个低门槛的短时创作练习', icon: '✎' },
+  analyze_artwork: { name: '创作分析', description: '打开画板或图片分析功能', icon: '▧' },
+  handoff_support: { name: '安全支持', description: '暂停练习并连接现实中的帮助', icon: '♡' }
 }
 
 const OPENING_TEXT = '欢迎来到这一小段安静的时间。先不用急着说明发生了什么。让脚底找到地面，吸气，再慢慢呼气。等我开始聆听时，你可以只说一个词、一种颜色，或者身体此刻最明显的感觉。'
-const SILENCE_TO_STOP_MS = 1500
+const SILENCE_TO_STOP_MS = 1100
 const AUDIO_TO_MIC_SETTLE_MS = 900
-const SILENCE_MONITOR_INTERVAL_MS = 200
-const SPEECH_RMS_THRESHOLD = 180
+const SILENCE_MONITOR_INTERVAL_MS = 100
+const NO_SPEECH_TIMEOUT_MS = 9000
+const SPEECH_CALIBRATION_MS = 700
+const SPEECH_MIN_FRAMES = 3
+const SPEECH_MIN_ACTIVE_MS = 240
+const SPEECH_NOISE_MARGIN = 48
+const SPEECH_SILENCE_RATIO = 1.35
+const SPEECH_MAX_NOISE_ZCR = 0.46
+const SHORT_ASR_MAX_CHARS = 1
+const SHORT_ASR_MIN_CONFIDENCE = 0.58
+const RECORDER_FRAME_STALL_TIMEOUT_MS = 1200
+const RECORDER_STOP_CALLBACK_TIMEOUT_MS = 3000
+const RECORD_START_TIMEOUT_MS = 5000
+const PLAYBACK_START_TIMEOUT_MS = 12000
+const SPEECH_RMS_THRESHOLD = 80
+const SPEECH_NOISE_RATIO = 1.8
 const VOICE_OPTIONS = [
   { name: '知性柔美', value: 'F245_natural' },
   { name: '俊朗男声', value: 'M24' },
@@ -42,11 +59,37 @@ Page({
     this.pageAlive = true
     this.sessionToken = 0
     this.assistantPlaybackActive = false
+    this.sessionStarting = false
+    this.microphoneAuthorizationPending = false
+    this.currentSpeechIsOpening = false
     this.pendingHealingTool = null
+    this.pendingAmbientAudio = null
+    this.pendingArtworkNavigation = false
+    this.toolOutputGate = false
+    this.sessionState = {
+      goal: '',
+      phase: 'opening',
+      preferredModality: 'voice',
+      currentTool: '',
+      consentedTool: ''
+    }
     this.currentSpeechText = ''
     this.currentSpeechToken = 0
     this.currentSpeechRetry = 0
     this.currentSpeechTiming = null
+    this.openingAudioPromises = {}
+    this.playbackToken = 0
+    this.activePlaybackToken = 0
+    this.playbackStarted = false
+    this.ttsPlayRequested = false
+    this.ambientAudioSource = null
+    this.ambientAudioPlaying = false
+    this.ambientPlaybackToken = 0
+    this.audioContextHasSource = false
+    this.musicContextHasSource = false
+    this.playbackStartTimer = null
+    this.recorderStopTimer = null
+    this.ignoreAudioEndedUntil = 0
     const savedVoice = wx.getStorageSync('voice-healing-voice')
     const savedIndex = VOICE_OPTIONS.findIndex(item => item.value === savedVoice)
     if (savedIndex >= 0) {
@@ -63,9 +106,6 @@ Page({
     this.musicContext = wx.createInnerAudioContext()
     this.bindRecorderEvents()
     this.bindAudioEvents()
-    this.musicContext.onEnded(() => {
-      if (this.musicContext && !this.musicContext.loop) this.ambientAudioActive = false
-    })
   },
 
   onUnload() {
@@ -80,6 +120,9 @@ Page({
     })
 
     this.recorderManager.onStart(() => {
+      if (this.recordStartTimer) clearTimeout(this.recordStartTimer)
+      this.recordStartTimer = null
+      this.clearRecorderStopTimer()
       this.recordingRequested = false
       if (!this.pageAlive || !this.data.sessionActive) {
         this.recordOptions = { skip: true }
@@ -90,13 +133,35 @@ Page({
         hasSpeech: false,
         lastSpeechAt: 0,
         stopping: false,
-        speechFrames: 0
+        stopReason: '',
+        speechFrames: 0,
+        speechEvidenceFrames: 0,
+        speechStartedAt: 0,
+        speechDurationMs: 0,
+        speechPeakRms: 0,
+        speechConfidence: 0,
+        speechCandidateStartedAt: 0,
+        speechCandidatePeakRms: 0,
+        calibrationStartedAt: Date.now(),
+        noiseFloorRms: 0,
+        noiseFloorZcr: 0,
+        lastRms: 0,
+        lastFrameAt: 0
       }
       this.recordingStartedAt = Date.now()
+      this.lastRecorderFrameAt = 0
       this.setData({
         isRecording: true,
         conversationPhase: 'listening',
-        statusText: '轮到你说了，说完后停顿 1.5 秒即可'
+        statusText: '轮到你说了，说完后停顿约 1.1 秒即可'
+      })
+      console.info('[Voice Healing] recorder started', {
+        token: this.recordOptions && this.recordOptions.token,
+        sampleRate: 16000,
+        format: 'pcm',
+        audioSource: 'voice_communication',
+        ambientAudioActive: Boolean(this.ambientAudioActive),
+        ambientAudioPaused: Boolean(this.ambientAudioPaused)
       })
       this.startSilenceMonitor()
     })
@@ -104,27 +169,49 @@ Page({
     this.recorderManager.onStop((result) => {
       const options = this.recordOptions || {}
       this.recordOptions = null
+      if (this.recordStartTimer) clearTimeout(this.recordStartTimer)
+      this.recordStartTimer = null
+      this.clearRecorderStopTimer()
       this.recordingRequested = false
       this.stopSilenceMonitor()
       if (!this.pageAlive || options.skip) return
       this.setData({ isRecording: false, conversationPhase: 'transcribing' })
+      console.info('[Voice Healing] recorder stopped', {
+        durationMs: result && result.duration,
+        tempFilePath: Boolean(result && result.tempFilePath)
+      })
       this.handleVoiceStop(result, options.token)
     })
 
     this.recorderManager.onError((error) => {
       console.error('[Voice Healing] recorder error', error)
+      if (this.recordStartTimer) clearTimeout(this.recordStartTimer)
+      this.recordStartTimer = null
       this.recordOptions = null
       this.recordingRequested = false
+      this.clearRecorderStopTimer()
       this.stopSilenceMonitor()
       if (!this.pageAlive) return
-      this.setData({ isRecording: false, conversationPhase: 'idle', statusText: '麦克风没有准备好，请再试一次' })
+      this.setData({ isRecording: false, isThinking: false, conversationPhase: 'idle', statusText: '麦克风没有准备好，请再试一次' })
       wx.showToast({ title: '录音失败，请检查麦克风权限', icon: 'none' })
+      const errorText = String(error && (error.errMsg || error.message) || '')
+      if (this.data.sessionActive && !/permission|authorize|auth/i.test(errorText)) {
+        this.scheduleListening(700, this.sessionToken)
+      }
     })
   },
 
   bindAudioEvents() {
     this.audioContext.onPlay(() => {
-      if (!this.pageAlive || !this.data.sessionActive) return
+      if (!this.isActiveAudioPlayback()) return
+      this.playbackStarted = true
+      this.ttsPlayRequested = false
+      if (this.playbackStartTimer) clearTimeout(this.playbackStartTimer)
+      this.playbackStartTimer = null
+      console.info('[Voice Healing] tts playback started', {
+        opening: this.currentSpeechIsOpening,
+        playbackToken: this.activePlaybackToken
+      })
       if (this.currentSpeechTiming) {
         const timing = this.currentSpeechTiming
         console.info('[Voice Healing] latency', {
@@ -138,44 +225,74 @@ Page({
       }
       this.setData({ isSpeaking: true, conversationPhase: 'assistantSpeaking', statusText: '艺呦正在说话，请先听她说完' })
     })
+    this.audioContext.onCanplay(() => {
+      if (!this.isActiveAudioPlayback()) return
+      console.info('[Voice Healing] tts audio ready', {
+        opening: this.currentSpeechIsOpening,
+        playbackToken: this.activePlaybackToken
+      })
+      if (this.playbackStarted || this.ttsPlayRequested) return
+      this.ttsPlayRequested = true
+      try {
+        this.audioContext.play()
+      } catch (error) {
+        this.ttsPlayRequested = false
+        this.handleAudioPlaybackFailure(error)
+      }
+    })
     this.audioContext.onEnded(() => {
       // stop() 触发的旧结束事件不能结束当前这一轮开场语音，也不能启动录音。
-      if (!this.pageAlive || !this.data.sessionActive || !this.data.isSpeaking || !this.assistantPlaybackActive) return
-      this.assistantPlaybackActive = false
-      this.setData({ isSpeaking: false })
-      this.resumeAmbientAudio()
-      if (this.data.sessionActive) {
-        this.setData({ conversationPhase: 'listening', statusText: '轮到你说了，说完后停顿 1.5 秒即可' })
-        const pendingTool = this.pendingHealingTool
-        this.pendingHealingTool = null
-        if (pendingTool && this.isSessionTokenActive(pendingTool.token)) {
-          this.runHealingTool(pendingTool.toolCall, pendingTool.token)
-        }
-        // 给手机扬声器和麦克风留出消除残响的时间，避免第一段把艺呦的尾音录进去。
-        this.scheduleListening(AUDIO_TO_MIC_SETTLE_MS, this.sessionToken)
-      }
+      if (!this.isActiveAudioPlayback() || !this.playbackStarted || Date.now() < this.ignoreAudioEndedUntil) return
+      console.info('[Voice Healing] tts playback ended', {
+        opening: this.currentSpeechIsOpening,
+        playbackToken: this.activePlaybackToken
+      })
+      this.finishAudioPlayback('轮到你说了，说完后停顿约 1.1 秒即可')
     })
     this.audioContext.onError((error) => {
       console.warn('[Voice Healing] tts play error', error)
-      if (!this.pageAlive || !this.data.sessionActive || !this.data.isSpeaking || !this.assistantPlaybackActive) return
+      this.handleAudioPlaybackFailure(error)
+    })
 
-      // 临时 URL 失效或音频上下文首次播放失败时，重新请求一次 TTS，
-      // 避免开场语音或回复只显示文字却完全没有声音。
-      if (this.currentSpeechText && this.currentSpeechToken === this.sessionToken && this.currentSpeechRetry < 1) {
-        this.currentSpeechRetry += 1
-        this.assistantPlaybackActive = true
-        this.setData({ statusText: '语音连接不稳定，正在重试' })
-        this.speakText(this.currentSpeechText, this.currentSpeechToken, '')
-        return
+    this.musicContext.onCanplay(() => {
+      if (!this.ambientAudioActive || !this.musicContext) return
+      console.info('[Voice Healing] tool audio ready', {
+        source: this.ambientAudioSource && this.ambientAudioSource.source,
+        token: this.ambientPlaybackToken
+      })
+      if (this.ambientAudioPlaying) return
+      try {
+        this.musicContext.play()
+      } catch (error) {
+        this.handleAmbientAudioFailure(error)
       }
-
-      this.assistantPlaybackActive = false
-      this.setData({ isSpeaking: false })
-      this.resumeAmbientAudio()
-      if (this.data.sessionActive) {
-        this.setData({ conversationPhase: 'listening', statusText: '语音暂时没播放出来，轮到你说了' })
-        this.scheduleListening(AUDIO_TO_MIC_SETTLE_MS, this.sessionToken)
+    })
+    this.musicContext.onPlay(() => {
+      if (!this.ambientAudioActive) return
+      this.ambientAudioPlaying = true
+      console.info('[Voice Healing] tool audio playback confirmed', {
+        loop: Boolean(this.musicContext.loop),
+        source: this.ambientAudioSource && this.ambientAudioSource.source,
+        token: this.ambientPlaybackToken
+      })
+      this.setData({
+        toolSummary: this.musicContext.loop ? '声音陪伴进行中' : '呼吸引导进行中',
+        statusText: this.musicContext.loop ? '声音陪伴进行中' : '呼吸引导进行中'
+      })
+    })
+    this.musicContext.onEnded(() => {
+      if (!this.musicContext || this.musicContext.loop) return
+      this.ambientAudioActive = false
+      this.ambientAudioPlaying = false
+      this.ambientAudioSource = null
+      this.musicContextHasSource = false
+      if (this.data.sessionActive && !this.data.isMuted) {
+        this.setData({ toolSummary: '陪伴已准备', statusText: '这一小段练习结束了，轮到你说了' })
       }
+      console.info('[Voice Healing] tool audio playback ended', { token: this.ambientPlaybackToken })
+    })
+    this.musicContext.onError((error) => {
+      this.handleAmbientAudioFailure(error)
     })
   },
 
@@ -200,8 +317,12 @@ Page({
     if (isMuted) {
       this.stopAudioContextSafely(this.audioContext, 'tts')
       this.stopAudioContextSafely(this.musicContext, 'ambient')
+      this.currentSpeechIsOpening = false
       this.ambientAudioActive = false
       this.ambientAudioPaused = false
+      this.ambientAudioPlaying = false
+      this.ambientAudioSource = null
+      this.musicContextHasSource = false
       if (this.data.sessionActive && !this.data.isRecording && !this.data.isThinking) {
         this.setData({ isSpeaking: false, conversationPhase: 'listening', statusText: '声音已静音，轮到你说了' })
         this.scheduleListening(200, this.sessionToken)
@@ -209,6 +330,7 @@ Page({
     }
     if (!isMuted && this.data.sessionActive) {
       this.setData({ statusText: '声音已打开，轮到你说了' })
+      this.flushPendingToolOutputs(this.sessionToken)
     }
   },
 
@@ -241,13 +363,16 @@ Page({
   },
 
   requestMicrophoneAndStart() {
-    // 开场语音不再等待授权回调；授权弹窗与开场语音准备并行，减少首次点击等待。
-    this.startSession()
+    if (this.microphoneAuthorizationPending || this.sessionStarting || this.data.sessionActive) return
+    this.microphoneAuthorizationPending = true
     wx.authorize({
       scope: 'scope.record',
-      success: () => {},
+      success: () => {
+        this.microphoneAuthorizationPending = false
+        this.startSession()
+      },
       fail: () => {
-        if (this.data.sessionActive) this.finishSession(false)
+        this.microphoneAuthorizationPending = false
         wx.showModal({
           title: '需要麦克风权限',
           content: '开启麦克风后，艺呦才能听见你的声音。',
@@ -259,6 +384,8 @@ Page({
   },
 
   startSession() {
+    if (this.sessionStarting || this.data.sessionActive) return
+    this.sessionStarting = true
     const opening = OPENING_TEXT
     this.stopAudioContextSafely(this.audioContext, 'tts')
     this.stopAudioContextSafely(this.musicContext, 'ambient')
@@ -272,7 +399,18 @@ Page({
     }
     this.recordingRequested = false
     this.assistantPlaybackActive = true
+    this.currentSpeechIsOpening = true
     this.pendingHealingTool = null
+    this.pendingAmbientAudio = null
+    this.pendingArtworkNavigation = false
+    this.toolOutputGate = false
+    this.sessionState = {
+      goal: '',
+      phase: 'opening',
+      preferredModality: 'voice',
+      currentTool: '',
+      consentedTool: ''
+    }
     this.currentSpeechTiming = null
     this.sessionToken += 1
     const token = this.sessionToken
@@ -290,6 +428,7 @@ Page({
       toolEvents: [],
       toolSummary: '陪伴已开始'
     }, () => {
+      this.sessionStarting = false
       // 必须等 sessionActive 真正写入页面数据后再调用 speakText，
       // 否则真机上 isSessionTokenActive 可能误判为无效，直接跳过开场 TTS。
       if (!this.isSessionTokenActive(token)) return
@@ -302,36 +441,63 @@ Page({
 
   async prepareOpeningAudio() {
     const voice = this.data.selectedVoice
-    if (this.openingAudioLoadingVoice === voice) return
-    this.openingAudioLoadingVoice = voice
+    if (this.openingAudioPromises[voice]) return this.openingAudioPromises[voice]
     const cacheKey = `voice-healing-opening-${voice}`
-    try {
-      const cachedFileID = wx.getStorageSync(cacheKey)
-      if (cachedFileID) {
-        const cachedUrlResult = await wx.cloud.getTempFileURL({ fileList: [cachedFileID] })
-        const cachedUrl = cachedUrlResult.fileList && cachedUrlResult.fileList[0] && cachedUrlResult.fileList[0].tempFileURL
-        if (cachedUrl && this.pageAlive && this.data.selectedVoice === voice) {
-          this.openingAudioUrl = cachedUrl
-          this.openingAudioVoice = voice
-          return
+    const promise = (async () => {
+      try {
+        const cachedFileID = wx.getStorageSync(cacheKey)
+        if (cachedFileID) {
+             const cachedUrl = await this.resolveCloudAudioFile(cachedFileID, '', 'opening-tts')
+          if (cachedUrl && this.pageAlive && this.data.selectedVoice === voice) {
+            this.openingAudioUrl = cachedUrl
+            this.openingAudioVoice = voice
+            console.info('[Voice Healing] opening audio cache ready', { voice })
+            return cachedUrl
+          }
+          wx.removeStorageSync(cacheKey)
         }
-        wx.removeStorageSync(cacheKey)
-      }
 
-      const response = await wx.cloud.callFunction({
-        name: 'vivoAigcGateway',
-        data: { action: 'voice.tts', data: { text: OPENING_TEXT, voice } }
-      })
-      const result = response.result || {}
-      if (!result.success || !result.audioUrl || !this.pageAlive || this.data.selectedVoice !== voice) return
-      this.openingAudioUrl = result.audioUrl
-      this.openingAudioVoice = voice
-      if (result.fileID) wx.setStorageSync(cacheKey, result.fileID)
-    } catch (error) {
-      console.warn('[Voice Healing] opening audio prepare failed', error)
+        const response = await wx.cloud.callFunction({
+          name: 'vivoAigcGateway',
+          data: { action: 'voice.tts', data: { text: OPENING_TEXT, voice } }
+        })
+        const result = response.result || {}
+        if (!result.success || !result.audioUrl) throw new Error(result.message || '开场语音没有返回音频地址')
+        if (!this.pageAlive || this.data.selectedVoice !== voice) return ''
+         this.openingAudioUrl = await this.resolveCloudAudioFile(result.fileID, result.audioUrl, 'opening-tts')
+        this.openingAudioVoice = voice
+        if (result.fileID) wx.setStorageSync(cacheKey, result.fileID)
+        console.info('[Voice Healing] opening audio prepared', { voice, hasFileID: Boolean(result.fileID) })
+        return this.openingAudioUrl
+      } catch (error) {
+        console.warn('[Voice Healing] opening audio prepare failed', error)
+        return ''
+      }
+    })()
+    this.openingAudioPromises[voice] = promise
+    try {
+      return await promise
     } finally {
-      if (this.openingAudioLoadingVoice === voice) this.openingAudioLoadingVoice = ''
+      if (this.openingAudioPromises[voice] === promise) delete this.openingAudioPromises[voice]
     }
+  },
+
+  async resolveCloudAudioFile(fileID, fallbackUrl = '', purpose = 'audio') {
+    if (fileID) {
+      try {
+        const downloaded = await wx.cloud.downloadFile({ fileID })
+        if (downloaded && downloaded.tempFilePath) {
+          console.info('[Voice Healing] audio downloaded locally', {
+            purpose,
+            fileID: String(fileID).slice(-16)
+          })
+          return downloaded.tempFilePath
+        }
+      } catch (error) {
+        console.warn('[Voice Healing] local audio download failed, fallback to URL', error)
+      }
+    }
+    return fallbackUrl || ''
   },
 
   startSessionTimer() {
@@ -357,7 +523,9 @@ Page({
     if (!this.data.sessionActive || this.data.isRecording || this.data.isThinking || this.data.isSpeaking || this.recordingRequested) return
     this.assistantPlaybackActive = false
     this.stopAudioContextSafely(this.audioContext, 'tts')
-    this.pauseAmbientAudio()
+    if (!this.ambientAudioSource || !this.ambientAudioSource.loop) {
+      this.pauseAmbientAudio('recording')
+    }
     const token = this.sessionToken
     this.recordOptions = { skip: false, token }
     this.recordingRequested = true
@@ -365,18 +533,46 @@ Page({
       hasSpeech: false,
       lastSpeechAt: 0,
       stopping: false,
-      speechFrames: 0
+      stopReason: '',
+      speechFrames: 0,
+      speechEvidenceFrames: 0,
+      speechStartedAt: 0,
+      speechDurationMs: 0,
+      speechPeakRms: 0,
+      speechConfidence: 0,
+      speechCandidateStartedAt: 0,
+      speechCandidatePeakRms: 0,
+      calibrationStartedAt: Date.now(),
+      noiseFloorRms: 0,
+      noiseFloorZcr: 0,
+      lastRms: 0,
+      lastFrameAt: 0
     }
-    this.setData({ conversationPhase: 'listening', statusText: '正在听你说，说完后停顿 1.5 秒即可' })
+    this.setData({ conversationPhase: 'listening', statusText: '正在听你说，说完后停顿约 1.1 秒即可' })
     try {
       this.recorderManager.start({
         duration: 30000,
         sampleRate: 16000,
         numberOfChannels: 1,
+        // 语音通信采集源会启用更适合人声的处理，降低环境音和扬声器回录导致的误触发。
+        audioSource: 'voice_communication',
         // vivo ASR 要求 16kHz / 16bit / 单声道 PCM；与 ai-chat 页面保持同一录音格式。
         format: 'pcm',
         frameSize: 4
       })
+      this.recordStartTimer = setTimeout(() => {
+        if (!this.pageAlive || !this.data.sessionActive || !this.recordingRequested || token !== this.sessionToken) return
+        this.recordStartTimer = null
+        this.recordingRequested = false
+        this.recordOptions = { skip: true }
+        console.warn('[Voice Healing] recorder start timeout', { token })
+        this.setData({ conversationPhase: 'idle', statusText: '麦克风启动有点慢，正在重试' })
+        try { this.recorderManager.stop() } catch (error) {
+          this.recordOptions = null
+          console.warn('[Voice Healing] recorder timeout stop skipped', error)
+        }
+        this.scheduleListening(500, token)
+      }, RECORD_START_TIMEOUT_MS)
     } catch (error) {
       this.recordingRequested = false
       this.recordOptions = null
@@ -387,53 +583,152 @@ Page({
 
   handleRecorderFrame(frame) {
     if (!this.data.isRecording || !frame || !frame.frameBuffer) return
-    const bytes = new Uint8Array(frame.frameBuffer)
+    const frameBuffer = frame.frameBuffer
+    const bytes = frameBuffer instanceof ArrayBuffer
+      ? new Uint8Array(frameBuffer)
+      : ArrayBuffer.isView(frameBuffer)
+        ? new Uint8Array(frameBuffer.buffer, frameBuffer.byteOffset, frameBuffer.byteLength)
+        : new Uint8Array(frameBuffer)
     if (bytes.length < 4) return
 
     let energy = 0
     let sampleCount = 0
+    let peakAmplitude = 0
+    let zeroCrossings = 0
+    let previousSample = 0
     for (let index = 0; index + 1 < bytes.length; index += 2) {
       const sample = bytes[index] | (bytes[index + 1] << 8)
       const signedSample = sample > 32767 ? sample - 65536 : sample
       energy += signedSample * signedSample
+      peakAmplitude = Math.max(peakAmplitude, Math.abs(signedSample))
+      if (sampleCount > 0 && ((signedSample >= 0) !== (previousSample >= 0))) zeroCrossings += 1
+      previousSample = signedSample
       sampleCount += 1
     }
 
     const rms = Math.sqrt(energy / Math.max(sampleCount, 1))
+    const zeroCrossingRate = zeroCrossings / Math.max(sampleCount - 1, 1)
     const now = Date.now()
-    const voiceActivity = this.voiceActivity || { hasSpeech: false, lastSpeechAt: 0, stopping: false, speechFrames: 0 }
-    // 520 对部分手机麦克风过高，会导致整句话都没有被 VAD 记为有效语音。
-    // 这里只负责判断“说完”，完整录音仍会上传给 ASR，不会裁掉用户的声音。
-    if (rms > SPEECH_RMS_THRESHOLD) {
-      voiceActivity.speechFrames += 1
-      voiceActivity.hasSpeech = true
-      voiceActivity.lastSpeechAt = now
+    this.lastRecorderFrameAt = now
+    const voiceActivity = this.voiceActivity || {
+      hasSpeech: false,
+      lastSpeechAt: 0,
+      stopping: false,
+      stopReason: '',
+      speechFrames: 0,
+      speechEvidenceFrames: 0,
+      speechStartedAt: 0,
+      speechDurationMs: 0,
+      speechPeakRms: 0,
+      speechConfidence: 0,
+      speechCandidateStartedAt: 0,
+      speechCandidatePeakRms: 0,
+      calibrationStartedAt: now,
+      noiseFloorRms: 0,
+      noiseFloorZcr: 0,
+      lastRms: 0
+    }
+    voiceActivity.lastFrameAt = now
+    voiceActivity.lastRms = rms
+
+    const noiseFloor = Number(voiceActivity.noiseFloorRms || 0)
+    const calibrationStartedAt = Number(voiceActivity.calibrationStartedAt || this.recordingStartedAt || now)
+    const isCalibrating = now - calibrationStartedAt < SPEECH_CALIBRATION_MS
+
+    // 开始录音后的短窗口只估计底噪，不把第一帧环境声误当成用户已经开始说话。
+    // 语音页在 TTS 结束后还会额外等待 AUDIO_TO_MIC_SETTLE_MS，因此这段校准不会吞掉正常开口。
+    if (isCalibrating) {
+      voiceActivity.noiseFloorRms = noiseFloor
+        ? noiseFloor * 0.8 + rms * 0.2
+        : rms
+      voiceActivity.noiseFloorZcr = Number(voiceActivity.noiseFloorZcr || 0)
+        ? Number(voiceActivity.noiseFloorZcr) * 0.8 + zeroCrossingRate * 0.2
+        : zeroCrossingRate
       this.voiceActivity = voiceActivity
       return
     }
 
-    if (voiceActivity.hasSpeech && !voiceActivity.stopping && now - voiceActivity.lastSpeechAt >= SILENCE_TO_STOP_MS) {
-      voiceActivity.stopping = true
+    const calibratedNoiseFloor = Number(voiceActivity.noiseFloorRms || 0)
+    const speechThreshold = Math.max(
+      SPEECH_RMS_THRESHOLD,
+      calibratedNoiseFloor ? calibratedNoiseFloor * SPEECH_NOISE_RATIO : SPEECH_RMS_THRESHOLD,
+      calibratedNoiseFloor + SPEECH_NOISE_MARGIN
+    )
+    const quietThreshold = Math.max(
+      SPEECH_RMS_THRESHOLD * 0.75,
+      calibratedNoiseFloor ? calibratedNoiseFloor * SPEECH_SILENCE_RATIO : SPEECH_RMS_THRESHOLD
+    )
+
+    // 只要当前帧明显高于校准后的底噪，就算作说话；必须连续三帧，避免点击声/残响把
+    // “已经说完”重新推迟。低于说话阈值的帧持续更新底噪，避免说话后空调声一直刷新 lastSpeechAt。
+    // 扬声器播放的白噪音通常表现为高零交叉率、能量稳定的连续噪声；
+    // 过滤这类帧，避免环境音把“没有说话”误判成真实人声。
+    const isLikelyBroadbandNoise = zeroCrossingRate > SPEECH_MAX_NOISE_ZCR &&
+      rms < Math.max(speechThreshold * 2.5, calibratedNoiseFloor * 3)
+    const isSpeechCandidate = rms > speechThreshold && !isLikelyBroadbandNoise
+
+    if (isSpeechCandidate) {
+      voiceActivity.speechFrames += 1
+      voiceActivity.speechCandidateStartedAt = voiceActivity.speechCandidateStartedAt || now
+      voiceActivity.speechCandidatePeakRms = Math.max(
+        Number(voiceActivity.speechCandidatePeakRms || 0),
+        rms,
+        peakAmplitude / 8
+      )
+      const candidateDurationMs = now - voiceActivity.speechCandidateStartedAt
+      const speechConfirmedNow = !voiceActivity.hasSpeech &&
+        voiceActivity.speechFrames >= SPEECH_MIN_FRAMES &&
+        candidateDurationMs >= SPEECH_MIN_ACTIVE_MS
+      if (speechConfirmedNow) {
+        voiceActivity.hasSpeech = true
+        voiceActivity.speechEvidenceFrames = Math.max(
+          Number(voiceActivity.speechEvidenceFrames || 0),
+          voiceActivity.speechFrames
+        )
+        voiceActivity.speechStartedAt = voiceActivity.speechStartedAt || voiceActivity.speechCandidateStartedAt
+        voiceActivity.speechDurationMs = now - voiceActivity.speechStartedAt
+        voiceActivity.speechPeakRms = Math.max(
+          Number(voiceActivity.speechPeakRms || 0),
+          Number(voiceActivity.speechCandidatePeakRms || 0)
+        )
+        const contrast = (voiceActivity.speechPeakRms - calibratedNoiseFloor) /
+          Math.max(SPEECH_NOISE_MARGIN, calibratedNoiseFloor || SPEECH_RMS_THRESHOLD)
+        voiceActivity.speechConfidence = Math.min(1, Math.max(0, contrast / 1.2))
+        voiceActivity.lastSpeechAt = now
+      }
+      if (voiceActivity.hasSpeech) {
+        if (!speechConfirmedNow) voiceActivity.speechEvidenceFrames += 1
+        voiceActivity.lastSpeechAt = now
+        voiceActivity.speechDurationMs = now - voiceActivity.speechStartedAt
+        voiceActivity.speechPeakRms = Math.max(
+          Number(voiceActivity.speechPeakRms || 0),
+          rms,
+          peakAmplitude / 8
+        )
+      }
       this.voiceActivity = voiceActivity
-      this.setData({ statusText: '听到了，正在整理你的话' })
-      try { this.recorderManager.stop() } catch (error) { console.warn('[Voice Healing] recorder stop error', error) }
+      return
+    }
+
+    voiceActivity.speechFrames = 0
+    voiceActivity.speechCandidateStartedAt = 0
+    voiceActivity.speechCandidatePeakRms = 0
+    if (calibratedNoiseFloor === 0 || rms <= quietThreshold || !voiceActivity.hasSpeech) {
+      voiceActivity.noiseFloorRms = calibratedNoiseFloor
+        ? calibratedNoiseFloor * 0.94 + rms * 0.06
+        : rms
+    }
+
+    this.voiceActivity = voiceActivity
+    // 这里只负责判断“说完”，完整录音仍会上传给 ASR，不会裁掉用户的声音。
+    if (voiceActivity.hasSpeech && !voiceActivity.stopping && now - voiceActivity.lastSpeechAt >= SILENCE_TO_STOP_MS) {
+      this.requestRecorderStop('silence', '听到了，正在整理你的话')
     }
   },
 
   stopRecording() {
     if (this.data.isRecording || this.recordingRequested) {
-      if (this.voiceActivity) this.voiceActivity.stopping = true
-      this.setData({
-        isThinking: true,
-        conversationPhase: 'transcribing',
-        statusText: '听到了，正在整理你的话'
-      })
-      try {
-        this.recorderManager.stop()
-      } catch (error) {
-        this.setData({ isThinking: false, conversationPhase: 'idle', statusText: '录音没有正常结束，请点击“我来说”重试' })
-        console.warn('[Voice Healing] recorder stop error', error)
-      }
+      this.requestRecorderStop('manual', '听到了，正在整理你的话')
     }
   },
 
@@ -441,23 +736,155 @@ Page({
     this.stopSilenceMonitor()
     this.silenceMonitorTimer = setInterval(() => {
       const voiceActivity = this.voiceActivity
-      if (!this.pageAlive || !this.data.isRecording || !voiceActivity || !voiceActivity.hasSpeech || voiceActivity.stopping) return
-      if (Date.now() - voiceActivity.lastSpeechAt < SILENCE_TO_STOP_MS) return
-
-      voiceActivity.stopping = true
-      this.voiceActivity = voiceActivity
-      this.setData({
-        isThinking: true,
-        conversationPhase: 'transcribing',
-        statusText: '听到了，正在整理你的话'
-      })
-      try {
-        this.recorderManager.stop()
-      } catch (error) {
-        this.setData({ isThinking: false, conversationPhase: 'idle', statusText: '录音没有正常结束，请点击“我来说”重试' })
-        console.warn('[Voice Healing] silence stop error', error)
+      if (!this.pageAlive || !this.data.isRecording || !voiceActivity || voiceActivity.stopping) return
+      const now = Date.now()
+      const recordingElapsed = this.recordingStartedAt ? Date.now() - this.recordingStartedAt : 0
+      if (!voiceActivity.hasSpeech) {
+        if (recordingElapsed < NO_SPEECH_TIMEOUT_MS) return
+        this.requestRecorderStop('no-speech-timeout', '暂时没有听到声音，正在重新听你说')
+        return
       }
+
+      // 某些真机在静音期间会暂时不再触发 onFrameRecorded。此时不能一直等
+      // lastSpeechAt 自然更新，否则用户已经停下却会卡在“正在听”。
+      if (voiceActivity.lastFrameAt && now - voiceActivity.lastFrameAt >= RECORDER_FRAME_STALL_TIMEOUT_MS) {
+        this.requestRecorderStop('frame-stall', '音频流已安静，正在整理你的话')
+        return
+      }
+      if (now - voiceActivity.lastSpeechAt < SILENCE_TO_STOP_MS) return
+      this.requestRecorderStop('silence', '听到了，正在整理你的话')
     }, SILENCE_MONITOR_INTERVAL_MS)
+  },
+
+  requestRecorderStop(reason, statusText) {
+    const canStop = Boolean(this.data.isRecording || this.recordingRequested)
+    const voiceActivity = this.voiceActivity || {
+      hasSpeech: false,
+      lastSpeechAt: 0,
+      stopping: false,
+      stopReason: '',
+      speechFrames: 0,
+      noiseFloorRms: 0,
+      lastRms: 0,
+      lastFrameAt: 0
+    }
+    if (!canStop || voiceActivity.stopping) return false
+
+    voiceActivity.stopping = true
+    voiceActivity.stopReason = reason
+    this.voiceActivity = voiceActivity
+    if (this.recordOptions) this.recordOptions.stopReason = reason
+    this.stopSilenceMonitor()
+    this.setData({
+      isThinking: true,
+      conversationPhase: 'transcribing',
+      statusText: statusText || '正在整理你的话'
+    })
+
+    this.clearRecorderStopTimer()
+    this.recorderStopTimer = setTimeout(() => {
+      if (!this.pageAlive || !this.data.sessionActive || !this.data.isRecording || !this.voiceActivity || !this.voiceActivity.stopping) return
+      console.warn('[Voice Healing] recorder stop callback timeout', { reason })
+      try { this.recorderManager.stop() } catch (error) { console.warn('[Voice Healing] recorder stop retry error', error) }
+      this.recorderStopTimer = setTimeout(() => {
+        if (!this.pageAlive || !this.data.sessionActive || !this.data.isRecording || !this.voiceActivity || !this.voiceActivity.stopping) return
+        this.recordOptions = null
+        this.recordingRequested = false
+        this.setData({
+          isRecording: false,
+          isThinking: false,
+          conversationPhase: 'listening',
+          statusText: '录音结束有点慢，正在重新听你说'
+        })
+        this.scheduleListening(500, this.sessionToken)
+      }, RECORDER_STOP_CALLBACK_TIMEOUT_MS)
+    }, RECORDER_STOP_CALLBACK_TIMEOUT_MS)
+
+    try {
+      this.recorderManager.stop()
+      return true
+    } catch (error) {
+      this.clearRecorderStopTimer()
+      this.recordingRequested = false
+      this.recordOptions = null
+      this.setData({ isRecording: false, isThinking: false, conversationPhase: 'idle', statusText: '录音没有正常结束，请点击“我来说”重试' })
+      console.warn('[Voice Healing] recorder stop error', { reason, error })
+      return false
+    }
+  },
+
+  clearRecorderStopTimer() {
+    if (this.recorderStopTimer) clearTimeout(this.recorderStopTimer)
+    this.recorderStopTimer = null
+  },
+
+  evaluateSpeechActivity() {
+    const activity = this.voiceActivity || {}
+    const evidenceFrames = Number(activity.speechEvidenceFrames || 0)
+    const durationMs = Number(activity.speechDurationMs || 0)
+    const confidence = Number(activity.speechConfidence || 0)
+    const diagnostics = {
+      noiseFloorRms: Number(activity.noiseFloorRms || 0),
+      speechPeakRms: Number(activity.speechPeakRms || 0),
+      lastRms: Number(activity.lastRms || 0)
+    }
+    if (!activity.hasSpeech) {
+      return {
+        accept: false,
+        reason: 'local-no-speech',
+        evidenceFrames,
+        durationMs,
+        confidence,
+        ...diagnostics
+      }
+    }
+    if (evidenceFrames < SPEECH_MIN_FRAMES || durationMs < SPEECH_MIN_ACTIVE_MS) {
+      return {
+        accept: false,
+        reason: 'local-speech-too-short',
+        evidenceFrames,
+        durationMs,
+        confidence,
+        ...diagnostics
+      }
+    }
+    return {
+      accept: true,
+      reason: 'local-speech-confirmed',
+      evidenceFrames,
+      durationMs,
+      confidence,
+      ...diagnostics
+    }
+  },
+
+  evaluateRecognizedText(text, speechGate) {
+    const compactText = String(text || '').replace(/[\s\r\n，。！？、,.!?；;：:"“”‘’…]+/g, '')
+    const textLength = compactText.length
+    if (!textLength) return { accept: false, reason: 'asr-empty', textLength }
+
+    // 单字/极短词在静音、底噪或回录中最容易产生误识别；只有本地 VAD
+    // 同时给出较强的人声证据时才允许进入 Agent，正常说“累”“好”等短词仍可通过。
+    if (
+      textLength <= SHORT_ASR_MAX_CHARS &&
+      (!speechGate || Number(speechGate.confidence || 0) < SHORT_ASR_MIN_CONFIDENCE)
+    ) {
+      return { accept: false, reason: 'asr-short-weak-speech', textLength }
+    }
+    return { accept: true, reason: 'asr-accepted', textLength }
+  },
+
+  skipVoiceTurn(token, reason = 'no-speech') {
+    if (!this.isSessionTokenActive(token)) return
+    console.info('[Voice Healing] voice turn skipped', { reason })
+    this.setData({
+      isThinking: false,
+      conversationPhase: 'listening',
+      statusText: reason === 'asr-short-weak-speech'
+        ? '这次只听到一点环境声，等你愿意说时我再回应'
+        : '暂时没有听到清晰的人声，继续等你说'
+    })
+    this.scheduleListening(450, token)
   },
 
   stopSilenceMonitor() {
@@ -470,9 +897,10 @@ Page({
     if (!result || !result.tempFilePath) {
       this.setData({
         isThinking: false,
-        conversationPhase: 'idle',
-        statusText: '没有收到这段录音，请点击“我来说”再试一次'
+        conversationPhase: 'listening',
+        statusText: '没有收到这段录音，正在重新听你说'
       })
+      this.scheduleListening(350, token)
       return
     }
 
@@ -481,6 +909,7 @@ Page({
     const timing = { recordStopAt: Date.now() }
     try {
       const recordDuration = result.duration || (this.recordingStartedAt ? Date.now() - this.recordingStartedAt : 0)
+      const speechGate = this.evaluateSpeechActivity()
       let localFileSize = 0
       try {
         const fileInfo = await new Promise((resolve, reject) => {
@@ -494,8 +923,19 @@ Page({
         durationMs: recordDuration,
         fileBytes: localFileSize,
         expectedPcmBytes: Math.round(Number(recordDuration || 0) * 32),
-        stopReason: this.voiceActivity && this.voiceActivity.stopping ? 'silence-or-manual' : 'recorder'
+        stopReason: this.voiceActivity && this.voiceActivity.stopReason || 'recorder',
+        speechGate: speechGate.reason,
+        speechEvidenceFrames: speechGate.evidenceFrames,
+        speechDurationMs: speechGate.durationMs,
+        speechConfidence: speechGate.confidence,
+        noiseFloorRms: speechGate.noiseFloorRms,
+        speechPeakRms: speechGate.speechPeakRms,
+        lastRms: speechGate.lastRms
       })
+      if (!speechGate.accept) {
+        this.skipVoiceTurn(token, speechGate.reason)
+        return
+      }
       this.setData({ statusText: '正在把声音变成文字', conversationPhase: 'transcribing', isThinking: true })
       const uploadStartedAt = Date.now()
       const upload = await wx.cloud.uploadFile({
@@ -536,6 +976,19 @@ Page({
         text
       })
       if (!text) throw new Error('没有听清有效内容')
+      const textGate = this.evaluateRecognizedText(text, speechGate)
+      if (!textGate.accept) {
+        console.info('[Voice Healing] asr text ignored', {
+          reason: textGate.reason,
+          text,
+          textLength: textGate.textLength,
+          speechConfidence: speechGate.confidence,
+          speechEvidenceFrames: speechGate.evidenceFrames,
+          speechDurationMs: speechGate.durationMs
+        })
+        this.skipVoiceTurn(token, textGate.reason)
+        return
+      }
       recognizedText = text
 
       this.appendMessage({ role: 'user', text, isVoice: true })
@@ -543,11 +996,21 @@ Page({
     } catch (error) {
       console.warn('[Voice Healing] asr or agent error', error)
       if (!this.isSessionTokenActive(token)) return
+
+      // ASR 已经拿到文字但 Agent 暂时失败时，先用当前原话做本地承接，
+      // 不让一次云端请求失败把整段语音陪伴链路停在 idle。
+      if (recognizedText) {
+        const recoveryReply = this.getVoiceRecoveryReply(recognizedText)
+        await this.applyAgentReply(recoveryReply, token, null, timing)
+        return
+      }
+
       this.setData({
         isThinking: false,
-        conversationPhase: 'idle',
-        statusText: recognizedText ? '回应准备得有点慢，请点击“我来说”继续' : '这句没有听清，请点击“我来说”再试一次'
+        conversationPhase: 'listening',
+        statusText: recognizedText ? '回应准备得有点慢，正在继续听你说' : '这句没有听清，正在重新听你说'
       })
+      this.scheduleListening(450, token)
     } finally {
       if (fileID) wx.cloud.deleteFile({ fileList: [fileID] }).catch(() => {})
     }
@@ -556,88 +1019,125 @@ Page({
   async requestAgent(text, token = this.sessionToken, timing = null) {
     if (!this.isSessionTokenActive(token)) return
 
-    const localReply = this.getLocalVoiceReply(text)
-    if (localReply) {
-      console.info('[Voice Healing] local short reply', { text, reply: localReply })
-      await this.applyAgentReply(localReply, token, null, timing)
-      return
-    }
-
     const history = this.data.messages.slice(-8).map(item => ({
       role: item.role,
       content: item.text
     }))
     const last = history[history.length - 1]
-    if (!last || last.role !== 'user' || last.content !== text) {
-      history.push({ role: 'user', content: text })
-    }
+    const previousHistory = last && last.role === 'user' && last.content === text
+      ? history.slice(0, -1)
+      : history
 
-    // 语音只需要最近两轮上下文，减少发送体积和模型输入处理时间。
-    const compactHistory = history.slice(-4)
+    // 当前语音单独作为 currentUserMessage 传递，历史只保留之前的轮次，
+    // 避免同一句转写同时出现在 prompt 和 messages 末尾，导致兼容接口上下文去重不一致。
+    const compactHistory = previousHistory.slice(-4)
+    if (!text) {
+      throw new Error('语音转写为空')
+    }
     const agentStartedAt = Date.now()
     const response = await wx.cloud.callFunction({
       name: 'vivoAigcGateway',
       data: {
-        action: 'voice.healingAgent',
+        action: 'voice.healingTurn',
         data: {
           prompt: text,
+          currentUserMessage: text,
           turnIndex: this.data.sessionRound,
-          messages: compactHistory
+          messages: compactHistory,
+          sessionState: this.sessionState,
+          voice: this.data.selectedVoice,
+          isMuted: this.data.isMuted,
+          userId: wx.getStorageSync('userId') || 'artcure_voice_user'
         }
       }
     })
-    if (timing) timing.agentMs = Date.now() - agentStartedAt
+    const requestMs = Date.now() - agentStartedAt
+    if (timing) timing.turnMs = requestMs
     if (!this.isSessionTokenActive(token)) return
     const result = response.result || {}
     if (!result.success) throw new Error(result.message || '疗愈回应生成失败')
     const reply = String(result.reply || '').trim()
     if (!reply) throw new Error('疗愈回应为空')
+    if (timing && result.latency) {
+      timing.agentMs = Number(result.latency.planningMs || 0)
+      timing.ttsRequestMs = Number(result.latency.ttsMs || 0)
+      timing.toolMs = Number(result.latency.toolMs || 0)
+    }
 
-    await this.applyAgentReply(reply, token, result.toolCall, timing)
+    console.info('[Voice Healing] agent result', {
+      source: result.source || '',
+      provider: result.provider || '',
+      model: result.model || '',
+      intent: result.intent || '',
+      tool: result.toolCall && result.toolCall.name || '',
+      toolPhase: result.toolCall && result.toolCall.phase || '',
+      toolExecuted: Boolean(result.toolResult && result.toolResult.success !== false),
+      reply
+    })
+
+    const audioUrl = result.audioFileID
+      ? await this.resolveCloudAudioFile(result.audioFileID, result.audioUrl, 'reply-tts')
+      : result.audioUrl
+    await this.applyAgentReply(reply, token, result.toolCall, timing, audioUrl, result.toolResult, result.intent)
   },
 
-  getLocalVoiceReply(text) {
-    if (this.data.sessionRound <= 0) return ''
-    const normalized = String(text || '').trim().replace(/[。！？!?，, ]+$/g, '')
-    if (/^(嗯+|好+的?|可以|行|继续|知道了|没事|谢谢)$/.test(normalized)) {
-      return '嗯，我在。我们先陪这一口呼吸停一会儿，不用急着往下走。'
+  getVoiceRecoveryReply(text) {
+    const normalized = String(text || '').trim().replace(/[\r\n]+/g, ' ')
+    const shortText = normalized.length > 56 ? `${normalized.slice(0, 56)}…` : normalized
+    if (/焦虑|紧张|心慌|喘不过气|胸口堵|害怕/.test(normalized)) {
+      return '我听见你刚才说的这份紧张了，像是身体已经替你撑了很久。先不用急着解决，你愿意告诉我它现在最明显地落在哪里吗？'
     }
-    if (/^(没有|不知道)$/.test(normalized)) {
-      return '没关系，不需要马上找到答案。我们先安静一会儿，等你准备好再说。'
+    if (/难过|委屈|想哭|失望|孤单|低落/.test(normalized)) {
+      return '我听见你刚才话里的难受了，先不用把它解释清楚。我可以继续听你说，也可以陪你安静一会儿。'
     }
-    return ''
+    return `我听见你刚才说：“${shortText}”。我先不替你下结论，你想继续说说，还是先做一个很短的练习？`
   },
 
-  async applyAgentReply(reply, token, toolCall = null, timing = null) {
+  async applyAgentReply(reply, token, toolCall = null, timing = null, audioUrl = '', toolResult = null, intent = '') {
     if (!this.isSessionTokenActive(token)) return
     this.setData({
       isThinking: false,
       sessionRound: this.data.sessionRound + 1,
       conversationPhase: 'assistantSpeaking',
-      statusText: '我在整理一小步适合你的练习'
+      statusText: '我在想怎么更贴近地回应你'
     })
+    this.currentSpeechIsOpening = false
     this.appendMessage({ role: 'assistant', text: reply })
-    // 工具音效等辅助能力放到 TTS 播放完成后执行，避免阻塞或覆盖艺呦的回复语音。
-    this.pendingHealingTool = toolCall ? { toolCall, token } : null
-    await this.speakText(reply, token, '', timing)
+    this.toolOutputGate = Boolean(toolCall && (toolResult || audioUrl) && !this.data.isMuted)
+
+    if (toolCall && toolCall.phase === 'execute') {
+      this.sessionState = {
+        ...this.sessionState,
+        phase: 'practice',
+        currentTool: toolCall.name,
+        consentedTool: toolCall.name
+      }
+      const event = this.addToolEvent(toolCall, 'running')
+      if (toolResult) {
+        await this.applyToolResult(toolCall, toolResult, token, event.id)
+      } else {
+        // 仅在云端没有提前准备工具结果时保留待执行状态。
+        this.pendingHealingTool = { toolCall, token }
+      }
+    } else if (!toolCall) {
+      if (intent === 'decline_or_stop') {
+        this.setData({
+          toolEvents: this.data.toolEvents.map(item => item.status === 'waiting'
+            ? { ...item, status: 'cancelled', description: '你选择先跳过这一步' }
+            : item)
+        })
+      }
+      this.sessionState = { ...this.sessionState, phase: 'listening', currentTool: '' }
+    }
+
+    await this.speakText(reply, token, audioUrl, timing)
   },
 
   async runHealingTool(toolCall, token = this.sessionToken) {
     if (!this.isSessionTokenActive(token)) return
-    const meta = TOOL_META[toolCall.name] || TOOL_META.mindfulness
-    const event = {
-      id: this.createId(),
-      name: meta.name,
-      description: meta.description,
-      icon: meta.icon,
-      status: 'running'
-    }
-    this.setData({
-      toolEvents: this.data.toolEvents.concat(event).slice(-3),
-      toolSummary: meta.name,
-      statusText: `正在准备${meta.name}`
-    })
-    this.scrollToLatest()
+    if (!toolCall) return
+    const meta = TOOL_META[toolCall.name] || TOOL_META.start_grounding
+    const event = this.addToolEvent(toolCall, 'running')
 
     try {
       const response = await wx.cloud.callFunction({
@@ -647,21 +1147,163 @@ Page({
       if (!this.isSessionTokenActive(token)) return
       const result = response.result || {}
       if (result.success === false) throw new Error(result.message || '工具调用失败')
-      const events = this.data.toolEvents.map(item => item.id === event.id ? { ...item, status: 'done' } : item)
-      this.setData({ toolEvents: events, statusText: `${meta.name}已准备好` })
-      const generatedAudioUrl = result.musicUrl || result.audioUrl
-      if (generatedAudioUrl && !this.data.isMuted && this.isSessionTokenActive(token)) {
-        this.stopAudioContextSafely(this.musicContext, 'ambient')
-        this.musicContext.src = generatedAudioUrl
-        this.musicContext.loop = Boolean(result.musicUrl)
-        this.musicContext.volume = result.audioUrl ? 0.16 : 0.22
-        this.ambientAudioActive = true
-        this.musicContext.play()
-      }
+      await this.applyToolResult(toolCall, result, token, event.id)
     } catch (error) {
       console.warn('[Voice Healing] tool error', error)
-      if (this.isSessionTokenActive(token)) this.setData({ statusText: '练习已经准备好' })
+      if (this.isSessionTokenActive(token)) {
+        this.setData({
+          toolEvents: this.data.toolEvents.map(item => item.id === event.id
+            ? { ...item, status: 'error', description: error.message || `${meta.name}调用失败` }
+            : item),
+          statusText: `${meta.name}暂时没有准备好，请先继续用声音陪伴`
+        })
+      }
     }
+  },
+
+  addToolEvent(toolCall, status = 'running', stateText = '') {
+    const meta = TOOL_META[toolCall && toolCall.name] || TOOL_META.start_grounding
+    const event = {
+      id: this.createId(),
+      name: meta.name,
+      description: stateText || meta.description,
+      icon: meta.icon,
+      status
+    }
+    this.setData({
+      toolEvents: this.data.toolEvents.concat(event).slice(-3),
+      toolSummary: status === 'waiting' ? '等待你的选择' : meta.name,
+      statusText: status === 'waiting' ? `${meta.name}等待你的选择` : `正在启动${meta.name}`
+    })
+    this.scrollToLatest()
+    return event
+  },
+
+  async applyToolResult(toolCall, result, token, eventId = '') {
+    if (!this.isSessionTokenActive(token)) return
+    const meta = TOOL_META[toolCall && toolCall.name] || TOOL_META.start_grounding
+    const event = eventId
+      ? this.data.toolEvents.find(item => item.id === eventId)
+      : null
+    const nextEvent = event || this.addToolEvent(toolCall, 'running')
+    const description = result.description || result.instruction || (result.exercise && result.exercise.title) || meta.description
+    const events = this.data.toolEvents.map(item => item.id === nextEvent.id
+      ? { ...item, status: 'done', description }
+      : item)
+    this.setData({
+      toolEvents: events,
+      toolSummary: meta.name,
+      statusText: `${meta.name}正在启动`
+    })
+
+    const generatedAudioUrl = result.musicUrl || result.audioUrl
+    if (generatedAudioUrl && !this.data.isMuted) {
+      const localAudioUrl = await this.resolveCloudAudioFile(
+        result.musicFileID || result.audioFileID || result.fileID,
+        generatedAudioUrl,
+        'tool-audio'
+      )
+      if (!this.isSessionTokenActive(token)) return
+      if (!localAudioUrl) {
+        this.setData({
+          toolEvents: this.data.toolEvents.map(item => item.id === nextEvent.id
+            ? { ...item, status: 'error', description: '工具已调用，但没有拿到可播放的音频文件' }
+            : item),
+          toolSummary: '声音陪伴未播放',
+          statusText: '声音陪伴音频没有准备好，请稍后再试'
+        })
+        return
+      }
+      this.pendingAmbientAudio = {
+        url: localAudioUrl,
+        loop: Boolean(result.loop || result.musicUrl),
+        volume: Math.min(1, Math.max(
+          result.musicUrl ? 0.3 : 0.24,
+          Number(result.volume || (result.audioUrl ? 0.28 : 0.34))
+        )),
+        token,
+        source: result.source || (result.musicUrl ? 'soundscape' : 'breathing'),
+        eventId: nextEvent.id
+      }
+      console.info('[Voice Healing] tool audio prepared', {
+        tool: toolCall && toolCall.name,
+        local: Boolean(localAudioUrl && localAudioUrl !== generatedAudioUrl),
+        source: this.pendingAmbientAudio.source,
+        token
+      })
+    }
+    if (result.navigationUrl) {
+      this.pendingArtworkNavigation = result.navigationUrl
+    }
+    if (this.data.isSpeaking || this.assistantPlaybackActive) return
+    this.flushPendingToolOutputs(token)
+  },
+
+  flushPendingToolOutputs(token = this.sessionToken) {
+    if (!this.isSessionTokenActive(token)) return
+    if (this.toolOutputGate) return
+    if (this.pendingArtworkNavigation && !this.data.isSpeaking && !this.data.isThinking) {
+      const url = this.pendingArtworkNavigation
+      this.pendingArtworkNavigation = false
+      wx.navigateTo({
+        url,
+        fail: error => console.warn('[Voice Healing] open create analysis failed', error)
+      })
+      return
+    }
+    const ambient = this.pendingAmbientAudio
+    if (!ambient || ambient.token !== token || this.data.isMuted || this.data.isSpeaking || this.data.isThinking || !this.musicContext) return
+    this.pendingAmbientAudio = null
+    this.stopAudioContextSafely(this.musicContext, 'ambient')
+    this.ambientPlaybackToken += 1
+    this.ambientAudioSource = ambient
+    this.ambientAudioPlaying = false
+    this.ambientAudioPaused = false
+    this.musicContext.src = ambient.url
+    this.musicContextHasSource = true
+    this.musicContext.loop = ambient.loop
+    this.musicContext.volume = ambient.volume
+    this.ambientAudioActive = true
+    this.setData({
+      toolSummary: ambient.loop ? '声音陪伴进行中' : '呼吸引导进行中',
+      statusText: ambient.loop ? '声音陪伴正在准备' : '呼吸引导正在准备'
+    })
+    console.info('[Voice Healing] tool audio playback requested', {
+      loop: ambient.loop,
+      source: ambient.source,
+      localFile: !/^https?:\/\//i.test(String(ambient.url || '')),
+      token: ambient.token,
+      playbackToken: this.ambientPlaybackToken
+    })
+    try {
+      this.musicContext.play()
+    } catch (error) {
+      this.handleAmbientAudioFailure(error)
+    }
+  },
+
+  handleAmbientAudioFailure(error) {
+    if (!this.ambientAudioActive) return
+    const ambient = this.ambientAudioSource
+    console.warn('[Voice Healing] tool audio playback error', {
+      source: ambient && ambient.source,
+      token: this.ambientPlaybackToken,
+      message: String(error && (error.errMsg || error.message) || error || '')
+    })
+    this.ambientAudioActive = false
+    this.ambientAudioPlaying = false
+    this.ambientAudioSource = null
+    this.musicContextHasSource = false
+    if (!this.isSessionTokenActive(this.sessionToken)) return
+    this.setData({
+      toolEvents: this.data.toolEvents.map(item => item.status === 'done'
+        ? (ambient && item.id === ambient.eventId
+          ? { ...item, status: 'error', description: '工具已调用，但声音没有在手机上播放出来' }
+          : item)
+        : item),
+      toolSummary: '声音陪伴未播放',
+      statusText: '声音陪伴没有播放出来，请检查网络或手机媒体音量'
+    })
   },
 
   async speakText(text, token = this.sessionToken, audioUrl = '', timing = null) {
@@ -676,12 +1318,18 @@ Page({
     if (this.data.isMuted) {
       this.assistantPlaybackActive = false
       this.setData({ isSpeaking: false, conversationPhase: 'listening', statusText: '声音已静音，轮到你说了' })
+      this.flushPendingToolOutputs(token)
       this.scheduleListening(200, token)
       return
     }
 
     try {
       let resolvedAudioUrl = audioUrl
+      if (!resolvedAudioUrl && this.currentSpeechIsOpening) {
+        // onLoad 已经可能在后台预生成开场音频；这里复用同一个 Promise，
+        // 不再并发生成第二份欢迎语，也避免真机上播放到尚未完成的 URL。
+        resolvedAudioUrl = await this.prepareOpeningAudio()
+      }
       if (!resolvedAudioUrl) {
         const ttsStartedAt = Date.now()
         const response = await wx.cloud.callFunction({
@@ -710,12 +1358,18 @@ Page({
       if (!this.isSessionTokenActive(token)) return
       this.pendingHealingTool = null
       this.assistantPlaybackActive = false
+      this.currentSpeechIsOpening = false
+      this.clearPlaybackStartTimer()
+      this.activePlaybackToken = 0
+      this.ttsPlayRequested = false
+      this.toolOutputGate = false
       const errorMessage = String(error && error.message || '')
       const statusText = errorMessage.includes('VIVO_KEY_MISSING')
         ? '语音服务未配置，文字回应已准备好'
         : '语音生成失败，文字回应已准备好'
       this.setData({ isSpeaking: false, statusText })
       this.setData({ conversationPhase: 'listening' })
+      this.flushPendingToolOutputs(token)
       if (this.data.sessionActive) this.scheduleListening(250, token)
     }
   },
@@ -723,32 +1377,138 @@ Page({
   playAudioUrl(audioUrl, token, timing = null) {
     if (!audioUrl || !this.isSessionTokenActive(token)) return
     try {
+      const playbackToken = this.playbackToken + 1
+      this.playbackToken = playbackToken
+      this.activePlaybackToken = playbackToken
+      this.playbackStarted = false
+      this.ttsPlayRequested = false
+      // stop() 在部分真机基础库中会异步触发一次旧 onEnded；在新音频真正开始前忽略它。
+      this.ignoreAudioEndedUntil = Date.now() + 250
+      this.clearPlaybackStartTimer()
       this.assistantPlaybackActive = true
+      this.toolOutputGate = false
+      this.pauseAmbientAudio('tts')
       this.stopAudioContextSafely(this.audioContext, 'tts')
+      this.audioContext.autoplay = false
       this.audioContext.src = audioUrl
+      this.audioContextHasSource = true
+      this.audioContext.volume = 1
       if (timing) {
         this.currentSpeechTiming = timing
         if (!timing.audioReadyAt) timing.audioReadyAt = Date.now()
       }
-      this.setData({ isSpeaking: true, conversationPhase: 'assistantSpeaking', statusText: '艺呦正在说话，请先听她说完' })
-      this.audioContext.play()
+      this.setData({ isSpeaking: false, conversationPhase: 'assistantSpeaking', statusText: '艺呦正在准备声音，请稍等' })
+      this.playbackStartTimer = setTimeout(() => {
+        if (!this.isActiveAudioPlayback() || this.playbackStarted || playbackToken !== this.activePlaybackToken) return
+        this.handleAudioPlaybackFailure(new Error('音频在规定时间内没有开始播放'))
+      }, PLAYBACK_START_TIMEOUT_MS)
     } catch (error) {
       console.warn('[Voice Healing] tts play failed', error)
-      this.assistantPlaybackActive = false
-      if (this.isSessionTokenActive(token)) this.scheduleListening(250, token)
+      this.handleAudioPlaybackFailure(error)
     }
   },
 
-  pauseAmbientAudio() {
+  isActiveAudioPlayback() {
+    return Boolean(
+      this.pageAlive &&
+      this.data.sessionActive &&
+      this.assistantPlaybackActive &&
+      this.activePlaybackToken > 0
+    )
+  },
+
+  clearPlaybackStartTimer() {
+    if (this.playbackStartTimer) clearTimeout(this.playbackStartTimer)
+    this.playbackStartTimer = null
+  },
+
+  finishAudioPlayback(statusText = '轮到你说了，说完后停顿约 1.1 秒即可') {
+    if (!this.isActiveAudioPlayback()) return
+    const token = this.sessionToken
+    this.clearPlaybackStartTimer()
+    this.activePlaybackToken = 0
+    this.playbackStarted = false
+    this.ttsPlayRequested = false
+    this.audioContextHasSource = false
+    this.assistantPlaybackActive = false
+    this.currentSpeechIsOpening = false
+    this.setData({ isSpeaking: false, conversationPhase: 'listening', statusText })
+    this.resumeAmbientAudio()
+
+    const pendingTool = this.pendingHealingTool
+    this.pendingHealingTool = null
+    if (pendingTool && this.isSessionTokenActive(pendingTool.token)) {
+      this.runHealingTool(pendingTool.toolCall, pendingTool.token)
+    }
+    this.flushPendingToolOutputs(token)
+    // 给手机扬声器和麦克风留出消除残响的时间，避免第一段把艺呦的尾音录进去。
+    this.scheduleListening(AUDIO_TO_MIC_SETTLE_MS, token)
+  },
+
+  handleAudioPlaybackFailure(error) {
+    if (!this.isActiveAudioPlayback()) return
+    console.warn('[Voice Healing] audio playback recovery', {
+      opening: this.currentSpeechIsOpening,
+      message: String(error && (error.errMsg || error.message) || error || '')
+    })
+
+    // 回复语音失败时只重试一次；开场语音不重播，避免用户听到两次相同的欢迎语。
+    if (!this.currentSpeechIsOpening && this.currentSpeechText && this.currentSpeechToken === this.sessionToken && this.currentSpeechRetry < 1) {
+      this.currentSpeechRetry += 1
+      this.clearPlaybackStartTimer()
+      this.activePlaybackToken = 0
+      this.playbackStarted = false
+      this.assistantPlaybackActive = true
+      this.setData({ isSpeaking: false, statusText: '语音连接不稳定，正在重试' })
+      this.speakText(this.currentSpeechText, this.currentSpeechToken, '')
+      return
+    }
+
+    const wasOpening = this.currentSpeechIsOpening
+    this.clearPlaybackStartTimer()
+    this.activePlaybackToken = 0
+    this.playbackStarted = false
+    this.ttsPlayRequested = false
+    this.audioContextHasSource = false
+    this.assistantPlaybackActive = false
+    this.currentSpeechIsOpening = false
+    this.toolOutputGate = false
+    this.resumeAmbientAudio()
+    if (this.isSessionTokenActive(this.sessionToken)) {
+      this.setData({
+        isSpeaking: false,
+        conversationPhase: 'listening',
+        statusText: wasOpening ? '欢迎语暂时没有播放出来，轮到你说了' : '语音暂时没播放出来，轮到你说了'
+      })
+      this.flushPendingToolOutputs(this.sessionToken)
+      this.scheduleListening(AUDIO_TO_MIC_SETTLE_MS, this.sessionToken)
+    }
+  },
+
+  pauseAmbientAudio(reason = 'unknown') {
     if (!this.ambientAudioActive || !this.musicContext) return
     this.musicContext.pause()
     this.ambientAudioPaused = true
+    console.info('[Voice Healing] tool audio paused', {
+      reason,
+      loop: Boolean(this.ambientAudioSource && this.ambientAudioSource.loop),
+      token: this.ambientPlaybackToken
+    })
   },
 
-  resumeAmbientAudio() {
+  resumeAmbientAudio(reason = 'unknown') {
     if (!this.ambientAudioActive || !this.ambientAudioPaused || this.data.isMuted || !this.musicContext) return
     this.ambientAudioPaused = false
-    this.musicContext.play()
+    console.info('[Voice Healing] tool audio resume requested', {
+      reason,
+      loop: Boolean(this.ambientAudioSource && this.ambientAudioSource.loop),
+      token: this.ambientPlaybackToken
+    })
+    try {
+      this.musicContext.play()
+    } catch (error) {
+      this.handleAmbientAudioFailure(error)
+    }
   },
 
   appendMessage(message) {
@@ -779,14 +1539,27 @@ Page({
 
   stopSessionResources() {
     this.sessionToken += 1
+    this.sessionStarting = false
+    this.microphoneAuthorizationPending = false
     this.assistantPlaybackActive = false
+    this.currentSpeechIsOpening = false
+    this.activePlaybackToken = 0
+    this.playbackStarted = false
+    this.ttsPlayRequested = false
+    this.clearPlaybackStartTimer()
     this.pendingHealingTool = null
+    this.pendingAmbientAudio = null
+    this.pendingArtworkNavigation = false
+    this.toolOutputGate = false
     this.stopSilenceMonitor()
     if (this.sessionTimer) clearInterval(this.sessionTimer)
     if (this.listenTimer) clearTimeout(this.listenTimer)
     this.sessionTimer = null
     this.listenTimer = null
     this.sessionStartedAt = null
+    if (this.recordStartTimer) clearTimeout(this.recordStartTimer)
+    this.recordStartTimer = null
+    this.clearRecorderStopTimer()
     if (this.recorderManager && (this.data.isRecording || this.recordingRequested)) {
       this.recordOptions = { skip: true }
       this.recordingRequested = false
@@ -796,6 +1569,10 @@ Page({
     this.stopAudioContextSafely(this.musicContext, 'ambient')
     this.ambientAudioActive = false
     this.ambientAudioPaused = false
+    this.ambientAudioPlaying = false
+    this.ambientAudioSource = null
+    this.audioContextHasSource = false
+    this.musicContextHasSource = false
   },
 
   isSessionTokenActive(token) {
@@ -804,7 +1581,16 @@ Page({
 
   stopAudioContextSafely(context, name) {
     if (!context) return
+    const hasSource = name === 'tts'
+      ? this.audioContextHasSource
+      : name === 'ambient'
+        ? this.musicContextHasSource
+        : Boolean(context.src)
+    if (!hasSource) return
+    if (name === 'tts') this.audioContextHasSource = false
+    if (name === 'ambient') this.musicContextHasSource = false
     try {
+      context.autoplay = false
       // 微信基础库在音频底层资源尚未建立时调用 destroy() 会触发内部异常。
       // 页面卸载时停止播放即可由页面生命周期回收上下文，避免重复销毁。
       context.stop()

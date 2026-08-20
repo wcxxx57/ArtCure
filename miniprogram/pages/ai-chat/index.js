@@ -779,6 +779,24 @@ Page({
       console.log('[AI Chat] vivoAigcGateway 响应:', result)
 
       if (result.success === false) {
+        const isProviderMissing = result.code === 'CHAT_PROVIDER_MISSING' ||
+          result.code === 'LLM_KEY_MISSING' ||
+          /LLM_API_KEY|未配置.*对话模型/.test(String(result.message || ''))
+
+        if (isProviderMissing) {
+          console.warn('[AI Chat] 云端对话模型未配置，使用本地降级回复:', result.message)
+          if (options.intent === 'three_minute_guide') {
+            const localGuide = this.buildLocalThreeMinuteGuide()
+            this.addBotMessage(localGuide, mode, {
+              guideText: localGuide,
+              isGuide: true
+            })
+          } else {
+            this.generateLocalReply(userText, mode)
+          }
+          return
+        }
+
         throw new Error(result.message || '蓝心大模型调用失败')
       }
 

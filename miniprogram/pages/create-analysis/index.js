@@ -34,6 +34,14 @@ Page({
     ]
   },
 
+  onLoad(options = {}) {
+    if (options.source === 'voice-healing') {
+      this.setData({
+        userNote: '这是我在语音疗愈陪伴中想继续观察的一幅作品。请只做画面观察和开放式反思，不做心理诊断。'
+      })
+    }
+  },
+
   onReady() {
     const windowInfo = wx.getWindowInfo()
     const canvasWidth = Math.max(300, windowInfo.windowWidth - 32)

@@ -6,7 +6,10 @@ export interface HealingMessage {
 }
 
 export interface HealingToolCall {
-  name: 'healing_music' | 'mindfulness' | 'breathing'
+  id?: string
+  name: 'start_soundscape' | 'start_breathing' | 'start_grounding' | 'start_art_exercise' | 'analyze_artwork' | 'handoff_support'
+  phase?: 'offer' | 'execute'
+  requiresConsent?: boolean
   reason?: string
   input?: Record<string, unknown>
 }
@@ -16,5 +19,5 @@ export interface HealingToolEvent {
   name: string
   description: string
   icon: string
-  status: 'running' | 'done'
+  status: 'waiting' | 'running' | 'done' | 'cancelled'
 }

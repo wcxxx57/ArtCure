@@ -21,8 +21,8 @@ page { background: #fdf5f1; }
 .header-icon { width: 70rpx; height: 70rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #6e5964; background: rgba(255,255,255,.66); box-shadow: 0 8rpx 24rpx rgba(131, 87, 93, .08); }
 .close-icon { font-size: 52rpx; font-weight: 200; line-height: 60rpx; }
 .sound-icon { width: 86rpx; font-size: 21rpx; font-weight: 700; letter-spacing: 1rpx; }
-.header-title-wrap { display: flex; flex-direction: column; align-items: center; gap: 4rpx; }
-.header-title { font-size: 36rpx; font-weight: 800; color: #533f4c; letter-spacing: 2rpx; }
+.header-title-wrap { display: flex; flex: 1; min-width: 0; flex-direction: column; align-items: center; gap: 4rpx; }
+.header-title { max-width: 420rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 30rpx; font-weight: 800; color: #533f4c; letter-spacing: 1rpx; }
 .header-subtitle { font-size: 21rpx; color: #9b7f85; }
 
 .healing-scroll { box-sizing: border-box; height: 100vh; padding: calc(166rpx + env(safe-area-inset-top)) 34rpx 390rpx; }
